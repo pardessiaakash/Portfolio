@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { Box, Typography, InputBase, IconButton, CircularProgress, useMediaQuery } from "@mui/material";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import MicIcon from "@mui/icons-material/Mic";
-import CustomTooltip from "./CustomTooltip";
 import { useChatContext } from "./ChatContext";
 import { useSpeech } from "./hooks/useSpeech";
 import { transcribeAudio } from "./api/chatApi";
@@ -40,30 +39,31 @@ function GlassIconButton({ active = false, sx, children, ...props }) {
   );
 }
 
-/** Glass suggestion chip for the home-screen HUD; border turns on hover. */
+// Quiet gray border for the chat chips and the input box (no green).
+const CHAT_BORDER = "rgba(255,255,255,0.22)";
+const CHAT_BORDER_ACTIVE = "rgba(255,255,255,0.40)";
+
+/** Glass suggestion chip for the home-screen HUD: gray border, minimal hover. */
 function GlassChip({ label, onClick }) {
-  const spin = useSpinOnHover();
   return (
     <Box
-      ref={spin.ref}
-      {...spin.hoverProps}
       component="button"
       type="button"
       onClick={onClick}
       sx={{
         ...glassSx({ shadow: false }),
-        ...spinBorderSx(1),
         px: "21px", py: "6px",
         whiteSpace: "nowrap", flexShrink: 0,
         borderRadius: "20px",
-        border: "none",
-        color: "rgba(255,255,255,0.9)",
+        border: `1px solid ${CHAT_BORDER}`,
+        color: "rgba(255,255,255,0.86)",
         font: "inherit",
         fontSize: "11px", fontWeight: 600,
         cursor: "pointer",
-        transition: "color 0.2s, background-color 0.2s",
-        "&:hover": { color: "#fff", backgroundColor: "rgba(255,255,255,0.06)" },
-        "&:focus-visible": { outline: "1px solid #00CD1F", outlineOffset: "2px" },
+        transition: "color 0.25s ease, border-color 0.25s ease, background-color 0.25s ease",
+        // minimal hover: border and text brighten a touch, faint fill
+        "&:hover": { color: "#fff", borderColor: CHAT_BORDER_ACTIVE, backgroundColor: "rgba(255,255,255,0.04)" },
+        "&:focus-visible": { outline: `1px solid ${CHAT_BORDER_ACTIVE}`, outlineOffset: "2px" },
       }}
     >
       {label}
@@ -149,11 +149,9 @@ export default function ChatbotPanel({
     /* Outer wrapper — position:relative so orb can overflow */
     <Box sx={{ position: "relative", display: "flex", flexDirection: "column", height: "100%", ...wrapperSx }}>
 
-      {/* Orb — top-right, overflows the frame (Desktop only) */}
+      {/* Orb — top-right, overflows the frame (Desktop only). No hover
+          tooltip: the timed guide popup already points here. */}
       {!isMobile && (
-        <CustomTooltip title={
-          <>Ask anything<br />about me<br />clicking here</>
-        } placement="left">
           <Box sx={{
             position: "absolute",
             top: orbOffset, right: orbOffset,
@@ -169,7 +167,6 @@ export default function ChatbotPanel({
             <video key={orb} src={orb} autoPlay loop muted playsInline
               style={{ width: "160%", height: "160%", objectFit: "cover", mixBlendMode: "screen", marginLeft: "-30%", marginTop: "-30%" }} />
           </Box>
-        </CustomTooltip>
       )}
 
       {/* HUD frame + content */}
@@ -307,14 +304,13 @@ export default function ChatbotPanel({
             py: hud ? "5.5px" : "8px",
             ...(hud ? { alignItems: "center" } : {}),
             // HUD glass, matching the panels: blurred backdrop, lit top edge,
-            // Figma gradient border and 10px corners
+            // quiet gray border and 10px corners (lighter while typing)
             ...(useShape ? {
               ...glassSx(),
-              ...spinBorderSx(1),
-              border: "none",
+              border: `1px solid ${CHAT_BORDER}`,
               borderRadius: "10px",
-              "&::before": { ...spinBorderSx(1)["&::before"], opacity: 0.8 },
-              "&:focus-within::before": { opacity: 1 },
+              transition: "border-color 0.25s ease",
+              "&:focus-within": { borderColor: CHAT_BORDER_ACTIVE },
             } : {}),
           }}>
             <InputBase
