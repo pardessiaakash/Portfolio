@@ -196,8 +196,9 @@ export const DEFAULT_WORK_CATEGORIES = [
 ];
 
 /* ── Category card with exact Figma SVG shape ── */
-// Card size in the 50/50 split: same 188:164 proportion as HUD_CARD.
-const COMPACT_CARD = { width: 124, height: 108 };
+// Cards in the 50/50 split: fixed height, and the 2x2 grid spans about 80%
+// of the panel's content width (the rest stays open on the right).
+const COMPACT_CARD = { height: 108, gridWidth: 80 };
 
 // Card sizes for the home-screen HUD, measured from the intro's last HUD frame.
 const HUD_CARD = { width: 188, height: 164, icon: 38, label: 16, idle: 0.72 };
@@ -229,7 +230,7 @@ export function CategoryCard({ cat, onClick, compact, hud = false, glass = false
         flexShrink: 0,
         // split view: smaller cards with the same proportions as the full
         // layout (width follows height), so the bio and Download Resume fit
-        width: compact ? `${COMPACT_CARD.width}px` : hud ? `${HUD_CARD.width}px` : "170px",
+        width: compact ? "100%" : hud ? `${HUD_CARD.width}px` : "170px",
         height: compact ? `${COMPACT_CARD.height}px` : hud ? `${HUD_CARD.height}px` : "170px",
       }}
     >
@@ -372,7 +373,9 @@ function WorkTab({ onClose, inline, compact, hud }) {
       {/* Category cards */}
       <Box sx={{
         display: compact ? "grid" : "flex",
-        gridTemplateColumns: compact ? `repeat(2, ${COMPACT_CARD.width}px)` : undefined,
+        gridTemplateColumns: compact ? "repeat(2, minmax(0, 1fr))" : undefined,
+        // split view: the grid spans ~80% of the panel, leaving ~20% open
+        width: compact ? `${COMPACT_CARD.gridWidth}%` : undefined,
         columnGap: compact ? "16px" : 0,
         rowGap: compact ? "14px" : 0,
         flexWrap: { xs: "wrap", md: "nowrap" },
