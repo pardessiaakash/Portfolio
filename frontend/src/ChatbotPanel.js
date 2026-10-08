@@ -135,10 +135,12 @@ export default function ChatbotPanel({
             flex: 1, overflowY: "auto",
             pt: isMobile ? "20px" : "75px", // Adjusted pt for mobile (no orb) vs desktop (orb present)
             pl: hud ? "14px" : "20px", pr: hud ? "28px" : "20px", pb: hud ? "16px" : "8px",
-            ...(hud && messages.length === 0 ? { display: "flex", flexDirection: "column", justifyContent: "flex-end" } : {}),
+            // home screen: the greeting sits just above the chips (also in the split view)
+            ...((hud || fadeTop) && messages.length === 0 ? { display: "flex", flexDirection: "column", justifyContent: "flex-end" } : {}),
             // Messages scrolling up under the orb fade out instead of being
             // cut off: top band 10%, next band ~35%, the rest fully visible.
-            ...(fadeTop && !isMobile ? { maskImage: CHAT_TOP_FADE, WebkitMaskImage: CHAT_TOP_FADE } : {}),
+            // (only once there are messages, so the greeting is never faded)
+            ...(fadeTop && !isMobile && messages.length > 0 ? { maskImage: CHAT_TOP_FADE, WebkitMaskImage: CHAT_TOP_FADE } : {}),
             "&::-webkit-scrollbar": { width: "3px" },
             "&::-webkit-scrollbar-thumb": { background: "rgba(255,255,255,0.1)", borderRadius: "2px" },
             textAlign: "left"
