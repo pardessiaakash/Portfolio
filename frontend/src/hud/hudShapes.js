@@ -8,6 +8,7 @@
 // so the features keep the design's proportions at the panel's height.
 
 import React, { useLayoutEffect, useRef, useState } from "react";
+import { STROKE_STOPS, STROKE_ANGLE } from "./glass";
 
 const FIGMA_H = 632; // height of both HUD vectors in the Figma frame
 
@@ -146,10 +147,10 @@ export function useElementSize() {
 let gradSeq = 0;
 
 /**
- * Draws the panel's border along `d`. Sits inside the clipped panel, so a
- * 2px stroke shows as a 1px inside border, like Figma's "inside" stroke.
- * Uses the panels' existing border colours (green at the corners, grey
- * between), laid along the same 11° direction as the old CSS border.
+ * Draws the panel's glass edge along `d`: Figma's gradient border, a
+ * specular rim lit from the top-left, and a soft inner glow. Sits inside
+ * the clipped panel, so a 2px stroke shows as a 1px inside border, like
+ * Figma's "inside" stroke.
  */
 export function HudOutline({ d, w, h, border = 0 }) {
   // `border`: width of the host's CSS border. Absolute children are placed
@@ -157,11 +158,15 @@ export function HudOutline({ d, w, h, border = 0 }) {
   const idRef = useRef(null);
   if (!idRef.current) idRef.current = `hud-stroke-${++gradSeq}`;
   if (!d || !w || !h) return null;
-  // CSS linear-gradient(11deg …) geometry in panel pixels
-  const a = (11 * Math.PI) / 180;
-  const dir = { x: Math.sin(a), y: -Math.cos(a) };
-  const half = (Math.abs(w * dir.x) + Math.abs(h * dir.y)) / 2;
-  const cx = w / 2, cy = h / 2;
+  const id = idRef.current;
+  // CSS-style gradient line for an angle, in panel pixels
+  const line = (deg) => {
+    const a = (deg * Math.PI) / 180;
+    const dir = { x: Math.sin(a), y: -Math.cos(a) };
+    const half = (Math.abs(w * dir.x) + Math.abs(h * dir.y)) / 2;
+    const cx = w / 2, cy = h / 2;
+    return { x1: cx - dir.x * half, y1: cy - dir.y * half, x2: cx + dir.x * half, y2: cy + dir.y * half };
+  };
   return (
     <svg
       width={w} height={h} viewBox={`0 0 ${w} ${h}`}
@@ -169,15 +174,26 @@ export function HudOutline({ d, w, h, border = 0 }) {
       aria-hidden
     >
       <defs>
-        <linearGradient id={idRef.current} gradientUnits="userSpaceOnUse"
-          x1={cx - dir.x * half} y1={cy - dir.y * half} x2={cx + dir.x * half} y2={cy + dir.y * half}>
-          <stop offset="0" stopColor="#00CD1F" />
-          <stop offset="0.06" stopColor="#8C8C8C" />
-          <stop offset="0.95" stopColor="#8C8C8C" />
-          <stop offset="1" stopColor="#00CD1F" />
+        {/* Figma border: grey → green → grey across the diagonal */}
+        <linearGradient id={`${id}-stroke`} gradientUnits="userSpaceOnUse" {...line(STROKE_ANGLE)}>
+          {STROKE_STOPS.map(([o, c]) => <stop key={o} offset={o} stopColor={c} />)}
         </linearGradient>
+        {/* specular rim: light from the top-left, fading around the edge */}
+        <linearGradient id={`${id}-spec`} gradientUnits="userSpaceOnUse" {...line(150)}>
+          <stop offset="0" stopColor="#fff" stopOpacity="0.55" />
+          <stop offset="0.3" stopColor="#fff" stopOpacity="0.08" />
+          <stop offset="0.75" stopColor="#fff" stopOpacity="0" />
+          <stop offset="1" stopColor="#fff" stopOpacity="0.12" />
+        </linearGradient>
+        <filter id={`${id}-glow`} x="-5%" y="-5%" width="110%" height="110%">
+          <feGaussianBlur stdDeviation="7" />
+        </filter>
       </defs>
-      <path d={d} fill="none" stroke={`url(#${idRef.current})`} strokeWidth="2" />
+      {/* soft inner glow along the edge (the panel clip keeps it inside) */}
+      <path d={d} fill="none" stroke="#fff" strokeOpacity="0.05" strokeWidth="18" filter={`url(#${id}-glow)`} />
+      <path d={d} fill="none" stroke={`url(#${id}-stroke)`} strokeWidth="2" />
+      <path d={d} fill="none" stroke={`url(#${id}-spec)`} strokeWidth="1.5"
+        transform={`translate(${0.6} ${0.8})`} />
     </svg>
   );
 }

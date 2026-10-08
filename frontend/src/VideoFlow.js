@@ -8,6 +8,7 @@ import ResizeHandle from "./ResizeHandle";
 import MobileWelcomeScreen from "./MobileWelcomeScreen";
 import AnimatedTooltip from "./AnimatedTooltip";
 import { mainHudPath, useElementSize, HudOutline } from "./hud/hudShapes";
+import { glassSx, glassPanelSx, spinBorderSx } from "./hud/glass";
 
 // Frame numbers for the 165-frame sequence. (The original export had a
 // duplicate every 5th frame, which made the motion stall; those were removed.)
@@ -78,10 +79,9 @@ function MainHudPanel({ isHalfSplit }) {
         position: "relative",
         display: "flex",
         flexDirection: "column",
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
-        opacity: 0.95,
-        background: "linear-gradient(50deg, #0A0A0A 0%, #1B1B1B 100%)",
+        // dark liquid glass (edge, rim light and glow come from HudOutline)
+        ...glassPanelSx,
+        opacity: 1,
         // before the first measurement fall back to the old rounded box
         ...(d ? { clipPath: `path("${d}")` } : { borderRadius: "20px" }),
       }}
@@ -206,27 +206,25 @@ function WelcomeScreen({ opacity }) {
           alignItems: "center",
           justifyContent: "center",
           gap: `${HUD.pill.gap}px`,
-          borderRadius: "15px",
-          px: HUD.pill.px,
-          py: HUD.pill.py,
-          position: "absolute",
+          borderRadius: "17px",
+          // +1px padding replaces the old 1px border, so the size is unchanged
+          px: `calc(${HUD.pill.px} + 1px)`,
+          py: `calc(${HUD.pill.py} + 1px)`,
           left: `${HUD.pill.left}px`,
           top: HUD.pill.top,
           transform: "translateY(-50%)",
           zIndex: 10,
-          border: "1px solid transparent",
-
-          background: `
-      linear-gradient(50deg, #0A0A0A 0%, #1B1B1B 100%) padding-box,
-      linear-gradient(
-        11deg,
-        #00CD1F 0%,
-        #8C8C8C 6%,
-        #8C8C8C 95%,
-        #00CD1F 100%
-      ) border-box
-    `,
-          boxShadow: "0 0 0 1px rgba(0,0,0,0.4), 0 2px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(0,205,31,0.25), inset 0 -1px 0 rgba(0,205,31,0.25)",
+          // dark liquid glass with the Figma gradient border and shadows
+          ...glassSx({ shadow: false }),
+          ...spinBorderSx(1),
+          position: "absolute",
+          boxShadow: [
+            "inset 0 1px 0 rgba(255,255,255,0.16)",
+            "inset 0 1px 2px rgba(0,0,0,0.25)",
+            "inset 0 0 16px rgba(255,255,255,0.025)",
+            "4px 13px 19px rgba(0,0,0,0.35)",
+            "-16px 0 19px rgba(0,0,0,0.25)",
+          ].join(", "),
         }}>
           {socialIcons.map(({ label, icon, hoverIcon, link }) => (
             <Box

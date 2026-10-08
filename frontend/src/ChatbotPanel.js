@@ -7,9 +7,41 @@ import { useChatContext } from "./ChatContext";
 import { useSpeech } from "./hooks/useSpeech";
 import { transcribeAudio } from "./api/chatApi";
 import { chatHudPath, useElementSize, HudOutline } from "./hud/hudShapes";
+import { glassSx, glassPanelSx, spinBorderSx, useSpinOnHover } from "./hud/glass";
 
 const PRIMARY = "#00CD1F";
 const CHIP_BG = "#8F8F8F";
+
+/** Glass suggestion chip for the home-screen HUD; border turns on hover. */
+function GlassChip({ label, onClick }) {
+  const spin = useSpinOnHover();
+  return (
+    <Box
+      ref={spin.ref}
+      {...spin.hoverProps}
+      component="button"
+      type="button"
+      onClick={onClick}
+      sx={{
+        ...glassSx({ shadow: false }),
+        ...spinBorderSx(1),
+        px: "21px", py: "6px",
+        whiteSpace: "nowrap", flexShrink: 0,
+        borderRadius: "20px",
+        border: "none",
+        color: "rgba(255,255,255,0.9)",
+        font: "inherit",
+        fontSize: "11px", fontWeight: 600,
+        cursor: "pointer",
+        transition: "color 0.2s, background-color 0.2s",
+        "&:hover": { color: "#fff", backgroundColor: "rgba(255,255,255,0.06)" },
+        "&:focus-visible": { outline: "1px solid #00CD1F", outlineOffset: "2px" },
+      }}
+    >
+      {label}
+    </Box>
+  );
+}
 
 
 /**
@@ -125,7 +157,9 @@ export default function ChatbotPanel({
           // the shape does the clipping; overflow:hidden would also cut the
           // outline where it runs over the 1px border
           overflow: shapePath ? "visible" : "hidden",
-          background: "linear-gradient(50deg, #0A0A0A 0%, #1B1B1B 100%)",
+          // dark liquid glass (edge, rim light and glow come from HudOutline)
+          ...glassPanelSx,
+          opacity: 1,
         } : {
         clipPath: isMobile ? "none" : "polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px)",
 
@@ -198,7 +232,9 @@ export default function ChatbotPanel({
             flexWrap: hud ? "nowrap" : "wrap",
             ...(hud ? { overflowX: "auto", scrollbarWidth: "none", "&::-webkit-scrollbar": { display: "none" } } : {}),
           }}>
-            {chips.map((s) => (
+            {chips.map((s) => useShape ? (
+              <GlassChip key={s} label={s} onClick={() => sendMessage(s)} />
+            ) : (
               <Box key={s} onClick={() => sendMessage(s)} sx={{
                 px: hud ? "21px" : "14px", py: hud ? "6px" : "7px",
                 ...(hud ? { whiteSpace: "nowrap", flexShrink: 0 } : {}),
