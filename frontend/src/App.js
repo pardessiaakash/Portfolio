@@ -4,10 +4,12 @@ import LandingPage from './HomePage';
 import PortfolioPage from './PortfolioPage';
 import ProjectDetailPage from './ProjectDetailPage';
 import { ChatProvider } from './ChatContext';
+import TechCursor from './TechCursor';
 
 function App() {
   return (
     <ChatProvider>
+      <TechCursor />
       <div className="App">
         <Routes>
           <Route path="/" element={<LandingPage />} />
