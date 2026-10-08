@@ -8,18 +8,25 @@ import ResizeHandle from "./ResizeHandle";
 import MobileWelcomeScreen from "./MobileWelcomeScreen";
 import AnimatedTooltip from "./AnimatedTooltip";
 
-const STOP_FRAME = 10;
-const STOP_FRAME_END = 20;
-const UI_SHOW_FRAME = 197;
-const END_FRAME = 202;
+// Frame numbers for the 165-frame sequence. (The original export had a
+// duplicate every 5th frame, which made the motion stall; those were removed.)
+const STOP_FRAME = 8;
+const STOP_FRAME_END = 16;
+const SCROLL_HINT_FRAME = 4;          // "scroll down" hint shows after this
+const LAST_HUD_FRAME = 158;           // last frame with the HUD drawn in
+const UI_SHOW_FRAME = LAST_HUD_FRAME + 1;
+const END_FRAME = 164;
+// The live UI cross-fades over LAST_HUD_FRAME for this long; the canvas
+// holds on that frame meanwhile so the two HUDs dissolve into each other.
+const UI_FADE_MS = 350;
 
 // The intro frames are 1920x1080 and are drawn "cover"-scaled to the window
 // (see drawFrame). The welcome UI is laid out on a stage of the same size and
-// scaled the same way, so it lands exactly on the HUD baked into the last
-// HUD frame (196) and the hand-off at UI_SHOW_FRAME has no jump.
+// scaled the same way, so it lands exactly on the HUD baked into
+// LAST_HUD_FRAME and the hand-off at UI_SHOW_FRAME has no jump.
 const STAGE_W = 1920;
 const STAGE_H = 1080;
-// HUD geometry measured from frame 196, in stage pixels.
+// HUD geometry measured from LAST_HUD_FRAME, in stage pixels.
 const HUD = {
   row: { left: 302, top: 247, width: 1324, height: 508 }, // main + gap + chat
   chatPercent: (371 / 1324) * 100,                          // chat panel 371px
@@ -97,6 +104,8 @@ function WelcomeScreen({ opacity }) {
       position: "absolute", inset: 0, zIndex: 5,
       overflow: "hidden",
       opacity, visibility: opacity > 0 ? "visible" : "hidden",
+      // fade in/out over the held HUD frame; hide only after fading out
+      transition: `opacity ${UI_FADE_MS}ms ease-out, visibility 0s linear ${opacity > 0 ? 0 : UI_FADE_MS}ms`,
       pointerEvents: opacity > 0.5 ? "auto" : "none",
     }}>
       {/* Stage: 1920x1080 design space, cover-scaled like the canvas frames */}
@@ -283,6 +292,8 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
   const cacheRef = useRef({});
   const lastDrawnRef = useRef(-1);
   const exactDrawnRef = useRef(-1);
+  const lastIdxRef = useRef(-1);     // playback position last handled
+  const holdUntilRef = useRef(0);    // canvas holds LAST_HUD_FRAME until then
   const uiShownRef = useRef(effectiveSkipIntro ? true : false);
 
   // welcome UI opacity — driven by frame position
@@ -390,6 +401,16 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
   const loop = useCallback(() => {
     animIdRef.current = requestAnimationFrame(loop);
 
+    // While the UI cross-fades, hold the canvas on the last HUD frame and
+    // pause playback; scrolling resumes from there once the fade is done.
+    const holding = performance.now() < holdUntilRef.current;
+    if (holding) {
+      if (lastDrawnRef.current !== LAST_HUD_FRAME || exactDrawnRef.current !== LAST_HUD_FRAME) {
+        drawFrame(LAST_HUD_FRAME);
+      }
+      return;
+    }
+
     const target = targetPosRef.current;
     const current = posRef.current;
     const diff = target - current;
@@ -409,13 +430,24 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
 
     const idx = Math.max(0, Math.min(END_FRAME, Math.round(next)));
 
-    // same frame index, but last time only a stand-in was ready: retry
-    if (idx === lastDrawnRef.current && exactDrawnRef.current !== idx) {
+    // Crossing the hand-off in either direction starts the cross-fade.
+    const crossed = lastIdxRef.current >= 0 &&
+      (lastIdxRef.current >= UI_SHOW_FRAME) !== (idx >= UI_SHOW_FRAME);
+    const enteringUI = crossed && idx >= UI_SHOW_FRAME;
+    if (crossed) {
+      holdUntilRef.current = performance.now() + UI_FADE_MS;
+      // Park playback on the HUD frame; the next frame plays after the hold.
+      posRef.current = LAST_HUD_FRAME;
+    }
+
+    // Redraw if the frame changed, or only a stand-in was ready last time.
+    // On the way into the UI the canvas stays on the HUD frame (hold above).
+    if (!enteringUI && (idx !== lastDrawnRef.current || exactDrawnRef.current !== idx)) {
       drawFrame(idx);
     }
 
-    if (idx !== lastDrawnRef.current) {
-      drawFrame(idx);
+    if (idx !== lastIdxRef.current) {
+      lastIdxRef.current = idx;
       // preload ahead in direction of travel
       if (dirRef.current < 0) {
         preloadBackward(idx, 40);
@@ -425,7 +457,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
       setCurrentFrame(idx);
       onFrameChange?.(idx);
 
-      // welcome UI: show only on frames 201 and 202
+      // welcome UI: shown from the first frame after the drawn-in HUD
       if (idx >= UI_SHOW_FRAME) {
         setWelcomeOpacity(1);
       } else {
@@ -617,7 +649,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
       {/* Scroll gif — bottom left, frame 1–5 (gif only) */}
 
       {/* Scroll gif + text — bottom left, after frame 6 until welcome UI */}
-      {currentFrame > 6 && welcomeOpacity === 0 && !isMobile && (
+      {currentFrame > SCROLL_HINT_FRAME && welcomeOpacity === 0 && !isMobile && (
         <Box sx={{
           position: "fixed", bottom: 28, left: 28, zIndex: 99998,
           display: "flex", flexDirection: "column", alignItems: "center", gap: "6px",

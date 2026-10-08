@@ -182,7 +182,7 @@ export const DEFAULT_WORK_CATEGORIES = [
 ];
 
 /* ── Category card with exact Figma SVG shape ── */
-// Card sizes for the home-screen HUD, measured from the intro's frame 196.
+// Card sizes for the home-screen HUD, measured from the intro's last HUD frame.
 const HUD_CARD = { width: 188, height: 164, icon: 38, label: 16, idle: 0.72 };
 
 export function CategoryCard({ cat, onClick, compact, hud = false }) {
