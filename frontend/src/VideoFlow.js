@@ -97,7 +97,9 @@ function MainHudPanel({ isHalfSplit }) {
           "&::-webkit-scrollbar": { width: "4px" },
           "&::-webkit-scrollbar-thumb": { background: "rgba(255,255,255,0.15)", borderRadius: "4px" },
           border: "1px solid transparent",
-          p: isHalfSplit ? `42px ${48 + extraRight}px 42px 48px` : `60px ${88 + extraRight}px 60px 88px`,
+          // split view: extra bottom padding keeps the bio and button clear
+          // of the lower edge of the HUD shape
+          p: isHalfSplit ? `42px ${48 + extraRight}px 58px 48px` : `60px ${88 + extraRight}px 60px 88px`,
         }}
       >
         <AboutMeContent onClose={() => { }} mobile={false} inline={true} compact={isHalfSplit} hud={!isHalfSplit} />

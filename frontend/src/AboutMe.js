@@ -196,6 +196,9 @@ export const DEFAULT_WORK_CATEGORIES = [
 ];
 
 /* ── Category card with exact Figma SVG shape ── */
+// Card size in the 50/50 split: same 188:164 proportion as HUD_CARD.
+const COMPACT_CARD = { width: 124, height: 108 };
+
 // Card sizes for the home-screen HUD, measured from the intro's last HUD frame.
 const HUD_CARD = { width: 188, height: 164, icon: 38, label: 16, idle: 0.72 };
 
@@ -224,10 +227,10 @@ export function CategoryCard({ cat, onClick, compact, hud = false, glass = false
         position: "relative",
         cursor: "pointer",
         flexShrink: 0,
-        width: compact ? "100%" : hud ? `${HUD_CARD.width}px` : "170px",
-        height: compact ? "auto" : hud ? `${HUD_CARD.height}px` : "170px",
-        // split view: wider, shorter cards so the bio and Download Resume fit
-        aspectRatio: compact ? "2.3 / 1" : undefined,
+        // split view: smaller cards with the same proportions as the full
+        // layout (width follows height), so the bio and Download Resume fit
+        width: compact ? `${COMPACT_CARD.width}px` : hud ? `${HUD_CARD.width}px` : "170px",
+        height: compact ? `${COMPACT_CARD.height}px` : hud ? `${HUD_CARD.height}px` : "170px",
       }}
     >
       {/* glass body, clipped to the card shape */}
@@ -369,9 +372,9 @@ function WorkTab({ onClose, inline, compact, hud }) {
       {/* Category cards */}
       <Box sx={{
         display: compact ? "grid" : "flex",
-        gridTemplateColumns: compact ? "repeat(2, minmax(0, 1fr))" : undefined,
-        columnGap: compact ? "18px" : 0,
-        rowGap: compact ? "16px" : 0,
+        gridTemplateColumns: compact ? `repeat(2, ${COMPACT_CARD.width}px)` : undefined,
+        columnGap: compact ? "16px" : 0,
+        rowGap: compact ? "14px" : 0,
         flexWrap: { xs: "wrap", md: "nowrap" },
         gap: hud ? "5px" : "0px",
         mt: "28px",
@@ -386,7 +389,7 @@ function WorkTab({ onClose, inline, compact, hud }) {
       </Box>
 
       {/* Bio + Download Resume */}
-      <Box sx={{ display: "flex", justifyContent: "space-between", gap: 3, mt: "48px", alignItems: "center" }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", gap: 3, mt: compact ? "28px" : "48px", alignItems: "center" }}>
         <Typography sx={{ fontSize: "13px", lineHeight: 1.75, textAlign: "left", flex: 1, maxWidth: "450px" }}>
           Designing immersive, intuitive experiences, focused on clarity         </Typography>
         <DownloadResume glass={inline} />
