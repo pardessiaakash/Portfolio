@@ -22,7 +22,20 @@ const END_FRAME = 164;
 const UI_FADE_MS = 350;
 // How dark the room gets behind the main UI (black overlay opacity), and
 // how long the dimming takes to settle.
-const ROOM_DIM = { center: 0.45, mid: 0.62, edge: 0.85, fadeMs: 900 };
+// The strength follows the story: light (20%) outside the pod, building up
+// from the moment the door opens, and full once the main UI is up.
+const ROOM_DIM = {
+  center: 0.45, mid: 0.62, edge: 0.85, fadeMs: 900,
+  outside: 0.2,          // strength until the pod door opens
+  doorOpenFrame: 90,     // the door starts opening here
+  beforeUI: 0.7,         // strength reached on the last HUD frame
+};
+const roomDimLevel = (frame, uiShown) => {
+  if (uiShown) return 1;
+  if (frame <= ROOM_DIM.doorOpenFrame) return ROOM_DIM.outside;
+  const t = Math.min(1, (frame - ROOM_DIM.doorOpenFrame) / (LAST_HUD_FRAME - ROOM_DIM.doorOpenFrame));
+  return ROOM_DIM.outside + (ROOM_DIM.beforeUI - ROOM_DIM.outside) * t;
+};
 
 // The intro frames are 1920x1080 and are drawn "cover"-scaled to the window
 // (see drawFrame). The welcome UI is laid out on a stage of the same size and
@@ -626,8 +639,8 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
 
         {/* Room dimmer: once the main UI is up, darken the room (most at the
             edges, where the ceiling lights, floor strips and screens are) so
-            attention goes to the panels. Starts with the UI cross-fade and
-            settles a little after it; lifts again when scrolling back. */}
+            attention goes to the panels. Light outside the pod, builds up
+            once the door opens, full with the UI (see ROOM_DIM). */}
         {!isMobile && (
           <Box aria-hidden sx={{
             position: "absolute", inset: 0, zIndex: 4, pointerEvents: "none",
@@ -635,8 +648,9 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
               rgba(0,0,0,${ROOM_DIM.center}) 0%,
               rgba(0,0,0,${ROOM_DIM.mid}) 60%,
               rgba(0,0,0,${ROOM_DIM.edge}) 100%)`,
-            opacity: welcomeOpacity,
-            transition: `opacity ${ROOM_DIM.fadeMs}ms ease-out`,
+            opacity: roomDimLevel(currentFrame, welcomeOpacity >= 1),
+            // quick while scrubbing, slower for the step up when the UI appears
+            transition: `opacity ${welcomeOpacity >= 1 ? ROOM_DIM.fadeMs : 250}ms ease-out`,
           }} />
         )}
 
