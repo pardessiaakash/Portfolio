@@ -8,7 +8,7 @@ import ResizeHandle from "./ResizeHandle";
 import MobileWelcomeScreen from "./MobileWelcomeScreen";
 import AnimatedTooltip from "./AnimatedTooltip";
 import { mainHudPath, useElementSize, HudOutline } from "./hud/hudShapes";
-import { glassSx, glassPanelSx, spinBorderSx } from "./hud/glass";
+import { glassPanelSx, glassHudRectSx, spinBorderSx } from "./hud/glass";
 
 // Frame numbers for the 165-frame sequence. (The original export had a
 // duplicate every 5th frame, which made the motion stall; those were removed.)
@@ -214,17 +214,11 @@ function WelcomeScreen({ opacity }) {
           top: HUD.pill.top,
           transform: "translateY(-50%)",
           zIndex: 10,
-          // dark liquid glass with the Figma gradient border and shadows
-          ...glassSx({ shadow: false }),
+          // HUD liquid glass (~20% see-through) with the Figma gradient
+          // border, specular rim and shadows
           ...spinBorderSx(1),
+          ...glassHudRectSx,
           position: "absolute",
-          boxShadow: [
-            "inset 0 1px 0 rgba(255,255,255,0.16)",
-            "inset 0 1px 2px rgba(0,0,0,0.25)",
-            "inset 0 0 16px rgba(255,255,255,0.025)",
-            "4px 13px 19px rgba(0,0,0,0.35)",
-            "-16px 0 19px rgba(0,0,0,0.25)",
-          ].join(", "),
         }}>
           {socialIcons.map(({ label, icon, hoverIcon, link }) => (
             <Box

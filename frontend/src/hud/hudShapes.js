@@ -180,10 +180,10 @@ export function HudOutline({ d, w, h, border = 0 }) {
         </linearGradient>
         {/* specular rim: light from the top-left, fading around the edge */}
         <linearGradient id={`${id}-spec`} gradientUnits="userSpaceOnUse" {...line(150)}>
-          <stop offset="0" stopColor="#fff" stopOpacity="0.55" />
-          <stop offset="0.3" stopColor="#fff" stopOpacity="0.08" />
-          <stop offset="0.75" stopColor="#fff" stopOpacity="0" />
-          <stop offset="1" stopColor="#fff" stopOpacity="0.12" />
+          <stop offset="0" stopColor="#fff" stopOpacity="0.6" />
+          <stop offset="0.28" stopColor="#fff" stopOpacity="0.08" />
+          <stop offset="0.6" stopColor="#fff" stopOpacity="0" />
+          <stop offset="1" stopColor="#fff" stopOpacity="0.22" />
         </linearGradient>
         <filter id={`${id}-glow`} x="-5%" y="-5%" width="110%" height="110%">
           <feGaussianBlur stdDeviation="7" />
@@ -191,6 +191,8 @@ export function HudOutline({ d, w, h, border = 0 }) {
       </defs>
       {/* soft inner glow along the edge (the panel clip keeps it inside) */}
       <path d={d} fill="none" stroke="#fff" strokeOpacity="0.05" strokeWidth="18" filter={`url(#${id}-glow)`} />
+      {/* thin inner bevel just inside the edge */}
+      <path d={d} fill="none" stroke="#fff" strokeOpacity="0.06" strokeWidth="5" />
       <path d={d} fill="none" stroke={`url(#${id}-stroke)`} strokeWidth="2" />
       <path d={d} fill="none" stroke={`url(#${id}-spec)`} strokeWidth="1.5"
         transform={`translate(${0.6} ${0.8})`} />

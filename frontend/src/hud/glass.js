@@ -48,13 +48,50 @@ export const glassShapeSx = {
   WebkitBackdropFilter: GLASS_BACKDROP,
 };
 
-/** Larger panels: a darker base so text stays easy to read. */
+/**
+ * HUD material, after Apple's dark Liquid Glass: a deep tint that lets about
+ * 20% of the room through (heavily blurred and saturated, so it reads as
+ * colour and light rather than detail), with a sheen that is lighter toward
+ * the top-left. The specular rim is drawn separately (HudOutline for shaped
+ * panels, glassHudRectSx for rectangles).
+ */
+const HUD_TINT = "rgba(14,16,15,0.80)";     // 80% opaque → ~20% see-through
+const HUD_BACKDROP = "blur(32px) saturate(180%)";
 export const glassPanelSx = {
   background:
-    "linear-gradient(160deg, rgba(255,255,255,0.075) 0%, rgba(255,255,255,0.025) 35%, rgba(255,255,255,0.012) 100%)",
-  backgroundColor: "rgba(10,12,11,0.42)",
-  backdropFilter: "blur(28px) saturate(160%) brightness(0.9)",
-  WebkitBackdropFilter: "blur(28px) saturate(160%) brightness(0.9)",
+    "linear-gradient(155deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 32%, rgba(255,255,255,0) 60%, rgba(255,255,255,0.025) 100%)",
+  backgroundColor: HUD_TINT,
+  backdropFilter: HUD_BACKDROP,
+  WebkitBackdropFilter: HUD_BACKDROP,
+};
+
+/** Same material for rectangular HUD pieces (the social bar). */
+export const glassHudRectSx = {
+  ...glassPanelSx,
+  isolation: "isolate",
+  boxShadow: [
+    "inset 0 1px 0 rgba(255,255,255,0.10)",     // top bevel
+    "inset 0 1px 2px rgba(0,0,0,0.25)",         // Figma inner shadow
+    "inset 0 0 18px rgba(255,255,255,0.03)",    // soft inner glow
+    "4px 13px 19px rgba(0,0,0,0.35)",           // Figma drop shadows
+    "-16px 0 19px rgba(0,0,0,0.25)",
+  ].join(", "),
+  // specular rim: light catching the top-left edge, a softer glint at the
+  // bottom-right, drawn as a thin ring over the gradient border
+  "&::after": {
+    content: '""',
+    position: "absolute",
+    inset: 0,
+    borderRadius: "inherit",
+    padding: "1px",
+    background:
+      "linear-gradient(150deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.08) 28%, rgba(255,255,255,0) 60%, rgba(255,255,255,0.22) 100%)",
+    WebkitMask: "linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0)",
+    WebkitMaskComposite: "xor",
+    mask: "linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0)",
+    pointerEvents: "none",
+    zIndex: 2,
+  },
 };
 
 /**
@@ -88,18 +125,24 @@ const reducedMotion = () =>
   window.matchMedia &&
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+// Calm, slow turn: one full turn in about 14 s, easing in over ~0.8 s when
+// the hover starts and gliding to a stop over ~0.8 s when it ends.
+const SPIN = { degPerSec: 26, easeMs: 800 };
+
 /**
  * Turns the border gradient while the element is hovered (or focused) and
- * leaves it at its last angle afterwards.
+ * leaves it at the angle where it came to rest.
  *   const spin = useSpinOnHover();
  *   <Box ref={spin.ref} {...spin.hoverProps} sx={spinBorderSx()} />
  * For SVG strokes pass onAngle and rotate the gradient yourself.
  */
-export function useSpinOnHover({ degPerSec = 150, onAngle } = {}) {
+export function useSpinOnHover({ degPerSec = SPIN.degPerSec, easeMs = SPIN.easeMs, onAngle } = {}) {
   const ref = useRef(null);
   const angle = useRef(0);
   const raf = useRef(0);
   const last = useRef(0);
+  const speed = useRef(0);      // current speed, 0..1 of degPerSec
+  const target = useRef(0);     // 1 while hovered, 0 after
   const onAngleRef = useRef(onAngle);
   onAngleRef.current = onAngle;
 
@@ -108,21 +151,24 @@ export function useSpinOnHover({ degPerSec = 150, onAngle } = {}) {
     onAngleRef.current?.(a);
   };
   const tick = (t) => {
-    if (last.current) angle.current = (angle.current + (degPerSec * (t - last.current)) / 1000) % 360;
+    const dt = last.current ? Math.min(64, t - last.current) : 16;
     last.current = t;
+    // ease the speed toward the target (smoothstep-like approach)
+    const step = dt / easeMs;
+    speed.current += Math.sign(target.current - speed.current) * Math.min(step, Math.abs(target.current - speed.current));
+    const eased = speed.current * speed.current * (3 - 2 * speed.current);
+    angle.current = (angle.current + (degPerSec * eased * dt) / 1000) % 360;
     apply(angle.current);
+    if (target.current === 0 && speed.current <= 0) { raf.current = 0; last.current = 0; return; }
     raf.current = requestAnimationFrame(tick);
   };
   const start = () => {
-    if (raf.current || reducedMotion()) return;
-    last.current = 0;
-    raf.current = requestAnimationFrame(tick);
+    if (reducedMotion()) return;
+    target.current = 1;
+    if (!raf.current) { last.current = 0; raf.current = requestAnimationFrame(tick); }
   };
-  const stop = () => {
-    cancelAnimationFrame(raf.current);
-    raf.current = 0;
-  };
-  useEffect(() => stop, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const stop = () => { target.current = 0; };   // glides to a stop in tick
+  useEffect(() => () => cancelAnimationFrame(raf.current), []);
 
   return {
     ref,
