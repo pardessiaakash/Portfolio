@@ -8,7 +8,7 @@ import ResizeHandle from "./ResizeHandle";
 import MobileWelcomeScreen from "./MobileWelcomeScreen";
 import AnimatedTooltip from "./AnimatedTooltip";
 import { mainHudPath, useElementSize, HudOutline } from "./hud/hudShapes";
-import { glassPanelSx, glassHudRectSx, spinBorderSx } from "./hud/glass";
+import { glassPanelSx, glassHudRectSx, spinBorderSx, useSpinOnHover } from "./hud/glass";
 
 // Frame numbers for the 165-frame sequence. (The original export had a
 // duplicate every 5th frame, which made the motion stall; those were removed.)
@@ -149,6 +149,69 @@ const socialIcons = [
 ];
 
 
+/* ── Social icon in the vertical bar ──
+   Hover: the icon keeps its size and turns white, and a glass ring with the
+   gradient border appears around it and turns slowly (same as the other
+   hover borders). Previously a 76px PNG was swapped in, which shrank the
+   icon inside its ring and looked squished. */
+function SocialIcon({ label, icon, link }) {
+  const spin = useSpinOnHover();
+  return (
+    <Box
+      ref={spin.ref}
+      {...spin.hoverProps}
+      component="a"
+      href={link}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={label}
+      sx={{
+        position: "relative",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: 44,
+        height: 44,
+        borderRadius: "50%",
+        textDecoration: "none",
+        outline: "none",
+
+        "& img": {
+          width: 40,
+          height: 40,
+          position: "relative",
+          zIndex: 2,
+          filter: "brightness(0) invert(0.75)",
+          opacity: 0.75,
+          transition: "filter 0.3s ease, opacity 0.3s ease",
+        },
+        "&:hover img, &:focus-visible img": { filter: "brightness(0) invert(1)", opacity: 1 },
+
+        // ring: dark glass disc with the turning gradient border
+        "& .social-ring": {
+          left: "50%", top: "50%",
+          width: 50, height: 50,
+          transform: "translate(-50%, -50%) scale(0.9)",
+          borderRadius: "50%",
+          opacity: 0,
+          transition: "opacity 0.3s ease, transform 0.3s ease",
+          backgroundColor: "rgba(20,22,21,0.85)",
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10), 0 4px 12px rgba(0,0,0,0.35)",
+          ...spinBorderSx(1),
+          position: "absolute",
+        },
+        "&:hover .social-ring, &:focus-visible .social-ring": {
+          opacity: 1,
+          transform: "translate(-50%, -50%) scale(1)",
+        },
+      }}
+    >
+      <Box className="social-ring" aria-hidden />
+      <Box component="img" src={icon} alt="" />
+    </Box>
+  );
+}
+
 /* ── Welcome split screen ── */
 function WelcomeScreen({ opacity }) {
   const { widthPercent, isDragging, handleMouseDown, containerRef } = useResizableChatbot(
@@ -220,45 +283,8 @@ function WelcomeScreen({ opacity }) {
           ...glassHudRectSx,
           position: "absolute",
         }}>
-          {socialIcons.map(({ label, icon, hoverIcon, link }) => (
-            <Box
-              key={label}
-              component="a"
-              href={link}
-              target="_blank"
-              rel="noopener noreferrer"
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 44,
-                height: 44,
-                borderRadius: "50%",
-                textDecoration: "none",
-
-                "& img": {
-                  width: 40,
-                  height: 40,
-                  opacity: 0.75,
-                  filter: "brightness(0) invert(0.75)",
-                  transition: "all 0.3s ease",
-                },
-
-                "&:hover img": {
-                   width: 55,
-                  height: 55,
-                  content: `url(${hoverIcon})`, 
-                  opacity: 1,
-                  filter: "none",
-                },
-              }}
-            >
-              <Box
-                component="img"
-                src={icon}
-                alt={label}
-              />
-            </Box>
+          {socialIcons.map(({ label, icon, link }) => (
+            <SocialIcon key={label} label={label} icon={icon} link={link} />
           ))}
         </Box>
 
