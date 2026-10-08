@@ -59,7 +59,7 @@ const HUD = {
 // panel's lower edge stays where it was (923px wide below the step); only
 // its top section reaches 20px further into the old gap.
 const HUD_SHAPE = {
-  gap: 10,
+  gap: 2,   // narrow: the visible channel comes from the steps in the shapes
   mainStep: 25.5 * (HUD.row.height / 632),   // right-edge step of the main HUD
 };
 // centre of the lower channel, relative to the handle box centre

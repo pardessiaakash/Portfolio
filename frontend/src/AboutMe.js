@@ -196,9 +196,9 @@ export const DEFAULT_WORK_CATEGORIES = [
 ];
 
 /* ── Category card with exact Figma SVG shape ── */
-// Cards in the 50/50 split: fixed height, and the 2x2 grid spans about 80%
-// of the panel's content width (the rest stays open on the right).
-const COMPACT_CARD = { height: 108, gridWidth: 80 };
+// Cards in the 50/50 split: fixed height, and the 2x2 grid spans the
+// panel's full content width (as in the first split-view draft).
+const COMPACT_CARD = { height: 108, gridWidth: 100 };
 
 // Card sizes for the home-screen HUD, measured from the intro's last HUD frame.
 const HUD_CARD = { width: 188, height: 164, icon: 38, label: 16, idle: 0.72 };
@@ -374,7 +374,7 @@ function WorkTab({ onClose, inline, compact, hud }) {
       <Box sx={{
         display: compact ? "grid" : "flex",
         gridTemplateColumns: compact ? "repeat(2, minmax(0, 1fr))" : undefined,
-        // split view: the grid spans ~80% of the panel, leaving ~20% open
+        // split view: how much of the panel's width the grid spans
         width: compact ? `${COMPACT_CARD.gridWidth}%` : undefined,
         columnGap: compact ? "16px" : 0,
         rowGap: compact ? "14px" : 0,
