@@ -10,6 +10,11 @@ import { transcribeAudio } from "./api/chatApi";
 const PRIMARY = "#00CD1F";
 const CHIP_BG = "#8F8F8F";
 
+// Fade for the top of the home-screen chat (fixed to the visible area, not
+// the scrolled content): 10% under the orb, ~35% just below, then 100%.
+const CHAT_TOP_FADE =
+  "linear-gradient(to bottom, rgba(0,0,0,0.10) 0px, rgba(0,0,0,0.10) 70px, rgba(0,0,0,0.35) 115px, rgba(0,0,0,0.35) 135px, #000 185px)";
+
 
 /**
  * Shared chatbot panel — homepage right col & project detail right panel.
@@ -32,6 +37,8 @@ export default function ChatbotPanel({
   // Home-screen layout matched to the intro's last HUD frame: greeting sits
   // above the chips, chips stay on one row, tighter type.
   hud = false,
+  // Fade messages out toward the top of the chat (home screen).
+  fadeTop = false,
 }) {
   // Centre of the orb, measured from the panel's top-right corner. The panel
   // mask cuts a circle at this point so the frame hugs the orb.
@@ -129,6 +136,9 @@ export default function ChatbotPanel({
             pt: isMobile ? "20px" : "75px", // Adjusted pt for mobile (no orb) vs desktop (orb present)
             pl: hud ? "14px" : "20px", pr: hud ? "28px" : "20px", pb: hud ? "16px" : "8px",
             ...(hud && messages.length === 0 ? { display: "flex", flexDirection: "column", justifyContent: "flex-end" } : {}),
+            // Messages scrolling up under the orb fade out instead of being
+            // cut off: top band 10%, next band ~35%, the rest fully visible.
+            ...(fadeTop && !isMobile ? { maskImage: CHAT_TOP_FADE, WebkitMaskImage: CHAT_TOP_FADE } : {}),
             "&::-webkit-scrollbar": { width: "3px" },
             "&::-webkit-scrollbar-thumb": { background: "rgba(255,255,255,0.1)", borderRadius: "2px" },
             textAlign: "left"
