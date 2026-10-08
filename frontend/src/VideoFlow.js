@@ -54,16 +54,16 @@ const HUD = {
 };
 
 // HUD shape experiment (Figma "Main_Landing_Page_For Claude"): the two
-// panels interlock, so the gap between their boxes shrinks to 10px and the
-// steps in their outlines form the channel the handle sits in. The main
-// panel's lower edge stays where it was (923px wide below the step); only
-// its top section reaches 20px further into the old gap.
+// panels interlock, and the steps in their outlines form the channel the
+// handle sits in. Because of the steps, the panel boxes may overlap a little
+// (negative gap) while the shapes themselves stay apart:
+//   visible channel = gap + step  →  ~11px lower down, ~9px at the top.
 const HUD_SHAPE = {
-  gap: 2,   // narrow: the visible channel comes from the steps in the shapes
+  gap: -9,
   mainStep: 25.5 * (HUD.row.height / 632),   // right-edge step of the main HUD
 };
-// centre of the lower channel, relative to the handle box centre
-HUD_SHAPE.pillShift = -(HUD_SHAPE.mainStep / 2);
+// centre of the lower channel, relative to the (zero-width) handle box
+HUD_SHAPE.pillShift = (HUD_SHAPE.gap - HUD_SHAPE.mainStep) / 2;
 
 function MainHudPanel({ isHalfSplit }) {
   const [ref, { w, h }] = useElementSize();
@@ -297,7 +297,10 @@ function WelcomeScreen({ opacity }) {
             shapes; the pill is moved to the middle of the lower channel */}
         <Box sx={{
           display: { xs: "none", md: "flex" }, alignItems: "center", justifyContent: "center",
-          width: HUD_SHAPE.gap, flexShrink: 0,
+          // zero-width box; the negative margin lets the panel boxes overlap
+          // (their shapes don't), and the handle sits above both panels
+          width: 0, mr: `${HUD_SHAPE.gap}px`, flexShrink: 0,
+          position: "relative", zIndex: 30,
           "& .handle-line": { display: "none" },
           "& .handle-pill": { transform: `translate(${HUD_SHAPE.pillShift}px, -50%)` },
         }}>
