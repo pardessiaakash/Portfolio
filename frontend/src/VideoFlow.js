@@ -7,6 +7,7 @@ import { useResizableChatbot } from "./hooks/useResizableChatbot";
 import ResizeHandle from "./ResizeHandle";
 import MobileWelcomeScreen from "./MobileWelcomeScreen";
 import AnimatedTooltip from "./AnimatedTooltip";
+import { mainHudPath, useElementSize, HudOutline } from "./hud/hudShapes";
 
 // Frame numbers for the 165-frame sequence. (The original export had a
 // duplicate every 5th frame, which made the motion stall; those were removed.)
@@ -34,6 +35,61 @@ const HUD = {
   pill: { left: -29, top: "calc(50% + 5px)", gap: 22, px: "7.5px", py: "19px" }, // 61 x 348
   orb: { size: 127, offset: -30 },
 };
+
+// HUD shape experiment (Figma "Main_Landing_Page_For Claude"): the two
+// panels interlock, so the gap between their boxes shrinks to 10px and the
+// steps in their outlines form the channel the handle sits in. The main
+// panel's lower edge stays where it was (923px wide below the step); only
+// its top section reaches 20px further into the old gap.
+const HUD_SHAPE = {
+  gap: 10,
+  mainStep: 25.5 * (HUD.row.height / 632),   // right-edge step of the main HUD
+};
+// centre of the lower channel, relative to the handle box centre
+HUD_SHAPE.pillShift = -(HUD_SHAPE.mainStep / 2);
+
+function MainHudPanel({ isHalfSplit }) {
+  const [ref, { w, h }] = useElementSize();
+  const d = w && h ? mainHudPath(w, h) : null;
+  // keep the content where it was: the box grew by the old gap minus the new
+  const extraRight = HUD.gap - HUD_SHAPE.gap;
+  return (
+    <Box
+      ref={ref}
+      sx={{
+        flex: 1,
+        minWidth: 0,
+        position: "relative",
+        display: "flex",
+        flexDirection: "column",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+        opacity: 0.95,
+        background: "linear-gradient(50deg, #0A0A0A 0%, #1B1B1B 100%)",
+        // before the first measurement fall back to the old rounded box
+        ...(d ? { clipPath: `path("${d}")` } : { borderRadius: "20px" }),
+      }}
+    >
+      <Box
+        onWheel={(e) => e.stopPropagation()}
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
+          overflowY: "auto", // Allow scrolling if content doesn't fit
+          "&::-webkit-scrollbar": { width: "4px" },
+          "&::-webkit-scrollbar-thumb": { background: "rgba(255,255,255,0.15)", borderRadius: "4px" },
+          border: "1px solid transparent",
+          p: isHalfSplit ? `42px ${48 + extraRight}px 42px 48px` : `60px ${88 + extraRight}px 60px 88px`,
+        }}
+      >
+        <AboutMeContent onClose={() => { }} mobile={false} inline={true} compact={isHalfSplit} hud={!isHalfSplit} />
+      </Box>
+      <HudOutline d={d} w={w} h={h} />
+    </Box>
+  );
+}
 
 const coverScale = () =>
   Math.max(window.innerWidth / STAGE_W, window.innerHeight / STAGE_H);
@@ -198,39 +254,17 @@ function WelcomeScreen({ opacity }) {
           ))}
         </Box>
 
-        {/* Left panel — col 9 */}
-        <Box
-          onWheel={(e) => e.stopPropagation()}
-          sx={{
-            flex: 1,
-            minWidth: 0,
-            display: "flex",
-            flexDirection: "column",
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
-            borderRadius: "20px",
-            overflowY: "auto", // Allow scrolling if content doesn't fit
-            "&::-webkit-scrollbar": { width: "4px" },
-            "&::-webkit-scrollbar-thumb": { background: "rgba(255,255,255,0.15)", borderRadius: "4px" },
-            p: isHalfSplit ? "42px 48px" : "60px 88px",
-            border: "1px solid transparent",
-            opacity: 0.95,
-            background: `
-      linear-gradient(50deg, #0A0A0A 0%, #1B1B1B 100%) padding-box,
-      linear-gradient(
-        11deg,
-        #00CD1F 0%,
-        #8C8C8C 6%,
-        #8C8C8C 95%,
-        #00CD1F 100%
-      ) border-box
-    `,
-          }}>
-          <AboutMeContent onClose={() => { }} mobile={false} inline={true} compact={isHalfSplit} hud={!isHalfSplit} />
-        </Box>
+        {/* Left panel — col 9, cut to the Figma HUD shape */}
+        <MainHudPanel isHalfSplit={isHalfSplit} />
 
-        {/* Resize Handle */}
-        <Box sx={{ display: { xs: "none", md: "flex" }, alignItems: "center", justifyContent: "center", width: HUD.gap, flexShrink: 0 }}>
+        {/* Resize Handle — sits in the diagonal channel between the two
+            shapes; the pill is moved to the middle of the lower channel */}
+        <Box sx={{
+          display: { xs: "none", md: "flex" }, alignItems: "center", justifyContent: "center",
+          width: HUD_SHAPE.gap, flexShrink: 0,
+          "& .handle-line": { display: "none" },
+          "& .handle-pill": { transform: `translate(${HUD_SHAPE.pillShift}px, -50%)` },
+        }}>
           <ResizeHandle onMouseDown={handleMouseDown} isDragging={isDragging} />
         </Box>
 
@@ -247,6 +281,7 @@ function WelcomeScreen({ opacity }) {
             orbSize={HUD.orb.size}
             orbOffset={HUD.orb.offset}
             hud={!isHalfSplit}
+            hudShape
           />
 
           {/* Hint: points up-right at the assistant avatar in the top-right corner.

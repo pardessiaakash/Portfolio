@@ -6,6 +6,7 @@ import CustomTooltip from "./CustomTooltip";
 import { useChatContext } from "./ChatContext";
 import { useSpeech } from "./hooks/useSpeech";
 import { transcribeAudio } from "./api/chatApi";
+import { chatHudPath, useElementSize, HudOutline } from "./hud/hudShapes";
 
 const PRIMARY = "#00CD1F";
 const CHIP_BG = "#8F8F8F";
@@ -32,12 +33,24 @@ export default function ChatbotPanel({
   // Home-screen layout matched to the intro's last HUD frame: greeting sits
   // above the chips, chips stay on one row, tighter type.
   hud = false,
+  // Experiment: cut the panel to the chat HUD shape from the Figma frame
+  // "Main_Landing_Page_For Claude" (desktop only).
+  hudShape = false,
 }) {
   // Centre of the orb, measured from the panel's top-right corner. The panel
   // mask cuts a circle at this point so the frame hugs the orb.
   const orbCenter = orbOffset + orbSize / 2;
   const orbCut = orbSize / 2 + 6;
   const isMobile = useMediaQuery("(max-width:1024px)")
+
+  const [shapeRef, shapeSize] = useElementSize();
+  const useShape = hudShape && !isMobile;
+  const shapePath = useShape && shapeSize.w && shapeSize.h
+    ? chatHudPath(shapeSize.w, shapeSize.h, {
+        // orb centre and radius in this panel's coordinates
+        cx: shapeSize.w - orbCenter, cy: orbCenter, r: orbSize / 2,
+      })
+    : null;
   const { messages, isLoading, sendMessage, messagesEndRef } = useChatContext();
   const [inputValue, setInputValue] = useState("");
 
@@ -90,7 +103,7 @@ export default function ChatbotPanel({
       )}
 
       {/* HUD frame + content */}
-      <Box sx={{
+      <Box ref={shapeRef} sx={{
         flex: 1,
         display: "flex", flexDirection: "column",
         backdropFilter: "blur(20px)",
@@ -102,13 +115,23 @@ export default function ChatbotPanel({
         zIndex: 1,
         transform: "translateZ(0)", // Force compositing so maskImage properly clips the scrolling child
 
+        border: "1px solid transparent",
+
+        ...(useShape ? {
+          // Figma HUD shape: the outline is the clip, the border is drawn by
+          // HudOutline, and the orb cut is part of the shape (no mask needed)
+          borderRadius: shapePath ? 0 : "20px",
+          clipPath: shapePath ? `path("${shapePath}")` : "none",
+          // the shape does the clipping; overflow:hidden would also cut the
+          // outline where it runs over the 1px border
+          overflow: shapePath ? "visible" : "hidden",
+          background: "linear-gradient(50deg, #0A0A0A 0%, #1B1B1B 100%)",
+        } : {
         clipPath: isMobile ? "none" : "polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px)",
 
         // This mask cuts a perfect circle out of the top right corner to hug the orb (Desktop only)
         maskImage: isMobile ? "none" : `radial-gradient(circle at calc(100% - ${orbCenter}px) ${orbCenter}px, transparent ${orbCut}px, black ${orbCut + 0.5}px)`,
         WebkitMaskImage: isMobile ? "none" : `radial-gradient(circle at calc(100% - ${orbCenter}px) ${orbCenter}px, transparent ${orbCut}px, black ${orbCut + 0.5}px)`,
-
-        border: "1px solid transparent",
 
         background: `
       linear-gradient(50deg, #0A0A0A 0%, #1B1B1B 100%) padding-box,
@@ -120,7 +143,9 @@ export default function ChatbotPanel({
         #00CD1F 100%
       ) border-box
     `,
+        }),
       }}>
+        {useShape && <HudOutline d={shapePath} w={shapeSize.w} h={shapeSize.h} border={1} />}
         {/* Messages area */}
         <Box
           onWheel={(e) => e.stopPropagation()}
