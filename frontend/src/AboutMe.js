@@ -226,7 +226,8 @@ export function CategoryCard({ cat, onClick, compact, hud = false, glass = false
         flexShrink: 0,
         width: compact ? "100%" : hud ? `${HUD_CARD.width}px` : "170px",
         height: compact ? "auto" : hud ? `${HUD_CARD.height}px` : "170px",
-        aspectRatio: compact ? "1.7 / 1" : undefined,
+        // split view: wider, shorter cards so the bio and Download Resume fit
+        aspectRatio: compact ? "2.3 / 1" : undefined,
       }}
     >
       {/* glass body, clipped to the card shape */}
@@ -306,7 +307,7 @@ export function CategoryCard({ cat, onClick, compact, hud = false, glass = false
         display: "flex", flexDirection: "column",
         alignItems: "center", justifyContent: "center",
         height: "100%",
-        p: "20px",
+        p: compact ? "12px" : "20px",
       }}>
         <Box
           component="img"

@@ -12,6 +12,34 @@ import { glassSx, glassPanelSx, spinBorderSx, useSpinOnHover } from "./hud/glass
 const PRIMARY = "#00CD1F";
 const CHIP_BG = "#8F8F8F";
 
+/** Glass icon button (mic / send) for the home-screen HUD; border turns on hover. */
+function GlassIconButton({ active = false, sx, children, ...props }) {
+  const spin = useSpinOnHover();
+  return (
+    <IconButton
+      ref={spin.ref}
+      {...spin.hoverProps}
+      size="small"
+      {...props}
+      sx={{
+        ...glassSx({ shadow: false }),
+        ...spinBorderSx(1),
+        width: 36, height: 36, p: 0, flexShrink: 0,
+        borderRadius: "10px",
+        color: active ? PRIMARY : "#fff",
+        transition: "background-color 0.2s, color 0.2s",
+        "&:hover": { ...glassSx({ shadow: false }), backgroundColor: "rgba(255,255,255,0.08)" },
+        "&.Mui-disabled": { color: "rgba(255,255,255,0.3)" },
+        "&.Mui-disabled::before": { opacity: 0.35 },
+        "&:focus-visible": { outline: "1px solid #00CD1F", outlineOffset: "2px" },
+        ...sx,
+      }}
+    >
+      {children}
+    </IconButton>
+  );
+}
+
 /** Glass suggestion chip for the home-screen HUD; border turns on hover. */
 function GlassChip({ label, onClick }) {
   const spin = useSpinOnHover();
@@ -273,6 +301,16 @@ export default function ChatbotPanel({
             px: "12px",
             py: hud ? "5.5px" : "8px",
             ...(hud ? { alignItems: "center" } : {}),
+            // HUD glass, matching the panels: blurred backdrop, lit top edge,
+            // Figma gradient border and 10px corners
+            ...(useShape ? {
+              ...glassSx(),
+              ...spinBorderSx(1),
+              border: "none",
+              borderRadius: "10px",
+              "&::before": { ...spinBorderSx(1)["&::before"], opacity: 0.8 },
+              "&:focus-within::before": { opacity: 1 },
+            } : {}),
           }}>
             <InputBase
               multiline
@@ -297,6 +335,19 @@ export default function ChatbotPanel({
                 "& textarea::-webkit-scrollbar-thumb": { background: "rgba(255,255,255,0.2)", borderRadius: "2px" },
               }}
             />
+            {useShape ? (
+              <>
+                <GlassIconButton onClick={toggleListening} active={isListening}
+                  aria-label={isListening ? "Stop listening" : "Start voice input"}>
+                  <MicIcon sx={{ fontSize: 20 }} />
+                </GlassIconButton>
+                <GlassIconButton onClick={handleSend} disabled={isLoading || isProcessing} aria-label="Send message">
+                  {isLoading || isProcessing
+                    ? <CircularProgress size={15} sx={{ color: "#fff" }} />
+                    : <ArrowUpwardIcon sx={{ fontSize: 21 }} />}
+                </GlassIconButton>
+              </>
+            ) : (<>
             <IconButton onClick={toggleListening} size="small"
               aria-label={isListening ? "Stop listening" : "Start voice input"}
               sx={{
@@ -318,6 +369,7 @@ export default function ChatbotPanel({
                 ? <CircularProgress size={15} sx={{ color: "#fff" }} />
                 : <ArrowUpwardIcon sx={{ fontSize: 21 }} />}
             </IconButton>
+            </>)}
           </Box>
         </Box>
       </Box>
