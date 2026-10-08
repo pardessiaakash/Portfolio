@@ -49,17 +49,25 @@ export const glassShapeSx = {
 };
 
 /**
- * HUD material, after Apple's dark Liquid Glass: a deep tint that lets about
- * 20% of the room through (heavily blurred and saturated, so it reads as
- * colour and light rather than detail), with a sheen that is lighter toward
- * the top-left. The specular rim is drawn separately (HudOutline for shaped
- * panels, glassHudRectSx for rectangles).
+ * HUD material: clear dark glass with a faint green cast. About 60% of the
+ * (already dimmed) room shows through, heavily blurred so it reads as soft
+ * light and colour, never detail. The backdrop is also darkened a little so
+ * text keeps strong contrast. A sheen is brightest along the top edge and
+ * fades down the panel, like light catching the glass. The specular rim is
+ * drawn separately (HudOutline for shaped panels, glassHudRectSx for
+ * rectangles).
  */
-const HUD_TINT = "rgba(14,16,15,0.80)";     // 80% opaque → ~20% see-through
-const HUD_BACKDROP = "blur(32px) saturate(180%)";
+const HUD_TINT = "rgba(10,20,14,0.42)";     // 42% green-black tint → room clearly shows through
+const HUD_BACKDROP = "blur(18px) saturate(170%) brightness(0.95)";
 export const glassPanelSx = {
-  background:
-    "linear-gradient(155deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 32%, rgba(255,255,255,0) 60%, rgba(255,255,255,0.025) 100%)",
+  background: [
+    // light catching the top edge, fading down the panel
+    "linear-gradient(180deg, rgba(255,255,255,0.075) 0%, rgba(255,255,255,0.025) 22%, rgba(255,255,255,0) 50%)",
+    // faint green glow toward the top-left, ties the glass to the HUD green
+    "radial-gradient(120% 90% at 0% 0%, rgba(0,205,31,0.06) 0%, rgba(0,205,31,0) 55%)",
+    // slight lift at the bottom-right edge
+    "linear-gradient(155deg, rgba(255,255,255,0) 70%, rgba(255,255,255,0.025) 100%)",
+  ].join(", "),
   backgroundColor: HUD_TINT,
   backdropFilter: HUD_BACKDROP,
   WebkitBackdropFilter: HUD_BACKDROP,
