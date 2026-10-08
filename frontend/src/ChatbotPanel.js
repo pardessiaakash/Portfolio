@@ -6,9 +6,70 @@ import CustomTooltip from "./CustomTooltip";
 import { useChatContext } from "./ChatContext";
 import { useSpeech } from "./hooks/useSpeech";
 import { transcribeAudio } from "./api/chatApi";
+import { chatHudPath, hudChannel, useElementSize, HudOutline } from "./hud/hudShapes";
+import { glassSx, glassPanelSx, spinBorderSx, useSpinOnHover } from "./hud/glass";
 
 const PRIMARY = "#00CD1F";
 const CHIP_BG = "#8F8F8F";
+
+/** Glass icon button (mic / send) for the home-screen HUD; border turns on hover. */
+function GlassIconButton({ active = false, sx, children, ...props }) {
+  const spin = useSpinOnHover();
+  return (
+    <IconButton
+      ref={spin.ref}
+      {...spin.hoverProps}
+      size="small"
+      {...props}
+      sx={{
+        ...glassSx({ shadow: false }),
+        ...spinBorderSx(1),
+        width: 36, height: 36, p: 0, flexShrink: 0,
+        borderRadius: "10px",
+        color: active ? PRIMARY : "#fff",
+        transition: "background-color 0.2s, color 0.2s",
+        "&:hover": { ...glassSx({ shadow: false }), backgroundColor: "rgba(255,255,255,0.08)" },
+        "&.Mui-disabled": { color: "rgba(255,255,255,0.3)" },
+        "&.Mui-disabled::before": { opacity: 0.35 },
+        "&:focus-visible": { outline: "1px solid #00CD1F", outlineOffset: "2px" },
+        ...sx,
+      }}
+    >
+      {children}
+    </IconButton>
+  );
+}
+
+/** Glass suggestion chip for the home-screen HUD; border turns on hover. */
+function GlassChip({ label, onClick }) {
+  const spin = useSpinOnHover();
+  return (
+    <Box
+      ref={spin.ref}
+      {...spin.hoverProps}
+      component="button"
+      type="button"
+      onClick={onClick}
+      sx={{
+        ...glassSx({ shadow: false }),
+        ...spinBorderSx(1),
+        px: "21px", py: "6px",
+        whiteSpace: "nowrap", flexShrink: 0,
+        borderRadius: "20px",
+        border: "none",
+        color: "rgba(255,255,255,0.9)",
+        font: "inherit",
+        fontSize: "11px", fontWeight: 600,
+        cursor: "pointer",
+        transition: "color 0.2s, background-color 0.2s",
+        "&:hover": { color: "#fff", backgroundColor: "rgba(255,255,255,0.06)" },
+        "&:focus-visible": { outline: "1px solid #00CD1F", outlineOffset: "2px" },
+      }}
+    >
+      {label}
+    </Box>
+  );
+}
 
 // Fade for the top of the home-screen chat (fixed to the visible area, not
 // the scrolled content): 10% under the orb, ~35% just below, then 100%.
@@ -37,6 +98,12 @@ export default function ChatbotPanel({
   // Home-screen layout matched to the intro's last HUD frame: greeting sits
   // above the chips, chips stay on one row, tighter type.
   hud = false,
+  // Experiment: cut the panel to the chat HUD shape from the Figma frame
+  // "Main_Landing_Page_For Claude" (desktop only).
+  hudShape = false,
+  // Width of the gap to the main HUD; the left edge then runs parallel to
+  // the main HUD's right edge (equal gap along the diagonal too).
+  hudChannelGap = null,
   // Fade messages out toward the top of the chat (home screen).
   fadeTop = false,
 }) {
@@ -45,6 +112,15 @@ export default function ChatbotPanel({
   const orbCenter = orbOffset + orbSize / 2;
   const orbCut = orbSize / 2 + 6;
   const isMobile = useMediaQuery("(max-width:1024px)")
+
+  const [shapeRef, shapeSize] = useElementSize();
+  const useShape = hudShape && !isMobile;
+  const shapePath = useShape && shapeSize.w && shapeSize.h
+    ? chatHudPath(shapeSize.w, shapeSize.h, {
+        // orb centre and radius in this panel's coordinates
+        cx: shapeSize.w - orbCenter, cy: orbCenter, r: orbSize / 2,
+      }, undefined, hudChannelGap != null ? hudChannel(shapeSize.h, hudChannelGap) : null)
+    : null;
   const { messages, isLoading, sendMessage, messagesEndRef } = useChatContext();
   const [inputValue, setInputValue] = useState("");
 
@@ -97,7 +173,7 @@ export default function ChatbotPanel({
       )}
 
       {/* HUD frame + content */}
-      <Box sx={{
+      <Box ref={shapeRef} sx={{
         flex: 1,
         display: "flex", flexDirection: "column",
         backdropFilter: "blur(20px)",
@@ -109,13 +185,25 @@ export default function ChatbotPanel({
         zIndex: 1,
         transform: "translateZ(0)", // Force compositing so maskImage properly clips the scrolling child
 
+        border: "1px solid transparent",
+
+        ...(useShape ? {
+          // Figma HUD shape: the outline is the clip, the border is drawn by
+          // HudOutline, and the orb cut is part of the shape (no mask needed)
+          borderRadius: shapePath ? 0 : "20px",
+          clipPath: shapePath ? `path("${shapePath}")` : "none",
+          // the shape does the clipping; overflow:hidden would also cut the
+          // outline where it runs over the 1px border
+          overflow: shapePath ? "visible" : "hidden",
+          // dark liquid glass (edge, rim light and glow come from HudOutline)
+          ...glassPanelSx,
+          opacity: 1,
+        } : {
         clipPath: isMobile ? "none" : "polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px)",
 
         // This mask cuts a perfect circle out of the top right corner to hug the orb (Desktop only)
         maskImage: isMobile ? "none" : `radial-gradient(circle at calc(100% - ${orbCenter}px) ${orbCenter}px, transparent ${orbCut}px, black ${orbCut + 0.5}px)`,
         WebkitMaskImage: isMobile ? "none" : `radial-gradient(circle at calc(100% - ${orbCenter}px) ${orbCenter}px, transparent ${orbCut}px, black ${orbCut + 0.5}px)`,
-
-        border: "1px solid transparent",
 
         background: `
       linear-gradient(50deg, #0A0A0A 0%, #1B1B1B 100%) padding-box,
@@ -127,7 +215,9 @@ export default function ChatbotPanel({
         #00CD1F 100%
       ) border-box
     `,
+        }),
       }}>
+        {useShape && <HudOutline d={shapePath} w={shapeSize.w} h={shapeSize.h} border={1} />}
         {/* Messages area */}
         <Box
           onWheel={(e) => e.stopPropagation()}
@@ -185,7 +275,9 @@ export default function ChatbotPanel({
             flexWrap: hud ? "nowrap" : "wrap",
             ...(hud ? { overflowX: "auto", scrollbarWidth: "none", "&::-webkit-scrollbar": { display: "none" } } : {}),
           }}>
-            {chips.map((s) => (
+            {chips.map((s) => useShape ? (
+              <GlassChip key={s} label={s} onClick={() => sendMessage(s)} />
+            ) : (
               <Box key={s} onClick={() => sendMessage(s)} sx={{
                 px: hud ? "21px" : "14px", py: hud ? "6px" : "7px",
                 ...(hud ? { whiteSpace: "nowrap", flexShrink: 0 } : {}),
@@ -214,6 +306,16 @@ export default function ChatbotPanel({
             px: "12px",
             py: hud ? "5.5px" : "8px",
             ...(hud ? { alignItems: "center" } : {}),
+            // HUD glass, matching the panels: blurred backdrop, lit top edge,
+            // Figma gradient border and 10px corners
+            ...(useShape ? {
+              ...glassSx(),
+              ...spinBorderSx(1),
+              border: "none",
+              borderRadius: "10px",
+              "&::before": { ...spinBorderSx(1)["&::before"], opacity: 0.8 },
+              "&:focus-within::before": { opacity: 1 },
+            } : {}),
           }}>
             <InputBase
               multiline
@@ -238,6 +340,19 @@ export default function ChatbotPanel({
                 "& textarea::-webkit-scrollbar-thumb": { background: "rgba(255,255,255,0.2)", borderRadius: "2px" },
               }}
             />
+            {useShape ? (
+              <>
+                <GlassIconButton onClick={toggleListening} active={isListening}
+                  aria-label={isListening ? "Stop listening" : "Start voice input"}>
+                  <MicIcon sx={{ fontSize: 20 }} />
+                </GlassIconButton>
+                <GlassIconButton onClick={handleSend} disabled={isLoading || isProcessing} aria-label="Send message">
+                  {isLoading || isProcessing
+                    ? <CircularProgress size={15} sx={{ color: "#fff" }} />
+                    : <ArrowUpwardIcon sx={{ fontSize: 21 }} />}
+                </GlassIconButton>
+              </>
+            ) : (<>
             <IconButton onClick={toggleListening} size="small"
               aria-label={isListening ? "Stop listening" : "Start voice input"}
               sx={{
@@ -259,6 +374,7 @@ export default function ChatbotPanel({
                 ? <CircularProgress size={15} sx={{ color: "#fff" }} />
                 : <ArrowUpwardIcon sx={{ fontSize: 21 }} />}
             </IconButton>
+            </>)}
           </Box>
         </Box>
       </Box>

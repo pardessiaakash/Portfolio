@@ -7,6 +7,8 @@ import { useResizableChatbot } from "./hooks/useResizableChatbot";
 import ResizeHandle from "./ResizeHandle";
 import MobileWelcomeScreen from "./MobileWelcomeScreen";
 import AnimatedTooltip from "./AnimatedTooltip";
+import { mainHudPath, useElementSize, HudOutline } from "./hud/hudShapes";
+import { glassPanelSx, glassHudRectSx, spinBorderSx, useSpinOnHover } from "./hud/glass";
 
 // Frame numbers for the 165-frame sequence. (The original export had a
 // duplicate every 5th frame, which made the motion stall; those were removed.)
@@ -51,6 +53,68 @@ const HUD = {
   orb: { size: 127, offset: -30 },
 };
 
+// HUD shape experiment (Figma "Main_Landing_Page_For Claude"): the two
+// panels interlock, and the steps in their outlines form the channel the
+// handle sits in. The chat HUD's left edge is the main HUD's right edge
+// offset by `channel`, so the channel is equally wide everywhere (straight
+// runs, diagonal, corners). The panel boxes overlap by (step − channel);
+// the shapes themselves never touch.
+const HUD_SHAPE_CHANNEL = 11;
+const HUD_SHAPE_STEP = 25.5 * (HUD.row.height / 632);   // main HUD's step
+const HUD_SHAPE = {
+  channel: HUD_SHAPE_CHANNEL,
+  gap: HUD_SHAPE_CHANNEL - HUD_SHAPE_STEP,               // box gap (negative)
+  mainStep: HUD_SHAPE_STEP,
+};
+// centre of the lower channel, relative to the (zero-width) handle box
+HUD_SHAPE.pillShift = (HUD_SHAPE.gap - HUD_SHAPE.mainStep) / 2;
+
+function MainHudPanel({ isHalfSplit }) {
+  const [ref, { w, h }] = useElementSize();
+  const d = w && h ? mainHudPath(w, h) : null;
+  // keep the content where it was: the box grew by the old gap minus the new
+  const extraRight = HUD.gap - HUD_SHAPE.gap;
+  return (
+    <Box
+      ref={ref}
+      sx={{
+        flex: 1,
+        minWidth: 0,
+        position: "relative",
+        display: "flex",
+        flexDirection: "column",
+        // dark liquid glass (edge, rim light and glow come from HudOutline)
+        ...glassPanelSx,
+        opacity: 1,
+        // before the first measurement fall back to the old rounded box
+        ...(d ? { clipPath: `path("${d}")` } : { borderRadius: "20px" }),
+      }}
+    >
+      <Box
+        onWheel={(e) => e.stopPropagation()}
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
+          overflowY: "auto", // Allow scrolling if content doesn't fit
+          "&::-webkit-scrollbar": { width: "4px" },
+          "&::-webkit-scrollbar-thumb": { background: "rgba(255,255,255,0.15)", borderRadius: "4px" },
+          border: "1px solid transparent",
+          // split view: extra bottom padding keeps the bio and button clear
+          // of the lower edge of the HUD shape
+          // (split view: same 48px margin on both sides, so the cards reach
+          // across the panel instead of leaving a blank band on the right)
+          p: isHalfSplit ? `42px 48px 58px 48px` : `60px ${88 + extraRight}px 60px 88px`,
+        }}
+      >
+        <AboutMeContent onClose={() => { }} mobile={false} inline={true} compact={isHalfSplit} hud={!isHalfSplit} />
+      </Box>
+      <HudOutline d={d} w={w} h={h} />
+    </Box>
+  );
+}
+
 const coverScale = () =>
   Math.max(window.innerWidth / STAGE_W, window.innerHeight / STAGE_H);
 
@@ -92,6 +156,69 @@ const socialIcons = [
   },
 ];
 
+
+/* ── Social icon in the vertical bar ──
+   Hover: the icon keeps its size and turns white, and a glass ring with the
+   gradient border appears around it and turns slowly (same as the other
+   hover borders). Previously a 76px PNG was swapped in, which shrank the
+   icon inside its ring and looked squished. */
+function SocialIcon({ label, icon, link }) {
+  const spin = useSpinOnHover();
+  return (
+    <Box
+      ref={spin.ref}
+      {...spin.hoverProps}
+      component="a"
+      href={link}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={label}
+      sx={{
+        position: "relative",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: 44,
+        height: 44,
+        borderRadius: "50%",
+        textDecoration: "none",
+        outline: "none",
+
+        "& img": {
+          width: 40,
+          height: 40,
+          position: "relative",
+          zIndex: 2,
+          filter: "brightness(0) invert(0.75)",
+          opacity: 0.75,
+          transition: "filter 0.3s ease, opacity 0.3s ease",
+        },
+        "&:hover img, &:focus-visible img": { filter: "brightness(0) invert(1)", opacity: 1 },
+
+        // ring: dark glass disc with the turning gradient border
+        "& .social-ring": {
+          left: "50%", top: "50%",
+          width: 50, height: 50,
+          transform: "translate(-50%, -50%) scale(0.9)",
+          borderRadius: "50%",
+          opacity: 0,
+          transition: "opacity 0.3s ease, transform 0.3s ease",
+          backgroundColor: "rgba(20,22,21,0.85)",
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10), 0 4px 12px rgba(0,0,0,0.35)",
+          ...spinBorderSx(1),
+          position: "absolute",
+        },
+        "&:hover .social-ring, &:focus-visible .social-ring": {
+          opacity: 1,
+          transform: "translate(-50%, -50%) scale(1)",
+        },
+      }}
+    >
+      <Box className="social-ring" aria-hidden />
+      <Box component="img" src={icon} alt="" />
+    </Box>
+  );
+}
 
 /* ── Welcome split screen ── */
 function WelcomeScreen({ opacity }) {
@@ -152,103 +279,39 @@ function WelcomeScreen({ opacity }) {
           alignItems: "center",
           justifyContent: "center",
           gap: `${HUD.pill.gap}px`,
-          borderRadius: "15px",
-          px: HUD.pill.px,
-          py: HUD.pill.py,
-          position: "absolute",
+          borderRadius: "17px",
+          // +1px padding replaces the old 1px border, so the size is unchanged
+          px: `calc(${HUD.pill.px} + 1px)`,
+          py: `calc(${HUD.pill.py} + 1px)`,
           left: `${HUD.pill.left}px`,
           top: HUD.pill.top,
           transform: "translateY(-50%)",
           zIndex: 10,
-          border: "1px solid transparent",
-
-          background: `
-      linear-gradient(50deg, #0A0A0A 0%, #1B1B1B 100%) padding-box,
-      linear-gradient(
-        11deg,
-        #00CD1F 0%,
-        #8C8C8C 6%,
-        #8C8C8C 95%,
-        #00CD1F 100%
-      ) border-box
-    `,
-          boxShadow: "0 0 0 1px rgba(0,0,0,0.4), 0 2px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(0,205,31,0.25), inset 0 -1px 0 rgba(0,205,31,0.25)",
+          // HUD liquid glass (~20% see-through) with the Figma gradient
+          // border, specular rim and shadows
+          ...spinBorderSx(1),
+          ...glassHudRectSx,
+          position: "absolute",
         }}>
-          {socialIcons.map(({ label, icon, hoverIcon, link }) => (
-            <Box
-              key={label}
-              component="a"
-              href={link}
-              target="_blank"
-              rel="noopener noreferrer"
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 44,
-                height: 44,
-                borderRadius: "50%",
-                textDecoration: "none",
-
-                "& img": {
-                  width: 40,
-                  height: 40,
-                  opacity: 0.75,
-                  filter: "brightness(0) invert(0.75)",
-                  transition: "all 0.3s ease",
-                },
-
-                "&:hover img": {
-                   width: 55,
-                  height: 55,
-                  content: `url(${hoverIcon})`, 
-                  opacity: 1,
-                  filter: "none",
-                },
-              }}
-            >
-              <Box
-                component="img"
-                src={icon}
-                alt={label}
-              />
-            </Box>
+          {socialIcons.map(({ label, icon, link }) => (
+            <SocialIcon key={label} label={label} icon={icon} link={link} />
           ))}
         </Box>
 
-        {/* Left panel — col 9 */}
-        <Box
-          onWheel={(e) => e.stopPropagation()}
-          sx={{
-            flex: 1,
-            minWidth: 0,
-            display: "flex",
-            flexDirection: "column",
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
-            borderRadius: "20px",
-            overflowY: "auto", // Allow scrolling if content doesn't fit
-            "&::-webkit-scrollbar": { width: "4px" },
-            "&::-webkit-scrollbar-thumb": { background: "rgba(255,255,255,0.15)", borderRadius: "4px" },
-            p: isHalfSplit ? "42px 48px" : "60px 88px",
-            border: "1px solid transparent",
-            opacity: 0.95,
-            background: `
-      linear-gradient(50deg, #0A0A0A 0%, #1B1B1B 100%) padding-box,
-      linear-gradient(
-        11deg,
-        #00CD1F 0%,
-        #8C8C8C 6%,
-        #8C8C8C 95%,
-        #00CD1F 100%
-      ) border-box
-    `,
-          }}>
-          <AboutMeContent onClose={() => { }} mobile={false} inline={true} compact={isHalfSplit} hud={!isHalfSplit} />
-        </Box>
+        {/* Left panel — col 9, cut to the Figma HUD shape */}
+        <MainHudPanel isHalfSplit={isHalfSplit} />
 
-        {/* Resize Handle */}
-        <Box sx={{ display: { xs: "none", md: "flex" }, alignItems: "center", justifyContent: "center", width: HUD.gap, flexShrink: 0 }}>
+        {/* Resize Handle — sits in the diagonal channel between the two
+            shapes; the pill is moved to the middle of the lower channel */}
+        <Box sx={{
+          display: { xs: "none", md: "flex" }, alignItems: "center", justifyContent: "center",
+          // zero-width box; the negative margin lets the panel boxes overlap
+          // (their shapes don't), and the handle sits above both panels
+          width: 0, mr: `${HUD_SHAPE.gap}px`, flexShrink: 0,
+          position: "relative", zIndex: 30,
+          "& .handle-line": { display: "none" },
+          "& .handle-pill": { transform: `translate(${HUD_SHAPE.pillShift}px, -50%)` },
+        }}>
           <ResizeHandle onMouseDown={handleMouseDown} isDragging={isDragging} />
         </Box>
 
@@ -265,6 +328,8 @@ function WelcomeScreen({ opacity }) {
             orbSize={HUD.orb.size}
             orbOffset={HUD.orb.offset}
             hud={!isHalfSplit}
+            hudShape
+            hudChannelGap={HUD_SHAPE.channel}
             fadeTop
           />
 

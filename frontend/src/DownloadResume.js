@@ -1,5 +1,6 @@
 import { Box, Button } from "@mui/material";
 import CustomTooltip from "./CustomTooltip";
+import { glassSx, spinBorderSx, useSpinOnHover } from "./hud/glass";
 
 const buttonStyles = {
   px: "18px",
@@ -27,7 +28,27 @@ const buttonStyles = {
   "&:active": { boxShadow: "none" },
 };
 
-function DownloadResume({ sx }) {
+// Home-screen HUD version: dark liquid glass with the Figma gradient border,
+// which turns while hovered and stays where it stopped.
+const glassButtonStyles = {
+  ...buttonStyles,
+  ...glassSx(),
+  ...spinBorderSx(1),
+  // the 1px transparent border keeps the button the same size as before
+  border: "1px solid transparent",
+  "&:hover": {
+    ...glassSx(),
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
+  "&:active": { backgroundColor: "rgba(255,255,255,0.09)" },
+  "&::before": {
+    ...spinBorderSx(1)["&::before"],
+    inset: "-1px", // draw the ring over the transparent border
+  },
+};
+
+function DownloadResume({ sx, glass = false }) {
+  const spin = useSpinOnHover();
   return (
     <CustomTooltip
       title={<>Click to Download</>}
@@ -38,6 +59,8 @@ function DownloadResume({ sx }) {
         href="/Round-1_Corrections.pdf"
         download
         variant="contained"
+        ref={glass ? spin.ref : undefined}
+        {...(glass ? spin.hoverProps : {})}
         startIcon={
           <Box
             component="img"
@@ -46,7 +69,7 @@ function DownloadResume({ sx }) {
             sx={{ width: 20, height: 20 }}
           />
         }
-        sx={{ ...buttonStyles, ...sx }}
+        sx={{ ...(glass ? glassButtonStyles : buttonStyles), ...sx }}
       >
         Download Resume
       </Button>

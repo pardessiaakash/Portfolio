@@ -6,7 +6,8 @@ import CloseIcon from "@mui/icons-material/Close";
  * ----------------
  * Small "hint" bubble with:
  *  - a curved, dashed arrow that draws itself in and points at a target element
- *  - a green progress-bar underline that fills over `duration` ms, then auto-dismisses
+ *  - a green countdown bar that starts full and drains from right to left
+ *    over `duration` ms, then auto-dismisses
  *  - desktop-only (hidden below 1024px, matching the app's existing breakpoint)
  *
  * Usage (absolute-position it relative to a positioned ancestor near your target):
@@ -166,14 +167,15 @@ export default function AnimatedTooltip({
           }}
         >
           <Box
-            key={visible ? "run" : "idle"} // restart the fill whenever it (re)appears
+            key={visible ? "run" : "idle"} // restart the countdown whenever it (re)appears
             sx={{
               height: "100%",
               width: "100%",
               transformOrigin: "left center",
               background: "linear-gradient(90deg, #00CD1F, #7CFF95)",
-              transform: "scaleX(0)",
-              animation: closing ? "none" : `progressFill ${duration}ms linear forwards`,
+              // countdown: full at first, the green edge moves right to left
+              transform: "scaleX(1)",
+              animation: closing ? "none" : `progressDrain ${duration}ms linear forwards`,
             }}
           />
         </Box>
@@ -216,9 +218,9 @@ export default function AnimatedTooltip({
           from { opacity: 0; transform: scale(0.92) translateY(6px); }
           to   { opacity: 1; transform: scale(1) translateY(0); }
         }
-        @keyframes progressFill {
-          from { transform: scaleX(0); }
-          to   { transform: scaleX(1); }
+        @keyframes progressDrain {
+          from { transform: scaleX(1); }
+          to   { transform: scaleX(0); }
         }
         @keyframes drawArrow {
           from { opacity: 0; transform: scale(0.85); transform-origin: 0% 0%; }
