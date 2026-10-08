@@ -25,7 +25,18 @@ export default function ChatbotPanel({
   chips = ["View Case Study", "How I Design", "Start Chat"],
   wrapperSx = {},
   requestedInput = null,
+  // Orb geometry (desktop). Defaults keep the original look on inner pages;
+  // the home screen passes the size measured from the intro's last HUD frame.
+  orbSize = 110,
+  orbOffset = -44,
+  // Home-screen layout matched to the intro's last HUD frame: greeting sits
+  // above the chips, chips stay on one row, tighter type.
+  hud = false,
 }) {
+  // Centre of the orb, measured from the panel's top-right corner. The panel
+  // mask cuts a circle at this point so the frame hugs the orb.
+  const orbCenter = orbOffset + orbSize / 2;
+  const orbCut = orbSize / 2 + 6;
   const isMobile = useMediaQuery("(max-width:1024px)")
   const { messages, isLoading, sendMessage, messagesEndRef } = useChatContext();
   const [inputValue, setInputValue] = useState("");
@@ -62,8 +73,8 @@ export default function ChatbotPanel({
         } placement="left">
           <Box sx={{
             position: "absolute",
-            top: -44, right: -44,
-            width: 110, height: 110,
+            top: orbOffset, right: orbOffset,
+            width: orbSize, height: orbSize,
             borderRadius: "50%",
             background: "rgba(0,0,0,0.6)",
             border: "1.5px solid rgba(0,255,150,0.3)",
@@ -94,8 +105,8 @@ export default function ChatbotPanel({
         clipPath: isMobile ? "none" : "polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px)",
 
         // This mask cuts a perfect circle out of the top right corner to hug the orb (Desktop only)
-        maskImage: isMobile ? "none" : "radial-gradient(circle at calc(100% - 11px) 11px, transparent 61px, black 61.5px)",
-        WebkitMaskImage: isMobile ? "none" : "radial-gradient(circle at calc(100% - 11px) 11px, transparent 61px, black 61.5px)",
+        maskImage: isMobile ? "none" : `radial-gradient(circle at calc(100% - ${orbCenter}px) ${orbCenter}px, transparent ${orbCut}px, black ${orbCut + 0.5}px)`,
+        WebkitMaskImage: isMobile ? "none" : `radial-gradient(circle at calc(100% - ${orbCenter}px) ${orbCenter}px, transparent ${orbCut}px, black ${orbCut + 0.5}px)`,
 
         border: "1px solid transparent",
 
@@ -116,7 +127,8 @@ export default function ChatbotPanel({
           sx={{
             flex: 1, overflowY: "auto",
             pt: isMobile ? "20px" : "75px", // Adjusted pt for mobile (no orb) vs desktop (orb present)
-            px: "20px", pb: "8px",
+            pl: hud ? "14px" : "20px", pr: hud ? "28px" : "20px", pb: hud ? "16px" : "8px",
+            ...(hud && messages.length === 0 ? { display: "flex", flexDirection: "column", justifyContent: "flex-end" } : {}),
             "&::-webkit-scrollbar": { width: "3px" },
             "&::-webkit-scrollbar-thumb": { background: "rgba(255,255,255,0.1)", borderRadius: "2px" },
             textAlign: "left"
@@ -127,10 +139,10 @@ export default function ChatbotPanel({
               background: "rgba(20,26,20,0.85)",
               border: "1px solid rgba(255,255,255,0.08)",
               borderRadius: "10px",
-              p: "14px 16px",
-              mb: 1.5,
+              p: hud ? "13px 22px" : "14px 16px",
+              mb: hud ? 0 : 1.5,
             }}>
-              <Typography sx={{ fontSize: "13px", lineHeight: 1.75, color: "rgba(255,255,255,0.85)" }}>
+              <Typography sx={{ fontSize: "13px", lineHeight: hud ? 1.35 : 1.75, color: "rgba(255,255,255,0.85)" }}>
                 Hi!<br />
                 I'm <span style={{ color: '#fff', fontWeight: 700 }}>Nova</span>, Akash's AI Assistant.<br />
                 I can walk you through projects, thinking, and decisions.<br />
@@ -156,15 +168,20 @@ export default function ChatbotPanel({
 
         {/* Suggestion chips */}
         {messages.length === 0 && (
-          <Box sx={{ display: "flex", gap: "8px", px: "20px", pb: "10px", flexWrap: "wrap" }}>
+          <Box sx={{
+            display: "flex", gap: "8px", px: hud ? "14px" : "20px", pb: hud ? "4px" : "10px",
+            flexWrap: hud ? "nowrap" : "wrap",
+            ...(hud ? { overflowX: "auto", scrollbarWidth: "none", "&::-webkit-scrollbar": { display: "none" } } : {}),
+          }}>
             {chips.map((s) => (
               <Box key={s} onClick={() => sendMessage(s)} sx={{
-                px: "14px", py: "7px",
+                px: hud ? "21px" : "14px", py: hud ? "6px" : "7px",
+                ...(hud ? { whiteSpace: "nowrap", flexShrink: 0 } : {}),
                 borderRadius: "20px",
                 background: CHIP_BG,
                 border: "1px solid rgba(255,255,255,0.12)",
                 color: "#000000",
-                fontSize: "12px", fontWeight: 600,
+                fontSize: hud ? "11px" : "12px", fontWeight: 600,
                 cursor: "pointer",
                 transition: "border-color 0.2s, color 0.2s"
               }}>{s}</Box>
@@ -173,17 +190,18 @@ export default function ChatbotPanel({
         )}
 
         {/* Input bar */}
-        <Box sx={{ px: "15px", pb: "20px", pt: "10px" }}>
+        <Box sx={{ px: hud ? "14px" : "15px", pb: hud ? "15px" : "20px", pt: "10px" }}>
           <Box sx={{
             display: "flex", alignItems: "flex-end", gap: "9px",
-            minHeight: "54px",
+            minHeight: hud ? "48px" : "54px",
             boxSizing: "border-box",
             background: "rgba(61, 76, 75, 0.92)",
             border: "1px solid rgba(255,255,255,0.16)",
             borderRadius: "7px",
             boxShadow: "0 10px 24px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.04)",
             px: "12px",
-            py: "8px",
+            py: hud ? "5.5px" : "8px",
+            ...(hud ? { alignItems: "center" } : {}),
           }}>
             <InputBase
               multiline
@@ -199,7 +217,7 @@ export default function ChatbotPanel({
               }}
               disabled={isLoading || isProcessing}
               sx={{
-                color: "#f4f6f5", fontSize: "14px",
+                color: "#f4f6f5", fontSize: hud ? "12px" : "14px",
                 lineHeight: 1.5,
                 pt: "7px",
                 pb: "7px",

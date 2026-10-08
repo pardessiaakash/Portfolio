@@ -13,10 +13,42 @@ const STOP_FRAME_END = 20;
 const UI_SHOW_FRAME = 197;
 const END_FRAME = 202;
 
+// The intro frames are 1920x1080 and are drawn "cover"-scaled to the window
+// (see drawFrame). The welcome UI is laid out on a stage of the same size and
+// scaled the same way, so it lands exactly on the HUD baked into the last
+// HUD frame (196) and the hand-off at UI_SHOW_FRAME has no jump.
+const STAGE_W = 1920;
+const STAGE_H = 1080;
+// HUD geometry measured from frame 196, in stage pixels.
+const HUD = {
+  row: { left: 302, top: 247, width: 1324, height: 508 }, // main + gap + chat
+  chatPercent: (371 / 1324) * 100,                          // chat panel 371px
+  gap: 30,                                                  // between panels
+  pill: { left: -29, top: "calc(50% + 5px)", gap: 22, px: "7.5px", py: "19px" }, // 61 x 348
+  orb: { size: 127, offset: -30 },
+};
+
+const coverScale = () =>
+  Math.max(window.innerWidth / STAGE_W, window.innerHeight / STAGE_H);
+
+function useCoverScale() {
+  const [scale, setScale] = useState(coverScale);
+  useEffect(() => {
+    const onResize = () => setScale(coverScale());
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  return scale;
+}
+
 const framePath = (i) => {
   const n = String(i).padStart(5, "0");
-  return `/assets/images/Updated-Sequence/Comp 1_${n}.jpg`;
+  return `/assets/images/Updated-Sequence/Comp 1_${n}.webp`;
 };
+
+// After the first frames are in, the rest of the sequence is fetched quietly
+// in the background, a few at a time, so scrolling never waits on the network.
+const BG_CONCURRENCY = 4;
 
 const socialIcons = [
   { label: "LinkedIn", icon: "/assets/icons/lindedin.svg",
@@ -40,9 +72,12 @@ const socialIcons = [
 
 /* ── Welcome split screen ── */
 function WelcomeScreen({ opacity }) {
-  const { widthPercent, isDragging, handleMouseDown, containerRef } = useResizableChatbot(30, "home_chatbot_width_percentage_v2", 30, 50, [30, 50]);
+  const { widthPercent, isDragging, handleMouseDown, containerRef } = useResizableChatbot(
+    HUD.chatPercent, "home_chatbot_width_percentage_v3", HUD.chatPercent, 50, [HUD.chatPercent, 50]
+  );
   const isHalfSplit = widthPercent === 50;
   const isMobile = useMediaQuery("(max-width:1024px)");
+  const scale = useCoverScale();
 
   // Desktop-only onboarding hints — one pointing at the assistant avatar,
   // one pointing at the chat input. Both self-dismiss (progress bar) or
@@ -60,11 +95,17 @@ function WelcomeScreen({ opacity }) {
   return (
     <Box sx={{
       position: "absolute", inset: 0, zIndex: 5,
-      display: "flex", alignItems: "center", justifyContent: "center",
+      overflow: "hidden",
       opacity, visibility: opacity > 0 ? "visible" : "hidden",
       pointerEvents: opacity > 0.5 ? "auto" : "none",
-      px: "4vw", py: "4vh",
     }}>
+      {/* Stage: 1920x1080 design space, cover-scaled like the canvas frames */}
+      <Box sx={{
+        position: "absolute", left: "50%", top: "50%",
+        width: STAGE_W, height: STAGE_H,
+        transform: `translate(-50%, -50%) scale(${scale})`,
+        transformOrigin: "center",
+      }}>
       {/* Root row: [social pill] [left panel col-9] [right panel col-3] */}
       <Box
         ref={containerRef}
@@ -72,9 +113,8 @@ function WelcomeScreen({ opacity }) {
           display: "flex",
           alignItems: "stretch",
           gap: "0px",
-          width: "80%",
-          height: "min(72vh, 520px)",
-          position: "relative",
+          position: "absolute",
+          ...HUD.row,
         }}
       >
 
@@ -84,13 +124,13 @@ function WelcomeScreen({ opacity }) {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          gap: "15px",
+          gap: `${HUD.pill.gap}px`,
           borderRadius: "15px",
-          px: "6px",
-          py: "18px",
+          px: HUD.pill.px,
+          py: HUD.pill.py,
           position: "absolute",
-          left: "-28px",
-          top: "50%",
+          left: `${HUD.pill.left}px`,
+          top: HUD.pill.top,
           transform: "translateY(-50%)",
           zIndex: 10,
           border: "1px solid transparent",
@@ -163,7 +203,7 @@ function WelcomeScreen({ opacity }) {
             overflowY: "auto", // Allow scrolling if content doesn't fit
             "&::-webkit-scrollbar": { width: "4px" },
             "&::-webkit-scrollbar-thumb": { background: "rgba(255,255,255,0.15)", borderRadius: "4px" },
-            p: isHalfSplit ? "42px 48px" : "60px",
+            p: isHalfSplit ? "42px 48px" : "60px 88px",
             border: "1px solid transparent",
             opacity: 0.95,
             background: `
@@ -177,11 +217,11 @@ function WelcomeScreen({ opacity }) {
       ) border-box
     `,
           }}>
-          <AboutMeContent onClose={() => { }} mobile={false} inline={true} compact={isHalfSplit} />
+          <AboutMeContent onClose={() => { }} mobile={false} inline={true} compact={isHalfSplit} hud={!isHalfSplit} />
         </Box>
 
         {/* Resize Handle */}
-        <Box sx={{ display: { xs: "none", md: "flex" }, alignItems: "center" }}>
+        <Box sx={{ display: { xs: "none", md: "flex" }, alignItems: "center", justifyContent: "center", width: HUD.gap, flexShrink: 0 }}>
           <ResizeHandle onMouseDown={handleMouseDown} isDragging={isDragging} />
         </Box>
 
@@ -195,6 +235,9 @@ function WelcomeScreen({ opacity }) {
           <ChatbotPanel
             chips={["View Case Study", "How I Design", "Start Chat"]}
             wrapperSx={{ height: "100%" }}
+            orbSize={HUD.orb.size}
+            orbOffset={HUD.orb.offset}
+            hud={!isHalfSplit}
           />
 
           {/* Hint: points up-right at the assistant avatar in the top-right corner.
@@ -222,6 +265,7 @@ function WelcomeScreen({ opacity }) {
         </Box>
 
       </Box>
+      </Box>
     </Box>
   );
 }
@@ -238,6 +282,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
   const animIdRef = useRef(null);
   const cacheRef = useRef({});
   const lastDrawnRef = useRef(-1);
+  const exactDrawnRef = useRef(-1);
   const uiShownRef = useRef(effectiveSkipIntro ? true : false);
 
   // welcome UI opacity — driven by frame position
@@ -256,15 +301,17 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
   const setStoppedSync = (v) => { stoppedRef.current = v; setStopped(v); };
 
   // ── Load frames around index ──────────────────────────────────────────────
+  // Requests go out nearest-first, so the frame we need now arrives before
+  // the ones we might need later.
   const loadAround = useCallback((index, radius = 10) => {
     const cache = cacheRef.current;
-    const from = Math.max(0, index - radius);
-    const to = Math.min(END_FRAME, index + radius);
-    for (let i = from; i <= to; i++) {
-      if (cache[i]) continue;
-      const img = new Image();
-      img.src = framePath(i);
-      cache[i] = img;
+    for (let d = 0; d <= radius; d++) {
+      for (const i of d === 0 ? [index] : [index + d, index - d]) {
+        if (i < 0 || i > END_FRAME || cache[i]) continue;
+        const img = new Image();
+        img.src = framePath(i);
+        cache[i] = img;
+      }
     }
   }, []);
 
@@ -281,6 +328,29 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     }
   }, []);
 
+  // Background fill: walk forward from `start`, then pick up anything earlier.
+  // Frames already requested (by scrolling) are skipped.
+  const preloadAllInBackground = useCallback((start) => {
+    const cache = cacheRef.current;
+    const order = [];
+    for (let i = start; i <= END_FRAME; i++) order.push(i);
+    for (let i = start - 1; i >= 0; i--) order.push(i);
+    let next = 0;
+    let cancelled = false;
+    const pump = () => {
+      if (cancelled) return;
+      while (next < order.length && cache[order[next]]) next++;
+      if (next >= order.length) return;
+      const i = order[next++];
+      const img = new Image();
+      img.onload = img.onerror = pump;
+      img.src = framePath(i);
+      cache[i] = img;
+    };
+    for (let k = 0; k < BG_CONCURRENCY; k++) pump();
+    return () => { cancelled = true; };
+  }, []);
+
   // direction ref: +1 forward, -1 backward
   const dirRef = useRef(1);
 
@@ -291,6 +361,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     const cache = cacheRef.current;
 
     let img = cache[index];
+    const exact = !!(img && img.complete && img.naturalWidth > 0);
 
     // if exact frame not ready, search in the direction we came FROM
     // (i.e. frames we already passed — guaranteed to be loaded)
@@ -309,6 +380,10 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     const dw = img.naturalWidth * scale, dh = img.naturalHeight * scale;
     ctx.drawImage(img, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
     lastDrawnRef.current = index;
+    // A stand-in frame was drawn; keep redrawing until the real one is in.
+    // Without this the canvas could stay on an earlier frame (one that still
+    // has the HUD baked in) underneath the live UI.
+    exactDrawnRef.current = exact ? index : -1;
   }, []);
 
   // ── RAF loop ──────────────────────────────────────────────────────────────
@@ -333,6 +408,11 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     posRef.current = next;
 
     const idx = Math.max(0, Math.min(END_FRAME, Math.round(next)));
+
+    // same frame index, but last time only a stand-in was ready: retry
+    if (idx === lastDrawnRef.current && exactDrawnRef.current !== idx) {
+      drawFrame(idx);
+    }
 
     if (idx !== lastDrawnRef.current) {
       drawFrame(idx);
@@ -395,12 +475,26 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     targetPosRef.current = start;
     loadAround(start, 20);
 
+    // First visit: once the opening frame is on screen, fetch the rest so the
+    // whole scroll plays smoothly. Returning visitors land on the last frame
+    // and only need the frames around it.
+    let stopBackground = null;
+    let bgTimer = null;
+    if (!effectiveSkipIntro) {
+      const first = cacheRef.current[start];
+      const begin = () => { if (!stopBackground) stopBackground = preloadAllInBackground(start); };
+      if (first && first.complete) bgTimer = setTimeout(begin, 0);
+      else if (first) first.addEventListener("load", () => { bgTimer = setTimeout(begin, 300); }, { once: true });
+    }
+
     animIdRef.current = requestAnimationFrame(loop);
     return () => {
       cancelAnimationFrame(animIdRef.current);
       window.removeEventListener("resize", resize);
+      clearTimeout(bgTimer);
+      stopBackground?.();
     };
-  }, [loop, drawFrame, loadAround, skipIntro]);
+  }, [loop, drawFrame, loadAround, preloadAllInBackground, effectiveSkipIntro]);
 
   // ── Wheel: scrub frames ───────────────────────────────────────────────────
   useEffect(() => {

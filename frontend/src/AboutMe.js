@@ -32,8 +32,8 @@ const ModalBox = styled(Box)(({ mobile }) => ({
 }));
 
 // Speech-bubble tab using SVG stroke for pixel-perfect border + curved pointer
-export const Tab = React.forwardRef(({ active, onClick, children }, ref) => {
-  const W = 156, H = 38, R = 4;
+export const Tab = React.forwardRef(({ active, onClick, children, w = 156, h = 38, fontSize = 14 }, ref) => {
+  const W = w, H = h, R = 4;
   const pw = 11, ph = 14;
   const cx = W / 2;
   const s = active ? 0.85 : 0;
@@ -117,7 +117,7 @@ export const Tab = React.forwardRef(({ active, onClick, children }, ref) => {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        fontSize: "14px",
+        fontSize: `${fontSize}px`,
         fontWeight: 500,
         color: active ? PRIMARY : "rgba(255,255,255,0.88)",
         transition: "color 0.2s",
@@ -182,7 +182,10 @@ export const DEFAULT_WORK_CATEGORIES = [
 ];
 
 /* ── Category card with exact Figma SVG shape ── */
-export function CategoryCard({ cat, onClick, compact }) {
+// Card sizes for the home-screen HUD, measured from the intro's frame 196.
+const HUD_CARD = { width: 188, height: 164, icon: 38, label: 16, idle: 0.72 };
+
+export function CategoryCard({ cat, onClick, compact, hud = false }) {
   const [hovered, setHovered] = useState(false);
   const safeId = cat.label.replace(/\s+/g, "-");
 
@@ -202,8 +205,8 @@ export function CategoryCard({ cat, onClick, compact }) {
         position: "relative",
         cursor: "pointer",
         flexShrink: 0,
-        width: compact ? "100%" : "170px",
-        height: compact ? "auto" : "170px",
+        width: compact ? "100%" : hud ? `${HUD_CARD.width}px` : "170px",
+        height: compact ? "auto" : hud ? `${HUD_CARD.height}px` : "170px",
         aspectRatio: compact ? "1.7 / 1" : undefined,
       }}
     >
@@ -271,15 +274,15 @@ export function CategoryCard({ cat, onClick, compact }) {
           src={cat.icon}
           alt={cat.label}
           sx={{
-            width: 40, height: 40, objectFit: "contain",
-            filter: hovered ? "brightness(0) invert(1)" : "brightness(0) invert(0.5)",
+            width: hud ? HUD_CARD.icon : 40, height: hud ? HUD_CARD.icon : 40, objectFit: "contain",
+            filter: hovered ? "brightness(0) invert(1)" : `brightness(0) invert(${hud ? HUD_CARD.idle : 0.5})`,
             transition: "filter 0.2s",
             mb: "4px",
           }}
         />
         <Typography sx={{
-          color: hovered ? "#fff" : "rgba(255,255,255,0.5)",
-          fontSize: "14px", fontWeight: 500,
+          color: hovered ? "#fff" : `rgba(255,255,255,${hud ? HUD_CARD.idle : 0.5})`,
+          fontSize: hud ? `${HUD_CARD.label}px` : "14px", fontWeight: 500,
           transition: "color 0.2s",
         }}>
           {cat.label}
@@ -299,7 +302,7 @@ export function CategoryCard({ cat, onClick, compact }) {
 }
 
 /* ── Work tab ── */
-function WorkTab({ onClose, inline, compact }) {
+function WorkTab({ onClose, inline, compact, hud }) {
   const navigate = useNavigate();
   const [workCategories, setWorkCategories] = useState(DEFAULT_WORK_CATEGORIES);
 
@@ -330,12 +333,15 @@ function WorkTab({ onClose, inline, compact }) {
         columnGap: compact ? "18px" : 0,
         rowGap: compact ? "16px" : 0,
         flexWrap: { xs: "wrap", md: "nowrap" },
-        gap: "0px",
+        gap: hud ? "5px" : "0px",
         mt: "28px",
+        // the card SVG insets its shape ~13px, so pull the row left to line
+        // the first card's visible edge up with the header text
+        ml: hud ? "-13px" : 0,
         flex: "0 0 auto",
       }}>
         {workCategories.map((cat) => (
-          <CategoryCard key={cat.label} cat={cat} compact={compact} onClick={() => handleCategoryClick(cat.label)} />
+          <CategoryCard key={cat.label} cat={cat} compact={compact} hud={hud} onClick={() => handleCategoryClick(cat.label)} />
         ))}
       </Box>
 
@@ -423,7 +429,8 @@ function AboutMeTab({ mobile, inline }) {
 }
 
 /* ── Main modal content ── */
-function AboutMeContent({ onClose, mobile, inline, compact = false }) {
+function AboutMeContent({ onClose, mobile, inline, compact = false, hud = false }) {
+  const tabSize = hud ? { w: 136, h: 32, fontSize: 12.5 } : {};
   const [activeTab, setActiveTab] = useState("work");
 
   return (
@@ -436,23 +443,23 @@ function AboutMeContent({ onClose, mobile, inline, compact = false }) {
         ...(inline ? {} : { margin: "0px 90px", mb: "4px" }),
       }}>
         <Box sx={{ textAlign: "left" }}>
-          <Typography sx={{ fontSize: "14px", mb: "4px" }}>
+          <Typography sx={{ fontSize: hud ? "16px" : "14px", mb: "4px" }}>
             Welcome to the Portfolio!
           </Typography>
-          <Typography sx={{ fontSize: mobile ? "22px" : "26px", fontWeight: 700, lineHeight: 1.1, color: PRIMARY }}>
+          <Typography sx={{ fontSize: mobile ? "22px" : hud ? "28px" : "26px", fontWeight: 700, lineHeight: 1.1, color: PRIMARY }}>
             Akash P
           </Typography>
         </Box>
 
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: "4px" }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: hud ? "13px" : 1, mt: "4px" }}>
           <CustomTooltip title="View My Work" placement="top">
-             <Tab active={activeTab === "work" ? 1 : 0} onClick={() => setActiveTab("work")}>
+             <Tab active={activeTab === "work" ? 1 : 0} onClick={() => setActiveTab("work")} {...tabSize}>
             Work
           </Tab>
           </CustomTooltip>
-         
+
           <CustomTooltip title="View About Me" placement="top">
-            <Tab active={activeTab === "about" ? 1 : 0} onClick={() => setActiveTab("about")}>
+            <Tab active={activeTab === "about" ? 1 : 0} onClick={() => setActiveTab("about")} {...tabSize}>
               About Me
             </Tab>
           </CustomTooltip>
@@ -461,7 +468,7 @@ function AboutMeContent({ onClose, mobile, inline, compact = false }) {
 
       {/* Tab content */}
       {activeTab === "work"
-        ? <WorkTab onClose={onClose} inline={inline} compact={compact} />
+        ? <WorkTab onClose={onClose} inline={inline} compact={compact} hud={hud} />
         : <AboutMeTab mobile={mobile} inline={inline} />}
     </Box>
   );
