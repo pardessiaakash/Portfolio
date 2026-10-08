@@ -55,12 +55,16 @@ const HUD = {
 
 // HUD shape experiment (Figma "Main_Landing_Page_For Claude"): the two
 // panels interlock, and the steps in their outlines form the channel the
-// handle sits in. Because of the steps, the panel boxes may overlap a little
-// (negative gap) while the shapes themselves stay apart:
-//   visible channel = gap + step  →  ~11px lower down, ~9px at the top.
+// handle sits in. The chat HUD's left edge is the main HUD's right edge
+// offset by `channel`, so the channel is equally wide everywhere (straight
+// runs, diagonal, corners). The panel boxes overlap by (step − channel);
+// the shapes themselves never touch.
+const HUD_SHAPE_CHANNEL = 11;
+const HUD_SHAPE_STEP = 25.5 * (HUD.row.height / 632);   // main HUD's step
 const HUD_SHAPE = {
-  gap: -9,
-  mainStep: 25.5 * (HUD.row.height / 632),   // right-edge step of the main HUD
+  channel: HUD_SHAPE_CHANNEL,
+  gap: HUD_SHAPE_CHANNEL - HUD_SHAPE_STEP,               // box gap (negative)
+  mainStep: HUD_SHAPE_STEP,
 };
 // centre of the lower channel, relative to the (zero-width) handle box
 HUD_SHAPE.pillShift = (HUD_SHAPE.gap - HUD_SHAPE.mainStep) / 2;
@@ -323,6 +327,7 @@ function WelcomeScreen({ opacity }) {
             orbOffset={HUD.orb.offset}
             hud={!isHalfSplit}
             hudShape
+            hudChannelGap={HUD_SHAPE.channel}
             fadeTop
           />
 

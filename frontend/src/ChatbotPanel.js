@@ -6,7 +6,7 @@ import CustomTooltip from "./CustomTooltip";
 import { useChatContext } from "./ChatContext";
 import { useSpeech } from "./hooks/useSpeech";
 import { transcribeAudio } from "./api/chatApi";
-import { chatHudPath, useElementSize, HudOutline } from "./hud/hudShapes";
+import { chatHudPath, hudChannel, useElementSize, HudOutline } from "./hud/hudShapes";
 import { glassSx, glassPanelSx, spinBorderSx, useSpinOnHover } from "./hud/glass";
 
 const PRIMARY = "#00CD1F";
@@ -101,6 +101,9 @@ export default function ChatbotPanel({
   // Experiment: cut the panel to the chat HUD shape from the Figma frame
   // "Main_Landing_Page_For Claude" (desktop only).
   hudShape = false,
+  // Width of the gap to the main HUD; the left edge then runs parallel to
+  // the main HUD's right edge (equal gap along the diagonal too).
+  hudChannelGap = null,
   // Fade messages out toward the top of the chat (home screen).
   fadeTop = false,
 }) {
@@ -116,7 +119,7 @@ export default function ChatbotPanel({
     ? chatHudPath(shapeSize.w, shapeSize.h, {
         // orb centre and radius in this panel's coordinates
         cx: shapeSize.w - orbCenter, cy: orbCenter, r: orbSize / 2,
-      })
+      }, undefined, hudChannelGap != null ? hudChannel(shapeSize.h, hudChannelGap) : null)
     : null;
   const { messages, isLoading, sendMessage, messagesEndRef } = useChatContext();
   const [inputValue, setInputValue] = useState("");

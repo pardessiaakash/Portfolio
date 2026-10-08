@@ -14,6 +14,10 @@ const FIGMA_H = 632; // height of both HUD vectors in the Figma frame
 
 export const hudScale = (h) => h / FIGMA_H;
 
+// Main HUD right-edge step (Figma units): where it starts and how deep it is.
+const MAIN_STEP_Y = 171;
+const MAIN_STEP = 25.5;
+
 /* ── geometry helpers ─────────────────────────────────────────────────── */
 
 const sub = (a, b) => ({ x: a.x - b.x, y: a.y - b.y });
@@ -73,8 +77,8 @@ export function buildPath(nodes) {
  */
 export function mainHudPath(w, h, k = hudScale(h)) {
   const r = 20 * k;
-  const stepY = 171 * k;           // where the right-edge step starts
-  const step = 25.5 * k;           // how far the right edge steps in
+  const stepY = MAIN_STEP_Y * k;   // where the right-edge step starts
+  const step = MAIN_STEP * k;      // how far the right edge steps in
   const dropL = 34 * k;            // depth of the bottom section, left side
   const dropR = 32 * k;            // ... right side
   const xL = w * (419.4 / 1056.45);            // bottom section starts
@@ -99,11 +103,13 @@ export function mainHudPath(w, h, k = hudScale(h)) {
  * wraps the orb, concentric with it.
  *   orb = { cx, cy, r } in panel coordinates; gap = space around the orb.
  */
-export function chatHudPath(w, h, orb, k = hudScale(h)) {
+export function chatHudPath(w, h, orb, k = hudScale(h), channel = null) {
   const r = 20 * k;
-  const inset = 23 * k;            // top section set in from the left
-  const stepY = 189.3 * k;         // where the left-edge step starts
-  const step = 22.3 * k;           // depth of the 45° step
+  // Left edge. With `channel`, it is the main HUD's right edge offset by
+  // channel.gap, so the gap between the two HUDs is equally wide along the
+  // straight runs, the diagonal and the corners. Without it: Figma values.
+  const ch = channel || { inset: 23 * k, stepY: 189.3 * k, step: 22.3 * k, rUpper: r, rLower: r };
+  const { inset, stepY, step } = ch;
   const nodes = [{ x: inset, y: 0, r }];
   if (orb) {
     const R = orb.r + 20 * k;      // cut radius: orb plus a ring of space
@@ -117,10 +123,33 @@ export function chatHudPath(w, h, orb, k = hudScale(h)) {
   nodes.push(
     { x: w, y: h, r },
     { x: 0, y: h, r },
-    { x: 0, y: stepY + step, r },
-    { x: inset, y: stepY, r },
+    { x: 0, y: stepY + step, r: ch.rLower },
+    { x: inset, y: stepY, r: ch.rUpper },
   );
   return buildPath(nodes);
+}
+
+/**
+ * Chat left-edge geometry that runs parallel to the main HUD's right edge at
+ * distance `gap` (the main HUD's right-edge step, offset outward). Same top,
+ * so y values line up; x is measured from the chat panel's left edge, which
+ * sits `gap - step` from the main panel's right edge.
+ *   upper run:   x = inset            (main's full-width edge + gap)
+ *   45° run:     starts gap·(√2−1) lower than main's, same depth
+ *   lower run:   x = 0                (main's stepped-in edge + gap)
+ *   corners:     concentric with main's (radius r + gap / r − gap)
+ */
+export function hudChannel(h, gap, k = hudScale(h)) {
+  const r = 20 * k;
+  const step = MAIN_STEP * k;
+  return {
+    gap,
+    inset: step,
+    step,
+    stepY: MAIN_STEP_Y * k + gap * (Math.SQRT2 - 1),
+    rUpper: r + gap,
+    rLower: Math.max(1, r - gap),
+  };
 }
 
 /* ── size measuring ───────────────────────────────────────────────────── */
