@@ -7,16 +7,135 @@ import { useResizableChatbot } from "./hooks/useResizableChatbot";
 import ResizeHandle from "./ResizeHandle";
 import MobileWelcomeScreen from "./MobileWelcomeScreen";
 import AnimatedTooltip from "./AnimatedTooltip";
+import { mainHudPath, useElementSize, HudOutline } from "./hud/hudShapes";
+import { glassPanelSx, glassHudRectSx, spinBorderSx, useSpinOnHover } from "./hud/glass";
 
-const STOP_FRAME = 10;
-const STOP_FRAME_END = 20;
-const UI_SHOW_FRAME = 197;
-const END_FRAME = 202;
+// Frame numbers for the 165-frame sequence. (The original export had a
+// duplicate every 5th frame, which made the motion stall; those were removed.)
+const STOP_FRAME = 8;
+const STOP_FRAME_END = 16;
+const SCROLL_HINT_FRAME = 4;          // "scroll down" hint shows after this
+const LAST_HUD_FRAME = 158;           // last frame with the HUD drawn in
+const UI_SHOW_FRAME = LAST_HUD_FRAME + 1;
+const END_FRAME = 164;
+// The live UI cross-fades over LAST_HUD_FRAME for this long; the canvas
+// holds on that frame meanwhile so the two HUDs dissolve into each other.
+const UI_FADE_MS = 350;
+// How dark the room gets behind the main UI (black overlay opacity), and
+// how long the dimming takes to settle.
+// The strength follows the story: light (20%) outside the pod, building up
+// from the moment the door opens, and full once the main UI is up.
+const ROOM_DIM = {
+  center: 0.45, mid: 0.62, edge: 0.85, fadeMs: 900,
+  outside: 0.2,          // strength until the pod door opens
+  doorOpenFrame: 90,     // the door starts opening here
+  beforeUI: 0.7,         // strength reached on the last HUD frame
+};
+const roomDimLevel = (frame, uiShown) => {
+  if (uiShown) return 1;
+  if (frame <= ROOM_DIM.doorOpenFrame) return ROOM_DIM.outside;
+  const t = Math.min(1, (frame - ROOM_DIM.doorOpenFrame) / (LAST_HUD_FRAME - ROOM_DIM.doorOpenFrame));
+  return ROOM_DIM.outside + (ROOM_DIM.beforeUI - ROOM_DIM.outside) * t;
+};
+
+// The intro frames are 1920x1080 and are drawn "cover"-scaled to the window
+// (see drawFrame). The welcome UI is laid out on a stage of the same size and
+// scaled the same way, so it lands exactly on the HUD baked into
+// LAST_HUD_FRAME and the hand-off at UI_SHOW_FRAME has no jump.
+const STAGE_W = 1920;
+const STAGE_H = 1080;
+// HUD geometry measured from LAST_HUD_FRAME, in stage pixels.
+const HUD = {
+  row: { left: 302, top: 247, width: 1324, height: 508 }, // main + gap + chat
+  chatPercent: (371 / 1324) * 100,                          // chat panel 371px
+  gap: 30,                                                  // between panels
+  pill: { left: -29, top: "calc(50% + 5px)", gap: 22, px: "7.5px", py: "19px" }, // 61 x 348
+  orb: { size: 127, offset: -30 },
+};
+
+// HUD shape experiment (Figma "Main_Landing_Page_For Claude"): the two
+// panels interlock, and the steps in their outlines form the channel the
+// handle sits in. The chat HUD's left edge is the main HUD's right edge
+// offset by `channel`, so the channel is equally wide everywhere (straight
+// runs, diagonal, corners). The panel boxes overlap by (step − channel);
+// the shapes themselves never touch.
+const HUD_SHAPE_CHANNEL = 11;
+const HUD_SHAPE_STEP = 25.5 * (HUD.row.height / 632);   // main HUD's step
+const HUD_SHAPE = {
+  channel: HUD_SHAPE_CHANNEL,
+  gap: HUD_SHAPE_CHANNEL - HUD_SHAPE_STEP,               // box gap (negative)
+  mainStep: HUD_SHAPE_STEP,
+};
+// centre of the lower channel, relative to the (zero-width) handle box
+HUD_SHAPE.pillShift = (HUD_SHAPE.gap - HUD_SHAPE.mainStep) / 2;
+
+function MainHudPanel({ isHalfSplit }) {
+  const [ref, { w, h }] = useElementSize();
+  const d = w && h ? mainHudPath(w, h) : null;
+  // keep the content where it was: the box grew by the old gap minus the new
+  const extraRight = HUD.gap - HUD_SHAPE.gap;
+  return (
+    <Box
+      ref={ref}
+      sx={{
+        flex: 1,
+        minWidth: 0,
+        position: "relative",
+        display: "flex",
+        flexDirection: "column",
+        // dark liquid glass (edge, rim light and glow come from HudOutline)
+        ...glassPanelSx,
+        opacity: 1,
+        // before the first measurement fall back to the old rounded box
+        ...(d ? { clipPath: `path("${d}")` } : { borderRadius: "20px" }),
+      }}
+    >
+      <Box
+        onWheel={(e) => e.stopPropagation()}
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          display: "flex",
+          flexDirection: "column",
+          overflowY: "auto", // Allow scrolling if content doesn't fit
+          "&::-webkit-scrollbar": { width: "4px" },
+          "&::-webkit-scrollbar-thumb": { background: "rgba(255,255,255,0.15)", borderRadius: "4px" },
+          border: "1px solid transparent",
+          // split view: extra bottom padding keeps the bio and button clear
+          // of the lower edge of the HUD shape
+          // (split view: same 48px margin on both sides, so the cards reach
+          // across the panel instead of leaving a blank band on the right)
+          p: isHalfSplit ? `42px 48px 58px 48px` : `60px ${88 + extraRight}px 60px 88px`,
+        }}
+      >
+        <AboutMeContent onClose={() => { }} mobile={false} inline={true} compact={isHalfSplit} hud={!isHalfSplit} />
+      </Box>
+      <HudOutline d={d} w={w} h={h} />
+    </Box>
+  );
+}
+
+const coverScale = () =>
+  Math.max(window.innerWidth / STAGE_W, window.innerHeight / STAGE_H);
+
+function useCoverScale() {
+  const [scale, setScale] = useState(coverScale);
+  useEffect(() => {
+    const onResize = () => setScale(coverScale());
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  return scale;
+}
 
 const framePath = (i) => {
   const n = String(i).padStart(5, "0");
-  return `/assets/images/Updated-Sequence/Comp 1_${n}.jpg`;
+  return `/assets/images/Updated-Sequence/Comp 1_${n}.webp`;
 };
+
+// After the first frames are in, the rest of the sequence is fetched quietly
+// in the background, a few at a time, so scrolling never waits on the network.
+const BG_CONCURRENCY = 4;
 
 const socialIcons = [
   { label: "LinkedIn", icon: "/assets/icons/lindedin.svg",
@@ -38,11 +157,77 @@ const socialIcons = [
 ];
 
 
+/* ── Social icon in the vertical bar ──
+   Hover: the icon keeps its size and turns white, and a glass ring with the
+   gradient border appears around it and turns slowly (same as the other
+   hover borders). Previously a 76px PNG was swapped in, which shrank the
+   icon inside its ring and looked squished. */
+function SocialIcon({ label, icon, link }) {
+  const spin = useSpinOnHover();
+  return (
+    <Box
+      ref={spin.ref}
+      {...spin.hoverProps}
+      component="a"
+      href={link}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={label}
+      sx={{
+        position: "relative",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        width: 44,
+        height: 44,
+        borderRadius: "50%",
+        textDecoration: "none",
+        outline: "none",
+
+        "& img": {
+          width: 40,
+          height: 40,
+          position: "relative",
+          zIndex: 2,
+          filter: "brightness(0) invert(0.75)",
+          opacity: 0.75,
+          transition: "filter 0.3s ease, opacity 0.3s ease",
+        },
+        "&:hover img, &:focus-visible img": { filter: "brightness(0) invert(1)", opacity: 1 },
+
+        // ring: dark glass disc with the turning gradient border
+        "& .social-ring": {
+          left: "50%", top: "50%",
+          width: 50, height: 50,
+          transform: "translate(-50%, -50%) scale(0.9)",
+          borderRadius: "50%",
+          opacity: 0,
+          transition: "opacity 0.3s ease, transform 0.3s ease",
+          backgroundColor: "rgba(20,22,21,0.85)",
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.10), 0 4px 12px rgba(0,0,0,0.35)",
+          ...spinBorderSx(1),
+          position: "absolute",
+        },
+        "&:hover .social-ring, &:focus-visible .social-ring": {
+          opacity: 1,
+          transform: "translate(-50%, -50%) scale(1)",
+        },
+      }}
+    >
+      <Box className="social-ring" aria-hidden />
+      <Box component="img" src={icon} alt="" />
+    </Box>
+  );
+}
+
 /* ── Welcome split screen ── */
 function WelcomeScreen({ opacity }) {
-  const { widthPercent, isDragging, handleMouseDown, containerRef } = useResizableChatbot(30, "home_chatbot_width_percentage_v2", 30, 50, [30, 50]);
+  const { widthPercent, isDragging, handleMouseDown, containerRef } = useResizableChatbot(
+    HUD.chatPercent, "home_chatbot_width_percentage_v3", HUD.chatPercent, 50, [HUD.chatPercent, 50]
+  );
   const isHalfSplit = widthPercent === 50;
   const isMobile = useMediaQuery("(max-width:1024px)");
+  const scale = useCoverScale();
 
   // Desktop-only onboarding hints — one pointing at the assistant avatar,
   // one pointing at the chat input. Both self-dismiss (progress bar) or
@@ -60,11 +245,21 @@ function WelcomeScreen({ opacity }) {
   return (
     <Box sx={{
       position: "absolute", inset: 0, zIndex: 5,
-      display: "flex", alignItems: "center", justifyContent: "center",
+      // clip (not hidden): a clipped box can't be scrolled, so nothing can
+      // shift the cover-scaled stage that overflows it on wide windows
+      overflow: "clip",
       opacity, visibility: opacity > 0 ? "visible" : "hidden",
+      // fade in/out over the held HUD frame; hide only after fading out
+      transition: `opacity ${UI_FADE_MS}ms ease-out, visibility 0s linear ${opacity > 0 ? 0 : UI_FADE_MS}ms`,
       pointerEvents: opacity > 0.5 ? "auto" : "none",
-      px: "4vw", py: "4vh",
     }}>
+      {/* Stage: 1920x1080 design space, cover-scaled like the canvas frames */}
+      <Box sx={{
+        position: "absolute", left: "50%", top: "50%",
+        width: STAGE_W, height: STAGE_H,
+        transform: `translate(-50%, -50%) scale(${scale})`,
+        transformOrigin: "center",
+      }}>
       {/* Root row: [social pill] [left panel col-9] [right panel col-3] */}
       <Box
         ref={containerRef}
@@ -72,9 +267,8 @@ function WelcomeScreen({ opacity }) {
           display: "flex",
           alignItems: "stretch",
           gap: "0px",
-          width: "80%",
-          height: "min(72vh, 520px)",
-          position: "relative",
+          position: "absolute",
+          ...HUD.row,
         }}
       >
 
@@ -84,104 +278,40 @@ function WelcomeScreen({ opacity }) {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          gap: "15px",
-          borderRadius: "15px",
-          px: "6px",
-          py: "18px",
-          position: "absolute",
-          left: "-28px",
-          top: "50%",
+          gap: `${HUD.pill.gap}px`,
+          borderRadius: "17px",
+          // +1px padding replaces the old 1px border, so the size is unchanged
+          px: `calc(${HUD.pill.px} + 1px)`,
+          py: `calc(${HUD.pill.py} + 1px)`,
+          left: `${HUD.pill.left}px`,
+          top: HUD.pill.top,
           transform: "translateY(-50%)",
           zIndex: 10,
-          border: "1px solid transparent",
-
-          background: `
-      linear-gradient(50deg, #0A0A0A 0%, #1B1B1B 100%) padding-box,
-      linear-gradient(
-        11deg,
-        #00CD1F 0%,
-        #8C8C8C 6%,
-        #8C8C8C 95%,
-        #00CD1F 100%
-      ) border-box
-    `,
-          boxShadow: "0 0 0 1px rgba(0,0,0,0.4), 0 2px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(0,205,31,0.25), inset 0 -1px 0 rgba(0,205,31,0.25)",
+          // HUD liquid glass (~20% see-through) with the Figma gradient
+          // border, specular rim and shadows
+          ...spinBorderSx(1),
+          ...glassHudRectSx,
+          position: "absolute",
         }}>
-          {socialIcons.map(({ label, icon, hoverIcon, link }) => (
-            <Box
-              key={label}
-              component="a"
-              href={link}
-              target="_blank"
-              rel="noopener noreferrer"
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 44,
-                height: 44,
-                borderRadius: "50%",
-                textDecoration: "none",
-
-                "& img": {
-                  width: 40,
-                  height: 40,
-                  opacity: 0.75,
-                  filter: "brightness(0) invert(0.75)",
-                  transition: "all 0.3s ease",
-                },
-
-                "&:hover img": {
-                   width: 55,
-                  height: 55,
-                  content: `url(${hoverIcon})`, 
-                  opacity: 1,
-                  filter: "none",
-                },
-              }}
-            >
-              <Box
-                component="img"
-                src={icon}
-                alt={label}
-              />
-            </Box>
+          {socialIcons.map(({ label, icon, link }) => (
+            <SocialIcon key={label} label={label} icon={icon} link={link} />
           ))}
         </Box>
 
-        {/* Left panel — col 9 */}
-        <Box
-          onWheel={(e) => e.stopPropagation()}
-          sx={{
-            flex: 1,
-            minWidth: 0,
-            display: "flex",
-            flexDirection: "column",
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
-            borderRadius: "20px",
-            overflowY: "auto", // Allow scrolling if content doesn't fit
-            "&::-webkit-scrollbar": { width: "4px" },
-            "&::-webkit-scrollbar-thumb": { background: "rgba(255,255,255,0.15)", borderRadius: "4px" },
-            p: isHalfSplit ? "42px 48px" : "60px",
-            border: "1px solid transparent",
-            opacity: 0.95,
-            background: `
-      linear-gradient(50deg, #0A0A0A 0%, #1B1B1B 100%) padding-box,
-      linear-gradient(
-        11deg,
-        #00CD1F 0%,
-        #8C8C8C 6%,
-        #8C8C8C 95%,
-        #00CD1F 100%
-      ) border-box
-    `,
-          }}>
-          <AboutMeContent onClose={() => { }} mobile={false} inline={true} compact={isHalfSplit} />
-        </Box>
+        {/* Left panel — col 9, cut to the Figma HUD shape */}
+        <MainHudPanel isHalfSplit={isHalfSplit} />
 
-        {/* Resize Handle */}
-        <Box sx={{ display: { xs: "none", md: "flex" }, alignItems: "center" }}>
+        {/* Resize Handle — sits in the diagonal channel between the two
+            shapes; the pill is moved to the middle of the lower channel */}
+        <Box sx={{
+          display: { xs: "none", md: "flex" }, alignItems: "center", justifyContent: "center",
+          // zero-width box; the negative margin lets the panel boxes overlap
+          // (their shapes don't), and the handle sits above both panels
+          width: 0, mr: `${HUD_SHAPE.gap}px`, flexShrink: 0,
+          position: "relative", zIndex: 30,
+          "& .handle-line": { display: "none" },
+          "& .handle-pill": { transform: `translate(${HUD_SHAPE.pillShift}px, -50%)` },
+        }}>
           <ResizeHandle onMouseDown={handleMouseDown} isDragging={isDragging} />
         </Box>
 
@@ -195,6 +325,12 @@ function WelcomeScreen({ opacity }) {
           <ChatbotPanel
             chips={["View Case Study", "How I Design", "Start Chat"]}
             wrapperSx={{ height: "100%" }}
+            orbSize={HUD.orb.size}
+            orbOffset={HUD.orb.offset}
+            hud={!isHalfSplit}
+            hudShape
+            hudChannelGap={HUD_SHAPE.channel}
+            fadeTop
           />
 
           {/* Hint: points up-right at the assistant avatar in the top-right corner.
@@ -222,6 +358,7 @@ function WelcomeScreen({ opacity }) {
         </Box>
 
       </Box>
+      </Box>
     </Box>
   );
 }
@@ -238,6 +375,9 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
   const animIdRef = useRef(null);
   const cacheRef = useRef({});
   const lastDrawnRef = useRef(-1);
+  const exactDrawnRef = useRef(-1);
+  const lastIdxRef = useRef(-1);     // playback position last handled
+  const holdUntilRef = useRef(0);    // canvas holds LAST_HUD_FRAME until then
   const uiShownRef = useRef(effectiveSkipIntro ? true : false);
 
   // welcome UI opacity — driven by frame position
@@ -256,15 +396,17 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
   const setStoppedSync = (v) => { stoppedRef.current = v; setStopped(v); };
 
   // ── Load frames around index ──────────────────────────────────────────────
+  // Requests go out nearest-first, so the frame we need now arrives before
+  // the ones we might need later.
   const loadAround = useCallback((index, radius = 10) => {
     const cache = cacheRef.current;
-    const from = Math.max(0, index - radius);
-    const to = Math.min(END_FRAME, index + radius);
-    for (let i = from; i <= to; i++) {
-      if (cache[i]) continue;
-      const img = new Image();
-      img.src = framePath(i);
-      cache[i] = img;
+    for (let d = 0; d <= radius; d++) {
+      for (const i of d === 0 ? [index] : [index + d, index - d]) {
+        if (i < 0 || i > END_FRAME || cache[i]) continue;
+        const img = new Image();
+        img.src = framePath(i);
+        cache[i] = img;
+      }
     }
   }, []);
 
@@ -281,6 +423,29 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     }
   }, []);
 
+  // Background fill: walk forward from `start`, then pick up anything earlier.
+  // Frames already requested (by scrolling) are skipped.
+  const preloadAllInBackground = useCallback((start) => {
+    const cache = cacheRef.current;
+    const order = [];
+    for (let i = start; i <= END_FRAME; i++) order.push(i);
+    for (let i = start - 1; i >= 0; i--) order.push(i);
+    let next = 0;
+    let cancelled = false;
+    const pump = () => {
+      if (cancelled) return;
+      while (next < order.length && cache[order[next]]) next++;
+      if (next >= order.length) return;
+      const i = order[next++];
+      const img = new Image();
+      img.onload = img.onerror = pump;
+      img.src = framePath(i);
+      cache[i] = img;
+    };
+    for (let k = 0; k < BG_CONCURRENCY; k++) pump();
+    return () => { cancelled = true; };
+  }, []);
+
   // direction ref: +1 forward, -1 backward
   const dirRef = useRef(1);
 
@@ -291,6 +456,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     const cache = cacheRef.current;
 
     let img = cache[index];
+    const exact = !!(img && img.complete && img.naturalWidth > 0);
 
     // if exact frame not ready, search in the direction we came FROM
     // (i.e. frames we already passed — guaranteed to be loaded)
@@ -309,11 +475,25 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     const dw = img.naturalWidth * scale, dh = img.naturalHeight * scale;
     ctx.drawImage(img, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
     lastDrawnRef.current = index;
+    // A stand-in frame was drawn; keep redrawing until the real one is in.
+    // Without this the canvas could stay on an earlier frame (one that still
+    // has the HUD baked in) underneath the live UI.
+    exactDrawnRef.current = exact ? index : -1;
   }, []);
 
   // ── RAF loop ──────────────────────────────────────────────────────────────
   const loop = useCallback(() => {
     animIdRef.current = requestAnimationFrame(loop);
+
+    // While the UI cross-fades, hold the canvas on the last HUD frame and
+    // pause playback; scrolling resumes from there once the fade is done.
+    const holding = performance.now() < holdUntilRef.current;
+    if (holding) {
+      if (lastDrawnRef.current !== LAST_HUD_FRAME || exactDrawnRef.current !== LAST_HUD_FRAME) {
+        drawFrame(LAST_HUD_FRAME);
+      }
+      return;
+    }
 
     const target = targetPosRef.current;
     const current = posRef.current;
@@ -334,8 +514,24 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
 
     const idx = Math.max(0, Math.min(END_FRAME, Math.round(next)));
 
-    if (idx !== lastDrawnRef.current) {
+    // Crossing the hand-off in either direction starts the cross-fade.
+    const crossed = lastIdxRef.current >= 0 &&
+      (lastIdxRef.current >= UI_SHOW_FRAME) !== (idx >= UI_SHOW_FRAME);
+    const enteringUI = crossed && idx >= UI_SHOW_FRAME;
+    if (crossed) {
+      holdUntilRef.current = performance.now() + UI_FADE_MS;
+      // Park playback on the HUD frame; the next frame plays after the hold.
+      posRef.current = LAST_HUD_FRAME;
+    }
+
+    // Redraw if the frame changed, or only a stand-in was ready last time.
+    // On the way into the UI the canvas stays on the HUD frame (hold above).
+    if (!enteringUI && (idx !== lastDrawnRef.current || exactDrawnRef.current !== idx)) {
       drawFrame(idx);
+    }
+
+    if (idx !== lastIdxRef.current) {
+      lastIdxRef.current = idx;
       // preload ahead in direction of travel
       if (dirRef.current < 0) {
         preloadBackward(idx, 40);
@@ -345,7 +541,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
       setCurrentFrame(idx);
       onFrameChange?.(idx);
 
-      // welcome UI: show only on frames 201 and 202
+      // welcome UI: shown from the first frame after the drawn-in HUD
       if (idx >= UI_SHOW_FRAME) {
         setWelcomeOpacity(1);
       } else {
@@ -395,12 +591,26 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     targetPosRef.current = start;
     loadAround(start, 20);
 
+    // First visit: once the opening frame is on screen, fetch the rest so the
+    // whole scroll plays smoothly. Returning visitors land on the last frame
+    // and only need the frames around it.
+    let stopBackground = null;
+    let bgTimer = null;
+    if (!effectiveSkipIntro) {
+      const first = cacheRef.current[start];
+      const begin = () => { if (!stopBackground) stopBackground = preloadAllInBackground(start); };
+      if (first && first.complete) bgTimer = setTimeout(begin, 0);
+      else if (first) first.addEventListener("load", () => { bgTimer = setTimeout(begin, 300); }, { once: true });
+    }
+
     animIdRef.current = requestAnimationFrame(loop);
     return () => {
       cancelAnimationFrame(animIdRef.current);
       window.removeEventListener("resize", resize);
+      clearTimeout(bgTimer);
+      stopBackground?.();
     };
-  }, [loop, drawFrame, loadAround, skipIntro]);
+  }, [loop, drawFrame, loadAround, preloadAllInBackground, effectiveSkipIntro]);
 
   // ── Wheel: scrub frames ───────────────────────────────────────────────────
   useEffect(() => {
@@ -449,7 +659,6 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
 
 
 
-  const showScrollUpHint = welcomeOpacity >= 1 && !isMobile;
   const showScrollEntry = currentFrame < STOP_FRAME && !stopped && !isMobile;
 
   return (
@@ -459,6 +668,23 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
           ref={canvasRef}
           style={{ display: "block", position: "absolute", inset: 0, width: "100vw", height: "100vh" }}
         />
+
+        {/* Room dimmer: once the main UI is up, darken the room (most at the
+            edges, where the ceiling lights, floor strips and screens are) so
+            attention goes to the panels. Light outside the pod, builds up
+            once the door opens, full with the UI (see ROOM_DIM). */}
+        {!isMobile && (
+          <Box aria-hidden sx={{
+            position: "absolute", inset: 0, zIndex: 4, pointerEvents: "none",
+            background: `radial-gradient(ellipse 62% 58% at 50% 48%,
+              rgba(0,0,0,${ROOM_DIM.center}) 0%,
+              rgba(0,0,0,${ROOM_DIM.mid}) 60%,
+              rgba(0,0,0,${ROOM_DIM.edge}) 100%)`,
+            opacity: roomDimLevel(currentFrame, welcomeOpacity >= 1),
+            // quick while scrubbing, slower for the step up when the UI appears
+            transition: `opacity ${welcomeOpacity >= 1 ? ROOM_DIM.fadeMs : 250}ms ease-out`,
+          }} />
+        )}
 
         {/* Welcome split screen — fades in with animation */}
         <WelcomeScreen opacity={welcomeOpacity} />
@@ -523,7 +749,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
       {/* Scroll gif — bottom left, frame 1–5 (gif only) */}
 
       {/* Scroll gif + text — bottom left, after frame 6 until welcome UI */}
-      {currentFrame > 6 && welcomeOpacity === 0 && !isMobile && (
+      {currentFrame > SCROLL_HINT_FRAME && welcomeOpacity === 0 && !isMobile && (
         <Box sx={{
           position: "fixed", bottom: 28, left: 28, zIndex: 99998,
           display: "flex", flexDirection: "column", alignItems: "center", gap: "6px",
@@ -542,25 +768,8 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
         </Box>
       )}
 
-      {/* Scroll UP hint — on final UI screen */}
-      {showScrollUpHint && (
-        <Box sx={{
-          position: "fixed", bottom: 28, left: 28, zIndex: 99998,
-          display: "flex", flexDirection: "column", alignItems: "center", gap: "6px",
-          pointerEvents: "none",
-        }}>
-          <Typography sx={{ fontSize: "10px", letterSpacing: "3px", textTransform: "capitalize" }}>
-            scroll <br />down
-          </Typography>
-          <Box
-            component="img"
-            src="/assets/gif/scroll.gif"
-            alt="scroll"
-            sx={{ width: 20, opacity: 0.85 }}
-          />
-
-        </Box>
-      )}
+      {/* No scroll hint on the final UI screen: the visitor is inside the
+          pod and exploring the site, so "scroll down" would be misleading. */}
 
     </>
   );

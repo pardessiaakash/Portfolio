@@ -7,6 +7,7 @@ import { PRIMARY, primaryAlpha } from "./theme";
 import CustomTooltip from "./CustomTooltip";
 import { fetchCategories } from "./api/chatApi";
 import DownloadResume from "./DownloadResume";
+import { glassShapeSx, STROKE_STOPS, STROKE_ANGLE, useSpinOnHover, normalizePath } from "./hud/glass";
 
 /* ── Styled components ── */
 const ModalBox = styled(Box)(({ mobile }) => ({
@@ -31,37 +32,49 @@ const ModalBox = styled(Box)(({ mobile }) => ({
   "&::-webkit-scrollbar-thumb": { background: primaryAlpha(0.25), borderRadius: "4px" },
 }));
 
-// Speech-bubble tab using SVG stroke for pixel-perfect border + curved pointer
-export const Tab = React.forwardRef(({ active, onClick, children }, ref) => {
-  const W = 156, H = 38, R = 4;
-  const pw = 11, ph = 14;
-  const cx = W / 2;
-  const s = active ? 0.85 : 0;
-  const P = 2;
-
-  // Full shape path: rounded rect + curved U-notch at bottom center
-  const path = [
-    `M ${P + R} ${P}`,
-    `H ${P + W - R}`,
-    `Q ${P + W} ${P} ${P + W} ${P + R}`,
-    `V ${P + H - R}`,
-    `Q ${P + W} ${P + H} ${P + W - R} ${P + H}`,
-    `H ${P + cx + pw}`,
-    `C ${P + cx + pw} ${P + H} ${P + cx + 6} ${P + H + ph - 2} ${P + cx} ${P + H + ph}`,
-    `C ${P + cx - 6} ${P + H + ph - 2} ${P + cx - pw} ${P + H} ${P + cx - pw} ${P + H}`,
-    `H ${P + R}`,
-    `Q ${P} ${P + H} ${P} ${P + H - R}`,
-    `V ${P + R}`,
-    `Q ${P} ${P} ${P + R} ${P} Z`,
+// Tab from the Figma frame "Main_Landing_Page_For Claude": 5px-radius body
+// with Figma's rounded pointer under the middle. Dark liquid glass; the
+// active tab has the Figma gradient border and drop shadow, the inactive one
+// shows a softer border on hover. The border turns while hovered.
+const tabPath = (W, H, P) => {
+  const r = 5, cx = P + W / 2, b = P + H;
+  return [
+    `M ${P + r} ${P}`, `H ${P + W - r}`, `A ${r} ${r} 0 0 1 ${P + W} ${P + r}`,
+    `V ${b - r}`, `A ${r} ${r} 0 0 1 ${P + W - r} ${b}`,
+    `H ${cx + 13.3037}`,
+    `C ${cx + 11.5195} ${b} ${cx + 9.8705} ${b + 0.9507} ${cx + 8.9765} ${b + 2.4948}`,
+    `L ${cx + 4.3271} ${b + 10.5257}`,
+    `C ${cx + 2.4013} ${b + 13.8522} ${cx - 2.4013} ${b + 13.8522} ${cx - 4.3271} ${b + 10.5257}`,
+    `L ${cx - 8.9765} ${b + 2.4948}`,
+    `C ${cx - 9.8705} ${b + 0.9507} ${cx - 11.5195} ${b} ${cx - 13.3037} ${b}`,
+    `H ${P + r}`, `A ${r} ${r} 0 0 1 ${P} ${b - r}`, `V ${P + r}`, `A ${r} ${r} 0 0 1 ${P + r} ${P}`, "Z",
   ].join(" ");
+};
+const TAB_POINTER = 13; // pointer depth below the body
+const TAB_SHADOW = 24;  // room around the tab for its drop shadow
 
+export const Tab = React.forwardRef(({ active, onClick, children, w = 156, h = 36, fontSize = 14 }, ref) => {
+  const W = w, H = h, P = 2;
+  const uid = React.useId().replace(/[^a-zA-Z0-9]/g, "");
+  const gradRef = React.useRef(null);
   const vw = W + P * 2;
-  const vh = H + ph + P * 2;
+  const vh = H + TAB_POINTER + P * 2;
+  const d = tabPath(W, H, P);
+  const cx = vw / 2, cy = P + H / 2;
+  const spin = useSpinOnHover({
+    onAngle: (a) => gradRef.current?.setAttribute("gradientTransform", `rotate(${a} ${cx} ${cy})`),
+  });
+  // gradient line across the tab at the Figma stroke angle
+  const ang = (STROKE_ANGLE * Math.PI) / 180;
+  const dir = { x: Math.sin(ang), y: -Math.cos(ang) };
+  const half = (Math.abs(vw * dir.x) + Math.abs(vh * dir.y)) / 2;
+  const S = TAB_SHADOW;
 
   return (
     <Box
       ref={ref}
       onClick={onClick}
+      {...spin.hoverProps}
       sx={{
         position: "relative",
         width: `${vw}px`,
@@ -70,44 +83,45 @@ export const Tab = React.forwardRef(({ active, onClick, children }, ref) => {
         flexShrink: 0,
         margin: `${P}px`,
         "&:hover .tab-label": { color: active ? PRIMARY : "#fff" },
+        "& .tab-edge": { opacity: active ? 1 : 0, transition: "opacity 0.25s" },
+        "&:hover .tab-edge": { opacity: active ? 1 : 0.6 },
       }}
     >
-      <svg
-        width={vw} height={vh}
-        style={{ position: "absolute", top: 0, left: 0 }}
-      >
+      {/* drop shadow (active), shown only outside the tab like Figma's */}
+      {active ? (
+        <svg width={vw + S * 2} height={vh + S * 2}
+          style={{ position: "absolute", left: -S, top: -S, pointerEvents: "none" }} aria-hidden>
+          <defs>
+            <filter id={`tab-sh-${uid}`} x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="9.5" />
+            </filter>
+            <mask id={`tab-shm-${uid}`}>
+              <rect width="100%" height="100%" fill="#fff" />
+              <path d={d} transform={`translate(${S} ${S})`} fill="#000" />
+            </mask>
+          </defs>
+          <g mask={`url(#tab-shm-${uid})`}>
+            <path d={d} transform={`translate(${S + 4} ${S + 13})`} fill="rgba(0,0,0,0.35)" filter={`url(#tab-sh-${uid})`} />
+          </g>
+        </svg>
+      ) : null}
+      {/* glass body */}
+      <Box aria-hidden sx={{
+        position: "absolute", inset: 0,
+        clipPath: `path("${d}")`,
+        ...glassShapeSx,
+        boxShadow: "inset 0 1px 2px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.12)",
+      }} />
+      {/* edge */}
+      <svg width={vw} height={vh} style={{ position: "absolute", top: 0, left: 0, pointerEvents: "none" }} aria-hidden>
         <defs>
-          <linearGradient id="inactive-tab-fill" x1="0" y1="0" x2="0" y2="1">
-            <stop stopColor="#292929" />
-            <stop offset="1" stopColor="#222222" />
+          <linearGradient id={`tab-g-${uid}`} ref={gradRef} gradientUnits="userSpaceOnUse"
+            x1={cx - dir.x * half} y1={cy - dir.y * half} x2={cx + dir.x * half} y2={cy + dir.y * half}
+            gradientTransform={`rotate(${spin.angle.current} ${cx} ${cy})`}>
+            {STROKE_STOPS.map(([o, c]) => <stop key={o} offset={o} stopColor={c} />)}
           </linearGradient>
-          {/* Active border: diagonal green glow from top-right corner to
-              bottom-left corner, grey through the middle — matches the
-              reference screenshot and the same corner-glow pattern used
-              elsewhere in the app (social pill, panel borders, etc). */}
-          <linearGradient
-            id="active-tab-border"
-            x1="100%"
-            y1="10%"
-            x2="0%"
-            y2="100%"
-          >
-            <stop offset="6%" stop-color="#00CD1F" />
-            <stop offset="6%" stop-color="#8C8C8C" />
-            <stop offset="95%" stop-color="#8C8C8C" />
-            <stop offset="10%" stop-color="#00CD1F" />
-          </linearGradient>
-          <filter id="active-tab-glow" x="-20%" y="-25%" width="140%" height="180%">
-            <feDropShadow dx="0" dy="7" stdDeviation="5" floodColor="#00CD1F" floodOpacity="0.24" />
-          </filter>
         </defs>
-        <path
-          d={path}
-          fill={active ? "#222222" : "url(#inactive-tab-fill)"}
-          className="tab-shape"
-          stroke={active ? "url(#active-tab-border)" : "transparent"}
-          strokeWidth={s}
-        />
+        <path className="tab-edge" d={d} fill="none" stroke={`url(#tab-g-${uid})`} strokeWidth="1" />
       </svg>
       <Box className="tab-label" sx={{
         position: "relative",
@@ -117,8 +131,8 @@ export const Tab = React.forwardRef(({ active, onClick, children }, ref) => {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        fontSize: "14px",
-        fontWeight: 500,
+        fontSize: `${fontSize}px`,
+        fontWeight: active ? 500 : 400,
         color: active ? PRIMARY : "rgba(255,255,255,0.88)",
         transition: "color 0.2s",
         userSelect: "none"
@@ -182,9 +196,21 @@ export const DEFAULT_WORK_CATEGORIES = [
 ];
 
 /* ── Category card with exact Figma SVG shape ── */
-export function CategoryCard({ cat, onClick, compact }) {
+// Cards in the 50/50 split: fixed height, and the 2x2 grid spans the
+// panel's full content width (as in the first split-view draft).
+const COMPACT_CARD = { height: 108, gridWidth: 100 };
+
+// Card sizes for the home-screen HUD, measured from the intro's last HUD frame.
+const HUD_CARD = { width: 188, height: 164, icon: 38, label: 16, idle: 0.72 };
+
+export function CategoryCard({ cat, onClick, compact, hud = false, glass = false }) {
   const [hovered, setHovered] = useState(false);
-  const safeId = cat.label.replace(/\s+/g, "-");
+  const safeId = cat.label.replace(/[^a-zA-Z0-9]/g, "-") + React.useId().replace(/[^a-zA-Z0-9]/g, "");
+  // glass version: the hover border turns while hovered and stays put after
+  const gradRef = React.useRef(null);
+  const spin = useSpinOnHover({
+    onAngle: (a) => gradRef.current?.setAttribute("gradientTransform", `rotate(${a} 108 95)`),
+  });
 
   // Exact path from Figma with-hover.svg (scaled to fit, viewBox 0 0 224 214)
   // The shape path (fill area):
@@ -196,17 +222,36 @@ export function CategoryCard({ cat, onClick, compact }) {
   return (
     <Box
       onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      onMouseEnter={() => { setHovered(true); if (glass) spin.hoverProps.onMouseEnter(); }}
+      onMouseLeave={() => { setHovered(false); if (glass) spin.hoverProps.onMouseLeave(); }}
       sx={{
         position: "relative",
         cursor: "pointer",
         flexShrink: 0,
-        width: compact ? "100%" : "170px",
-        height: compact ? "auto" : "170px",
-        aspectRatio: compact ? "1.7 / 1" : undefined,
+        // split view: smaller cards with the same proportions as the full
+        // layout (width follows height), so the bio and Download Resume fit
+        width: compact ? "100%" : hud ? `${HUD_CARD.width}px` : "170px",
+        height: compact ? `${COMPACT_CARD.height}px` : hud ? `${HUD_CARD.height}px` : "170px",
       }}
     >
+      {/* glass body, clipped to the card shape */}
+      {glass && (
+        <>
+          <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden>
+            <clipPath id={`clip-${safeId}`} clipPathUnits="objectBoundingBox">
+              <path d={normalizePath(shapePath, 216, 190)} />
+            </clipPath>
+          </svg>
+          <Box aria-hidden sx={{
+            position: "absolute", inset: 0,
+            clipPath: `url(#clip-${safeId})`,
+            ...glassShapeSx,
+            backgroundColor: hovered ? "rgba(255,255,255,0.05)" : "rgba(12,14,13,0.28)",
+            transition: "background-color 0.25s",
+          }} />
+        </>
+      )}
+
       {/* SVG card shape — exact Figma paths */}
       <svg
         width="100%" height="100%"
@@ -216,7 +261,8 @@ export function CategoryCard({ cat, onClick, compact }) {
       >
         <defs>
           {/* Hover stroke gradient — exact from Figma */}
-          <linearGradient id={`grad-hover-${safeId}`} x1="16.9732" y1="11.0129" x2="226.955" y2="108.074" gradientUnits="userSpaceOnUse">
+          <linearGradient id={`grad-hover-${safeId}`} ref={gradRef}
+            gradientTransform={`rotate(${spin.angle.current} 108 95)`} x1="16.9732" y1="11.0129" x2="226.955" y2="108.074" gradientUnits="userSpaceOnUse">
             <stop stopColor="#8F8F8F" />
             <stop offset="0.265501" stopColor="#636363" />
             <stop offset="0.485577" stopColor="#00CD1F" />
@@ -233,7 +279,7 @@ export function CategoryCard({ cat, onClick, compact }) {
         {/* Fill — dark background */}
         <path
           d={shapePath}
-          fill={hovered ? "rgba(14,20,14,0.97)" : "rgba(18,22,18,0.92)"}
+          fill={glass ? "rgba(255,255,255,0)" : hovered ? "rgba(14,20,14,0.97)" : "rgba(18,22,18,0.92)"}
           style={{ transition: "fill 0.25s" }}
         />
 
@@ -241,8 +287,9 @@ export function CategoryCard({ cat, onClick, compact }) {
         <path
           d={strokePath}
           fill="none"
-          stroke={hovered ? `url(#grad-hover-${safeId})` : "rgba(255,255,255,0.12)"}
+          stroke={hovered ? `url(#grad-hover-${safeId})` : glass ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.12)"}
           strokeWidth="1"
+          vectorEffect={glass ? "non-scaling-stroke" : undefined}
         />
 
         {/* Extra green glow on the stroke when hovered */}
@@ -264,22 +311,22 @@ export function CategoryCard({ cat, onClick, compact }) {
         display: "flex", flexDirection: "column",
         alignItems: "center", justifyContent: "center",
         height: "100%",
-        p: "20px",
+        p: compact ? "12px" : "20px",
       }}>
         <Box
           component="img"
           src={cat.icon}
           alt={cat.label}
           sx={{
-            width: 40, height: 40, objectFit: "contain",
-            filter: hovered ? "brightness(0) invert(1)" : "brightness(0) invert(0.5)",
+            width: hud ? HUD_CARD.icon : 40, height: hud ? HUD_CARD.icon : 40, objectFit: "contain",
+            filter: hovered ? "brightness(0) invert(1)" : `brightness(0) invert(${hud ? HUD_CARD.idle : 0.5})`,
             transition: "filter 0.2s",
             mb: "4px",
           }}
         />
         <Typography sx={{
-          color: hovered ? "#fff" : "rgba(255,255,255,0.5)",
-          fontSize: "14px", fontWeight: 500,
+          color: hovered ? "#fff" : `rgba(255,255,255,${hud ? HUD_CARD.idle : 0.5})`,
+          fontSize: hud ? `${HUD_CARD.label}px` : "14px", fontWeight: 500,
           transition: "color 0.2s",
         }}>
           {cat.label}
@@ -299,7 +346,7 @@ export function CategoryCard({ cat, onClick, compact }) {
 }
 
 /* ── Work tab ── */
-function WorkTab({ onClose, inline, compact }) {
+function WorkTab({ onClose, inline, compact, hud }) {
   const navigate = useNavigate();
   const [workCategories, setWorkCategories] = useState(DEFAULT_WORK_CATEGORIES);
 
@@ -327,23 +374,28 @@ function WorkTab({ onClose, inline, compact }) {
       <Box sx={{
         display: compact ? "grid" : "flex",
         gridTemplateColumns: compact ? "repeat(2, minmax(0, 1fr))" : undefined,
-        columnGap: compact ? "18px" : 0,
-        rowGap: compact ? "16px" : 0,
+        // split view: how much of the panel's width the grid spans
+        width: compact ? `${COMPACT_CARD.gridWidth}%` : undefined,
+        columnGap: compact ? "16px" : 0,
+        rowGap: compact ? "14px" : 0,
         flexWrap: { xs: "wrap", md: "nowrap" },
-        gap: "0px",
+        gap: hud ? "5px" : "0px",
         mt: "28px",
+        // the card SVG insets its shape ~13px, so pull the row left to line
+        // the first card's visible edge up with the header text
+        ml: hud ? "-13px" : 0,
         flex: "0 0 auto",
       }}>
         {workCategories.map((cat) => (
-          <CategoryCard key={cat.label} cat={cat} compact={compact} onClick={() => handleCategoryClick(cat.label)} />
+          <CategoryCard key={cat.label} cat={cat} compact={compact} hud={hud} glass={inline} onClick={() => handleCategoryClick(cat.label)} />
         ))}
       </Box>
 
       {/* Bio + Download Resume */}
-      <Box sx={{ display: "flex", justifyContent: "space-between", gap: 3, mt: "48px", alignItems: "center" }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", gap: 3, mt: compact ? "28px" : "48px", alignItems: "center" }}>
         <Typography sx={{ fontSize: "13px", lineHeight: 1.75, textAlign: "left", flex: 1, maxWidth: "450px" }}>
           Designing immersive, intuitive experiences, focused on clarity         </Typography>
-        <DownloadResume />
+        <DownloadResume glass={inline} />
       </Box>
     </Box>
   );
@@ -416,14 +468,15 @@ function AboutMeTab({ mobile, inline }) {
         <Typography sx={{ fontSize: "13px", lineHeight: 1.8, flex: 1, textAlign: "left" }}>
           Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's.
         </Typography>
-        <DownloadResume />
+        <DownloadResume glass={inline} />
       </Box>
     </Box>
   );
 }
 
 /* ── Main modal content ── */
-function AboutMeContent({ onClose, mobile, inline, compact = false }) {
+function AboutMeContent({ onClose, mobile, inline, compact = false, hud = false }) {
+  const tabSize = hud ? { w: 136, h: 32, fontSize: 12.5 } : {};
   const [activeTab, setActiveTab] = useState("work");
 
   return (
@@ -436,23 +489,23 @@ function AboutMeContent({ onClose, mobile, inline, compact = false }) {
         ...(inline ? {} : { margin: "0px 90px", mb: "4px" }),
       }}>
         <Box sx={{ textAlign: "left" }}>
-          <Typography sx={{ fontSize: "14px", mb: "4px" }}>
+          <Typography sx={{ fontSize: hud ? "16px" : "14px", mb: "4px" }}>
             Welcome to the Portfolio!
           </Typography>
-          <Typography sx={{ fontSize: mobile ? "22px" : "26px", fontWeight: 700, lineHeight: 1.1, color: PRIMARY }}>
+          <Typography sx={{ fontSize: mobile ? "22px" : hud ? "28px" : "26px", fontWeight: 700, lineHeight: 1.1, color: PRIMARY }}>
             Akash P
           </Typography>
         </Box>
 
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: "4px" }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: hud ? "13px" : 1, mt: "4px" }}>
           <CustomTooltip title="View My Work" placement="top">
-             <Tab active={activeTab === "work" ? 1 : 0} onClick={() => setActiveTab("work")}>
+             <Tab active={activeTab === "work" ? 1 : 0} onClick={() => setActiveTab("work")} {...tabSize}>
             Work
           </Tab>
           </CustomTooltip>
-         
+
           <CustomTooltip title="View About Me" placement="top">
-            <Tab active={activeTab === "about" ? 1 : 0} onClick={() => setActiveTab("about")}>
+            <Tab active={activeTab === "about" ? 1 : 0} onClick={() => setActiveTab("about")} {...tabSize}>
               About Me
             </Tab>
           </CustomTooltip>
@@ -461,7 +514,7 @@ function AboutMeContent({ onClose, mobile, inline, compact = false }) {
 
       {/* Tab content */}
       {activeTab === "work"
-        ? <WorkTab onClose={onClose} inline={inline} compact={compact} />
+        ? <WorkTab onClose={onClose} inline={inline} compact={compact} hud={hud} />
         : <AboutMeTab mobile={mobile} inline={inline} />}
     </Box>
   );
