@@ -316,6 +316,7 @@ function WelcomeScreen({ opacity }) {
             orbOffset={HUD.orb.offset}
             hud={!isHalfSplit}
             hudShape
+            fadeTop
           />
 
           {/* Hint: points up-right at the assistant avatar in the top-right corner.
@@ -644,7 +645,6 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
 
 
 
-  const showScrollUpHint = welcomeOpacity >= 1 && !isMobile;
   const showScrollEntry = currentFrame < STOP_FRAME && !stopped && !isMobile;
 
   return (
@@ -754,25 +754,8 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
         </Box>
       )}
 
-      {/* Scroll UP hint — on final UI screen */}
-      {showScrollUpHint && (
-        <Box sx={{
-          position: "fixed", bottom: 28, left: 28, zIndex: 99998,
-          display: "flex", flexDirection: "column", alignItems: "center", gap: "6px",
-          pointerEvents: "none",
-        }}>
-          <Typography sx={{ fontSize: "10px", letterSpacing: "3px", textTransform: "capitalize" }}>
-            scroll <br />down
-          </Typography>
-          <Box
-            component="img"
-            src="/assets/gif/scroll.gif"
-            alt="scroll"
-            sx={{ width: 20, opacity: 0.85 }}
-          />
-
-        </Box>
-      )}
+      {/* No scroll hint on the final UI screen: the visitor is inside the
+          pod and exploring the site, so "scroll down" would be misleading. */}
 
     </>
   );
