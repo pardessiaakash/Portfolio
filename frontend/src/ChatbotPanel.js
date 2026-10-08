@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { Box, Typography, InputBase, IconButton, CircularProgress, useMediaQuery } from "@mui/material";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import MicIcon from "@mui/icons-material/Mic";
-import CustomTooltip from "./CustomTooltip";
 import { useChatContext } from "./ChatContext";
 import { useSpeech } from "./hooks/useSpeech";
 import { transcribeAudio } from "./api/chatApi";
@@ -150,11 +149,9 @@ export default function ChatbotPanel({
     /* Outer wrapper — position:relative so orb can overflow */
     <Box sx={{ position: "relative", display: "flex", flexDirection: "column", height: "100%", ...wrapperSx }}>
 
-      {/* Orb — top-right, overflows the frame (Desktop only) */}
+      {/* Orb — top-right, overflows the frame (Desktop only). No hover
+          tooltip: the timed guide popup already points here. */}
       {!isMobile && (
-        <CustomTooltip title={
-          <>Ask anything<br />about me<br />clicking here</>
-        } placement="left">
           <Box sx={{
             position: "absolute",
             top: orbOffset, right: orbOffset,
@@ -170,7 +167,6 @@ export default function ChatbotPanel({
             <video key={orb} src={orb} autoPlay loop muted playsInline
               style={{ width: "160%", height: "160%", objectFit: "cover", mixBlendMode: "screen", marginLeft: "-30%", marginTop: "-30%" }} />
           </Box>
-        </CustomTooltip>
       )}
 
       {/* HUD frame + content */}
