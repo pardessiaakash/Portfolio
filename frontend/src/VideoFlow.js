@@ -245,7 +245,9 @@ function WelcomeScreen({ opacity }) {
   return (
     <Box sx={{
       position: "absolute", inset: 0, zIndex: 5,
-      overflow: "hidden",
+      // clip (not hidden): a clipped box can't be scrolled, so nothing can
+      // shift the cover-scaled stage that overflows it on wide windows
+      overflow: "clip",
       opacity, visibility: opacity > 0 ? "visible" : "hidden",
       // fade in/out over the held HUD frame; hide only after fading out
       transition: `opacity ${UI_FADE_MS}ms ease-out, visibility 0s linear ${opacity > 0 ? 0 : UI_FADE_MS}ms`,
