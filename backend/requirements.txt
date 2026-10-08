@@ -1,0 +1,39 @@
+# ============================================================
+# Core dependencies (required, Python 3.8+ compatible)
+# ============================================================
+django==4.2.11
+djangorestframework==3.15.1
+django-cors-headers==4.3.1
+python-dotenv==1.0.1
+psycopg2-binary>=2.9.9   # PostgreSQL adapter (binary = no system libpq needed)
+
+# LangChain core (Python 3.8 compatible versions)
+langchain==0.2.16
+langchain-core==0.2.38
+langchain-community==0.2.16
+langchain-openai==0.1.23
+
+# Vector DB
+chromadb==0.4.24
+
+# OpenAI (GPT + Whisper)
+openai==1.40.0
+
+# Ollama (local models)
+ollama==0.3.1
+
+# Audio processing
+pydub==0.25.1
+
+# Utils
+requests==2.32.3
+pillow==10.4.0
+redis>=5.0.0              # Redis client for response caching (redis-py)
+
+# ============================================================
+# OPTIONAL: Google Gemini support
+# Requires Python 3.9+. Install manually if needed:
+#   pip install langchain-google-genai google-generativeai
+# ============================================================
+langchain-google-genai>=1.0.0
+google-generativeai>=0.5.0
