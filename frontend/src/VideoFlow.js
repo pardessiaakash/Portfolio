@@ -19,6 +19,9 @@ const END_FRAME = 164;
 // The live UI cross-fades over LAST_HUD_FRAME for this long; the canvas
 // holds on that frame meanwhile so the two HUDs dissolve into each other.
 const UI_FADE_MS = 350;
+// How dark the room gets behind the main UI (black overlay opacity), and
+// how long the dimming takes to settle.
+const ROOM_DIM = { center: 0.45, mid: 0.62, edge: 0.85, fadeMs: 900 };
 
 // The intro frames are 1920x1080 and are drawn "cover"-scaled to the window
 // (see drawFrame). The welcome UI is laid out on a stage of the same size and
@@ -585,6 +588,22 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
           ref={canvasRef}
           style={{ display: "block", position: "absolute", inset: 0, width: "100vw", height: "100vh" }}
         />
+
+        {/* Room dimmer: once the main UI is up, darken the room (most at the
+            edges, where the ceiling lights, floor strips and screens are) so
+            attention goes to the panels. Starts with the UI cross-fade and
+            settles a little after it; lifts again when scrolling back. */}
+        {!isMobile && (
+          <Box aria-hidden sx={{
+            position: "absolute", inset: 0, zIndex: 4, pointerEvents: "none",
+            background: `radial-gradient(ellipse 62% 58% at 50% 48%,
+              rgba(0,0,0,${ROOM_DIM.center}) 0%,
+              rgba(0,0,0,${ROOM_DIM.mid}) 60%,
+              rgba(0,0,0,${ROOM_DIM.edge}) 100%)`,
+            opacity: welcomeOpacity,
+            transition: `opacity ${ROOM_DIM.fadeMs}ms ease-out`,
+          }} />
+        )}
 
         {/* Welcome split screen — fades in with animation */}
         <WelcomeScreen opacity={welcomeOpacity} />
