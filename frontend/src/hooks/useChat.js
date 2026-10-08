@@ -31,9 +31,20 @@ export function useChat() {
     // ------------------------------------------------------------------
     // Scroll to bottom
     // ------------------------------------------------------------------
+    // Scrolls only the message list itself. (scrollIntoView also scrolled
+    // every container above it, including the home screen's full-screen
+    // layer, which shifted the whole UI up on some window sizes.)
     const scrollToBottom = useCallback(() => {
         setTimeout(() => {
-            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+            const end = messagesEndRef.current;
+            if (!end) return;
+            let list = end.parentElement;
+            while (list && !/(auto|scroll)/.test(getComputedStyle(list).overflowY)) {
+                list = list.parentElement;
+            }
+            if (list && list !== document.body && list !== document.documentElement) {
+                list.scrollTo({ top: list.scrollHeight, behavior: 'smooth' });
+            }
         }, 50);
     }, []);
 
