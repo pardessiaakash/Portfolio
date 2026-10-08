@@ -99,7 +99,9 @@ function MainHudPanel({ isHalfSplit }) {
           border: "1px solid transparent",
           // split view: extra bottom padding keeps the bio and button clear
           // of the lower edge of the HUD shape
-          p: isHalfSplit ? `42px ${48 + extraRight}px 58px 48px` : `60px ${88 + extraRight}px 60px 88px`,
+          // (split view: same 48px margin on both sides, so the cards reach
+          // across the panel instead of leaving a blank band on the right)
+          p: isHalfSplit ? `42px 48px 58px 48px` : `60px ${88 + extraRight}px 60px 88px`,
         }}
       >
         <AboutMeContent onClose={() => { }} mobile={false} inline={true} compact={isHalfSplit} hud={!isHalfSplit} />
