@@ -6,7 +6,7 @@
 // the other tabs sit behind it. The chat HUD is the shared ChatbotPanel cut to
 // this page's geometry (orb cut-out and a ~25px channel to the main HUD).
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Box, GlobalStyles } from "@mui/material";
 import light from "@fontsource/montserrat/files/montserrat-latin-300-normal.woff2";
 import medium from "@fontsource/montserrat/files/montserrat-latin-500-normal.woff2";
@@ -21,21 +21,39 @@ const STAGE_W = 1920, STAGE_H = 1087;
 
 /* ── Figma geometry (stage pixels) ─────────────────────────────────────── */
 
-// Main HUD outline box: x 126–1355, tab tops at y 128, panel top at y 177.
-const MAIN = { x: 126, y: 128, w: 1229 };
+// Main HUD outline box: from x 126 to the split (x 1355 by default), tab
+// tops at y 128, panel top at y 177.
+const MAIN = { x: 126, y: 128 };
 const TAB = { h: 49, w: 229, slant: 38, r: 16, x0: 158.9, offsets: [0, 165, 320, 485] };
 const BODY_H = 803;                 // panel height below the tab row
 const STEP = { y: 185, d: 28 };     // right edge steps in 28px, 185px below the top
 const LOWER = { l: 86, r: 676, drop: 35 }; // bottom section (holds the dots)
 const MAIN_H = TAB.h + BODY_H;
 
-// Chat HUD: x 1354–1724, y 177–981, orb centred on its top-right corner.
-const CHAT = { x: 1354, y: 177, w: 370, h: 804 };
-const ORB = 158;
-const CHAT_CHANNEL = { inset: 25, stepY: 198, step: 25, rUpper: 45, rLower: 4 };
+// Chat HUD: right edge x 1724, y 177–981, orb centred on its top-right corner.
+const CHAT = { right: 1724, y: 177, h: 804 };
+const ORB = 158 * 0.8;                  // Figma orb, 20% smaller
 
-const mainPath = (active) => {
-  const T = TAB.h, W = MAIN.w, x0 = TAB.x0 + TAB.offsets[active];
+// Gap between the HUDs: the same 11px channel as the home screen, equally wide
+// along the straight runs, the 45° step and the corners (the chat edge is the
+// main HUD's right edge offset by the gap).
+const GAP = 11;
+const STEP_R = 12;                      // corner radius at the main HUD's step
+const CHAT_CHANNEL = {
+  inset: STEP.d,
+  stepY: STEP.y + GAP * (Math.SQRT2 - 1),
+  step: STEP.d,
+  rUpper: STEP_R + GAP,
+  rLower: Math.max(1, STEP_R - GAP),
+};
+
+// Split = x of the main HUD's (upper) right edge. Drag the handle between the
+// two snap points: the Figma layout, and a wider chat (main HUD still wide
+// enough for the four category tabs).
+const SPLIT = { normal: 1355, wide: 1040 };
+
+const mainPath = (active, W) => {
+  const T = TAB.h, x0 = TAB.x0 + TAB.offsets[active];
   const bottom = T + BODY_H, mid = bottom - LOWER.drop;
   return buildPath([
     { x: 0, y: T, r: 20 },
@@ -44,8 +62,8 @@ const mainPath = (active) => {
     { x: x0 + TAB.w - TAB.slant, y: 0, r: TAB.r },
     { x: x0 + TAB.w, y: T, r: 16 },
     { x: W, y: T, r: 20 },
-    { x: W, y: T + STEP.y, r: 12 },
-    { x: W - STEP.d, y: T + STEP.y + STEP.d, r: 12 },
+    { x: W, y: T + STEP.y, r: STEP_R },
+    { x: W - STEP.d, y: T + STEP.y + STEP.d, r: STEP_R },
     { x: W - STEP.d, y: mid, r: 20 },
     { x: LOWER.r, y: mid, r: 12 },
     { x: LOWER.r - LOWER.drop, y: bottom, r: 12 },
@@ -128,17 +146,60 @@ export default function InnerStage({
   orb, requestedInput,
 }) {
   const s = useStageScale();
-  const d = mainPath(activeTab);
+  const stageRef = useRef(null);
+  const [split, setSplit] = useState(SPLIT.normal);
+  const [dragging, setDragging] = useState(false);
+  const W = split - MAIN.x;                       // main HUD width
+  const chatX = split - STEP.d + GAP;             // chat box left (lower edge + gap)
+  const viewerW = W - 81;                         // 1148 at the Figma split
+  const d = mainPath(activeTab, W);
   const hasSlides = slides.length > 0;
+  const dotCount = Math.max(1, slides.length);
+
+  const splitRef = useRef(split);
+  splitRef.current = split;
+  // drag the handle; on release, glide to the nearer snap point
+  const glideTo = (to) => {
+    const from = splitRef.current, t0 = performance.now();
+    const step = (t) => {
+      const k = Math.min(1, (t - t0) / 260), e = 1 - Math.pow(1 - k, 3);
+      setSplit(from + (to - from) * e);
+      if (k < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  };
+  const onHandleDown = (e) => {
+    e.preventDefault();
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    setDragging(true);
+  };
+  const onHandleMove = (e) => {
+    if (!dragging || !stageRef.current) return;
+    const rect = stageRef.current.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / s + STEP.d - GAP / 2;   // pointer sits mid-channel
+    setSplit(Math.min(SPLIT.normal, Math.max(SPLIT.wide, x)));
+  };
+  const onHandleUp = () => {
+    if (!dragging) return;
+    setDragging(false);
+    const mid = (SPLIT.normal + SPLIT.wide) / 2;
+    glideTo(splitRef.current < mid ? SPLIT.wide : SPLIT.normal);
+  };
   // paint inactive tabs furthest-from-active first
   const order = tabs.map((_, i) => i).filter((i) => i !== activeTab)
     .sort((a, b) => Math.abs(b - activeTab) - Math.abs(a - activeTab));
   const tabX = (i) => MAIN.x + TAB.x0 + TAB.offsets[i];
 
   return (
-    <Box sx={{ position: "absolute", inset: 0, overflow: "hidden" }}>
+    <Box sx={{ position: "absolute", inset: 0, overflow: "hidden", ...(dragging ? { cursor: "ew-resize", userSelect: "none" } : {}) }}>
       {fontFaces}
-      <Box sx={{
+      {/* darkened room around the HUDs, same as the home screen once its UI is up */}
+      <Box aria-hidden sx={{
+        position: "absolute", inset: 0, pointerEvents: "none",
+        background: `radial-gradient(ellipse 62% 58% at 50% 48%,
+          rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.62) 60%, rgba(0,0,0,0.85) 100%)`,
+      }} />
+      <Box ref={stageRef} sx={{
         position: "absolute",
         left: "50%", top: "50%",
         width: STAGE_W, height: STAGE_H,
@@ -152,8 +213,9 @@ export default function InnerStage({
           sx={{
             position: "absolute", left: 0, top: 0, overflow: "visible",
             "& .tab": { cursor: "pointer", outline: "none" },
-            "& .tab path": { transition: "fill 0.25s ease, stroke 0.25s ease" },
-            "& .tab:hover path, & .tab:focus-visible path": { fill: "rgba(255,255,255,0.08)", stroke: "#9E9E9E" },
+            "& .tab path, & .tab text": { transition: "fill 0.25s ease, stroke 0.25s ease" },
+            "& .tab:hover path, & .tab:focus-visible path": { stroke: "rgba(0,205,31,0.7)" },
+            "& .tab:hover text, & .tab:focus-visible text": { fill: PRIMARY },
           }}>
           <defs>
             <filter id="inner-tab-sh" x="-20%" y="-40%" width="140%" height="200%">
@@ -178,11 +240,11 @@ export default function InnerStage({
         {/* main HUD: glass panel whose outline includes the selected tab */}
         <Box sx={{
           position: "absolute",
-          left: MAIN.x, top: MAIN.y, width: MAIN.w, height: MAIN_H,
+          left: MAIN.x, top: MAIN.y, width: W, height: MAIN_H,
           ...glassPanelSx,
           clipPath: `path("${d}")`,
         }}>
-          <HudOutline d={d} w={MAIN.w} h={MAIN_H} />
+          <HudOutline d={d} w={W} h={MAIN_H} />
 
           {/* selected tab label */}
           <Box role="tab" aria-selected="true" sx={{
@@ -235,7 +297,7 @@ export default function InnerStage({
 
           {/* viewer: 1148 × 659, 27px in, 132px below the tab tops */}
           <Box sx={{
-            position: "absolute", left: 26.9, top: 131.8, width: 1148, height: 659,
+            position: "absolute", left: 26.9, top: 131.8, width: viewerW, height: 659,
             borderRadius: "16px", overflow: "hidden",
             background: "#0B141C",
             boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.04)",
@@ -255,7 +317,8 @@ export default function InnerStage({
             )}
           </Box>
 
-          {hasSlides && (
+          {/* controls stay in place for every project; without slides they do nothing */}
+          {(
             <>
               {/* prev / next sit across the viewer's edges */}
               <Box component="button" aria-label="Previous slide" onClick={onPrev}
@@ -263,14 +326,14 @@ export default function InnerStage({
                 <Chevron dir="left" />
               </Box>
               <Box component="button" aria-label="Next slide" onClick={onNext}
-                sx={{ ...glassBtn(42.3, "0.5px solid rgba(255,255,255,0.6)"), left: 1153.9, top: 440.8, p: 0 }}>
+                sx={{ ...glassBtn(42.3, "0.5px solid rgba(255,255,255,0.6)"), left: W - 75.1, top: 440.8, p: 0 }}>
                 <Chevron dir="right" />
               </Box>
 
               {/* ask AI + expand, bottom-right inside the viewer */}
               <CustomTooltip title="Ask To AI" placement="left">
-                <Box component="button" aria-label="Ask AI about this slide" onClick={() => onAskAI(slideIndex)}
-                  sx={{ position: "absolute", left: 1112.9, top: 669, width: 44, height: 44, p: 0,
+                <Box component="button" aria-label="Ask AI about this slide" onClick={() => hasSlides && onAskAI(slideIndex)}
+                  sx={{ position: "absolute", left: W - 116.1, top: 669, width: 44, height: 44, p: 0,
                     border: 0, background: "none", cursor: "pointer", transition: "filter 0.25s ease",
                     "&:hover": { filter: "brightness(1.25)" } }}>
                   {/* the existing 44px Ask-AI button art (glass box with green sparkles) */}
@@ -278,8 +341,8 @@ export default function InnerStage({
                 </Box>
               </CustomTooltip>
               <CustomTooltip title="Maximize" placement="left">
-                <Box component="button" aria-label="Show full screen" onClick={onExpand}
-                  sx={{ ...glassBtn(44), left: 1112.9, top: 731, p: 0, background: "rgba(10,14,12,0.55)" }}>
+                <Box component="button" aria-label="Show full screen" onClick={() => hasSlides && onExpand()}
+                  sx={{ ...glassBtn(44), left: W - 116.1, top: 731, p: 0, background: "rgba(10,14,12,0.55)" }}>
                   <svg width="21" height="21" viewBox="0 0 21 21" aria-hidden>
                     <path d="M1 7V1h6M14 1h6v6M20 14v6h-6M7 20H1v-6M1 1l6.5 6.5M20 1l-6.5 6.5M20 20l-6.5-6.5M1 20l6.5-6.5"
                       fill="none" stroke="#fff" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
@@ -292,8 +355,8 @@ export default function InnerStage({
                 position: "absolute", top: 820, left: 367.9, transform: "translateX(-50%)",
                 display: "flex", gap: "16px",
               }}>
-                {slides.map((_, i) => (
-                  <Box key={i} component="button" aria-label={`Slide ${i + 1}`} onClick={() => onSlide(i)}
+                {Array.from({ length: dotCount }, (_, i) => (
+                  <Box key={i} component="button" aria-label={`Slide ${i + 1}`} onClick={() => hasSlides && onSlide(i)}
                     sx={{
                       width: 12, height: 12, p: 0, borderRadius: "10px", cursor: "pointer",
                       boxSizing: "border-box",
@@ -309,8 +372,32 @@ export default function InnerStage({
           )}
         </Box>
 
+        {/* drag handle, centred in the lower channel (Figma: 9 × 50 pill) */}
+        <Box
+          role="separator" aria-orientation="vertical" aria-label="Resize chat panel"
+          onPointerDown={onHandleDown} onPointerMove={onHandleMove}
+          onPointerUp={onHandleUp} onPointerCancel={onHandleUp}
+          onDoubleClick={() => glideTo(split < (SPLIT.normal + SPLIT.wide) / 2 ? SPLIT.normal : SPLIT.wide)}
+          sx={{
+            position: "absolute",
+            left: split - STEP.d + GAP / 2 - 12, top: 520, width: 24, height: 74,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "ew-resize", touchAction: "none", zIndex: 5,
+            "&:hover .pill, &:active .pill": { borderColor: "#9E9E9E" },
+          }}>
+          <Box className="pill" sx={{
+            width: 9.2, height: 50, boxSizing: "border-box", borderRadius: "20px",
+            background: "#616161", border: "1px solid #616161",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            transition: "border-color 0.2s ease",
+          }}>
+            <Box sx={{ width: 5.5, height: 28.4, boxSizing: "border-box", borderRadius: "20px",
+              background: "#353535", border: "1px solid #616161" }} />
+          </Box>
+        </Box>
+
         {/* chat HUD */}
-        <Box sx={{ position: "absolute", left: CHAT.x, top: CHAT.y, width: CHAT.w, height: CHAT.h }}>
+        <Box sx={{ position: "absolute", left: chatX, top: CHAT.y, width: CHAT.right - chatX, height: CHAT.h }}>
           <ChatbotPanel
             orb={orb}
             chips={["View Case Study", "About Akash", "How I Design", "Start Guided Tour"]}
