@@ -426,6 +426,7 @@ export default function InnerStage({
             hud
             hudShape
             hudChannelShape={CHAT_CHANNEL}
+            tallInput
             fadeTop
             requestedInput={requestedInput}
           />

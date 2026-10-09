@@ -107,6 +107,9 @@ export default function ChatbotPanel({
   // Exact left-edge geometry ({ inset, stepY, step, rUpper, rLower }) for a
   // page whose HUD layout differs from the home screen (the category page).
   hudChannelShape = null,
+  // Taller input box with the mic / send buttons nearer its right edge
+  // (category page); the home screen keeps the default.
+  tallInput = false,
   // Fade messages out toward the top of the chat (home screen).
   fadeTop = false,
 }) {
@@ -297,13 +300,14 @@ export default function ChatbotPanel({
         <Box sx={{ px: hud ? "14px" : "15px", pb: hud ? "15px" : "20px", pt: "10px" }}>
           <Box sx={{
             display: "flex", alignItems: "flex-end", gap: "9px",
-            minHeight: hud ? "48px" : "54px",
+            minHeight: tallInput ? "60px" : hud ? "48px" : "54px",
             boxSizing: "border-box",
             background: "rgba(61, 76, 75, 0.92)",
             border: "1px solid rgba(255,255,255,0.16)",
             borderRadius: "7px",
             boxShadow: "0 10px 24px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.04)",
             px: "12px",
+            ...(tallInput ? { pl: "16px", pr: "7px" } : {}),
             py: hud ? "5.5px" : "8px",
             ...(hud ? { alignItems: "center" } : {}),
             // HUD glass, matching the panels: blurred backdrop, lit top edge,
