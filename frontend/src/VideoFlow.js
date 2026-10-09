@@ -331,6 +331,7 @@ function WelcomeScreen({ opacity }) {
             hudShape
             hudChannelGap={HUD_SHAPE.channel}
             fadeTop
+            tallInput
           />
 
           {/* Hint: points up-right at the assistant avatar in the top-right corner.
