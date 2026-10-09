@@ -8,6 +8,7 @@ import CustomTooltip from "./CustomTooltip";
 import { fetchCategories } from "./api/chatApi";
 import DownloadResume from "./DownloadResume";
 import { glassShapeSx, STROKE_STOPS, STROKE_ANGLE, useSpinOnHover, normalizePath } from "./hud/glass";
+import { playHoverTick } from "./sound/uiTick";
 
 /* ── Styled components ── */
 const ModalBox = styled(Box)(({ mobile }) => ({
@@ -222,7 +223,12 @@ export function CategoryCard({ cat, onClick, compact, hud = false, glass = false
   return (
     <Box
       onClick={onClick}
-      onMouseEnter={() => { setHovered(true); if (glass) spin.hoverProps.onMouseEnter(); }}
+      onMouseEnter={() => {
+        setHovered(true);
+        if (glass) spin.hoverProps.onMouseEnter();
+        // techno UI tick, mouse/trackpad only (taps also fire mouseenter)
+        if (window.matchMedia?.("(hover: hover)").matches) playHoverTick();
+      }}
       onMouseLeave={() => { setHovered(false); if (glass) spin.hoverProps.onMouseLeave(); }}
       sx={{
         position: "relative",
