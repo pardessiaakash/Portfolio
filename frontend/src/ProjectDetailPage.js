@@ -10,7 +10,8 @@ import ResizeHandle from "./ResizeHandle";
 import { fetchCategories, fetchProjects } from "./api/chatApi";
 import CustomTooltip from "./CustomTooltip";
 import { Tab } from "./AboutMe";
-import CategoryTabs from "./hud/CategoryTabs";
+import InnerStage from "./hud/InnerStage";
+import AudioButton from "./AudioButton";
 import { glassHudRectSx, spinBorderSx } from "./hud/glass";
 
 const PRIMARY = "#00CD1F";
@@ -177,6 +178,97 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const lightbox = (
+    <>
+      {/* LIGHTBOX */}
+      {lightboxOpen && (
+        <Box sx={{
+          position: "fixed", inset: 0, zIndex: 999,
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          px: { xs: 2, md: 0 },
+        }} onClick={(e) => { if (e.target === e.currentTarget) setLightboxOpen(false); }}>
+          <Box sx={{
+            position: "relative",
+            maxWidth: "90vw", maxHeight: "90vh",
+            borderRadius: "10px",
+            border: "1px solid transparent",
+            background: `
+              linear-gradient(50deg, #0A0A0A 0%, #1B1B1B 100%) padding-box,
+              linear-gradient(11deg, #00CD1F 0%, #8C8C8C 6%, #8C8C8C 95%, #00CD1F 100%) border-box
+            `,
+            boxShadow: "0 0 2px rgba(0,255,133,.25), inset 0 0 1px rgba(255,255,255,.05)",
+          }}>
+            <IconButton onClick={lbPrev} sx={{ position: "absolute", top: "50%", left: "0px", transform: "translateY(-50%)", zIndex: 2, p: 0 }}>
+              <img src="/assets/icons/right.svg" alt="prev" style={{ width: isMobile ? 50 : undefined }} />
+            </IconButton>
+            <Box sx={{ borderRadius: "12px", overflow: "hidden", boxShadow: "0 0 60px rgba(0,0,0,0.8)" }}>
+              <img src={slides[lightboxIndex]} alt={`slide ${lightboxIndex + 1}`}
+                style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+            </Box>
+            <IconButton onClick={lbNext} sx={{ position: "absolute", top: "50%", right: "0px", transform: "translateY(-50%)", zIndex: 2, p: 0 }}>
+              <img src="/assets/icons/left.svg" alt="next" style={{ width: isMobile ? 50 : undefined }} />
+            </IconButton>
+            <CustomTooltip title="Minimize" placement="top">
+              <Box
+                component="img"
+                src="/assets/icons/minimize.png"
+                alt="minimize"
+                onClick={() => setLightboxOpen(false)}
+                sx={{ position: "absolute", bottom: 10, right: 10, zIndex: 2, cursor: "pointer" }}
+              />
+            </CustomTooltip>
+          </Box>
+          <Box sx={{ display: "flex", gap: 1, mt: 2 }}>
+            {slides.map((_, i) => (
+              <Box key={i} onClick={() => setLightboxIndex(i)} sx={{
+                width: 10, height: 10, borderRadius: "50%", cursor: "pointer",
+                background: i === lightboxIndex ? PRIMARY : "transparent",
+                border: i === lightboxIndex ? `2px solid ${PRIMARY}` : "2px solid #555",
+              }} />
+            ))}
+          </Box>
+        </Box>
+      )}
+    </>
+  );
+
+  const pageBg = {
+    width: "100vw", height: "100vh", overflow: "hidden", position: "relative",
+    backgroundImage: "linear-gradient(rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.12)), url('/assets/images/bg-images/bg.jpg')",
+    backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat",
+    color: "#fff",
+  };
+
+  // Desktop: the Figma frame "Inner_Page_For Claude"
+  if (!isMobile) {
+    return (
+      <Box sx={pageBg}>
+        <InnerStage
+          tabs={mainTabs.map((t) => t.label)}
+          activeTab={mainTab}
+          onSelectTab={(i) => navigate(`/portfolio/${encodeURIComponent(mainTabs[i].label)}`)}
+          projects={projects}
+          activeProject={activeProject}
+          subTab={subTab}
+          onSelectProject={(i) => { setSubTab(i); setSlideIndex(0); }}
+          loading={loading}
+          slides={slides}
+          slideIndex={slideIndex}
+          onSlide={setSlideIndex}
+          onPrev={prev}
+          onNext={next}
+          onAskAI={handleAskAI}
+          onExpand={openLightbox}
+          onBack={() => navigate("/")}
+          orb={orb}
+          requestedInput={requestedAIInput}
+        />
+        <AudioButton />
+        {lightbox}
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{
       width: "100vw", height: "100vh", overflow: "hidden",
@@ -220,13 +312,6 @@ export default function ProjectDetailPage() {
           </Box>
         </CustomTooltip>
 
-        {!isMobile && (
-          <CategoryTabs
-            tabs={mainTabs.map((t) => t.label)}
-            active={mainTab}
-            onSelect={(i) => navigate(`/portfolio/${encodeURIComponent(mainTabs[i].label)}`)}
-          />
-        )}
         {isMobile && <Box sx={{
           display: "flex",
           gap: { xs: "10px", md: "0px" },
@@ -614,55 +699,7 @@ export default function ProjectDetailPage() {
         )}
       </Box>
 
-      {/* LIGHTBOX */}
-      {lightboxOpen && (
-        <Box sx={{
-          position: "fixed", inset: 0, zIndex: 999,
-          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-          px: { xs: 2, md: 0 },
-        }} onClick={(e) => { if (e.target === e.currentTarget) setLightboxOpen(false); }}>
-          <Box sx={{
-            position: "relative",
-            maxWidth: "90vw", maxHeight: "90vh",
-            borderRadius: "10px",
-            border: "1px solid transparent",
-            background: `
-              linear-gradient(50deg, #0A0A0A 0%, #1B1B1B 100%) padding-box,
-              linear-gradient(11deg, #00CD1F 0%, #8C8C8C 6%, #8C8C8C 95%, #00CD1F 100%) border-box
-            `,
-            boxShadow: "0 0 2px rgba(0,255,133,.25), inset 0 0 1px rgba(255,255,255,.05)",
-          }}>
-            <IconButton onClick={lbPrev} sx={{ position: "absolute", top: "50%", left: "0px", transform: "translateY(-50%)", zIndex: 2, p: 0 }}>
-              <img src="/assets/icons/right.svg" alt="prev" style={{ width: isMobile ? 50 : undefined }} />
-            </IconButton>
-            <Box sx={{ borderRadius: "12px", overflow: "hidden", boxShadow: "0 0 60px rgba(0,0,0,0.8)" }}>
-              <img src={slides[lightboxIndex]} alt={`slide ${lightboxIndex + 1}`}
-                style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
-            </Box>
-            <IconButton onClick={lbNext} sx={{ position: "absolute", top: "50%", right: "0px", transform: "translateY(-50%)", zIndex: 2, p: 0 }}>
-              <img src="/assets/icons/left.svg" alt="next" style={{ width: isMobile ? 50 : undefined }} />
-            </IconButton>
-            <CustomTooltip title="Minimize" placement="top">
-              <Box
-                component="img"
-                src="/assets/icons/minimize.png"
-                alt="minimize"
-                onClick={() => setLightboxOpen(false)}
-                sx={{ position: "absolute", bottom: 10, right: 10, zIndex: 2, cursor: "pointer" }}
-              />
-            </CustomTooltip>
-          </Box>
-          <Box sx={{ display: "flex", gap: 1, mt: 2 }}>
-            {slides.map((_, i) => (
-              <Box key={i} onClick={() => setLightboxIndex(i)} sx={{
-                width: 10, height: 10, borderRadius: "50%", cursor: "pointer",
-                background: i === lightboxIndex ? PRIMARY : "transparent",
-                border: i === lightboxIndex ? `2px solid ${PRIMARY}` : "2px solid #555",
-              }} />
-            ))}
-          </Box>
-        </Box>
-      )}
+      {lightbox}
     </Box>
   );
 }
