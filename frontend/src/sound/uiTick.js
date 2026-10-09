@@ -1,5 +1,5 @@
-// Hover sound for the home screen's category cards: the "video game GUI
-// hovering" effect (public/assets/sounds/card-hover.mp3, trimmed to the
+// Hover sound for the home screen's category cards: the "UI hover for
+// interfaces" effect (public/assets/sounds/card-hover-ui.mp3, trimmed to the
 // sound itself so it fires instantly).
 //
 // Played through the Web Audio API: the file is decoded once into memory, so
@@ -8,7 +8,7 @@
 // (a click, tap or key press), so the audio is unlocked on the first such
 // gesture; hovers before that stay silent.
 
-const SRC = "/assets/sounds/card-hover.mp3";
+const SRC = "/assets/sounds/card-hover-ui.mp3";
 const VOLUME = 0.45;     // the file is mastered loud; keep it a subtle UI sound
 const MIN_GAP_MS = 70;   // sweeping across cards quickly never stacks sounds
 
