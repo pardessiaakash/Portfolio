@@ -12,6 +12,7 @@ import CustomTooltip from "./CustomTooltip";
 import { Tab } from "./AboutMe";
 import InnerStage from "./hud/InnerStage";
 import AudioButton from "./AudioButton";
+import FullScreenView from "./hud/FullScreenView";
 import { glassHudRectSx, spinBorderSx } from "./hud/glass";
 
 const PRIMARY = "#00CD1F";
@@ -264,7 +265,16 @@ export default function ProjectDetailPage() {
           requestedInput={requestedAIInput}
         />
         <AudioButton />
-        {lightbox}
+        {/* expand → Figma "Full Scree Mode_For Claude"; closing keeps the slide */}
+        {lightboxOpen && hasSlides && (
+          <FullScreenView
+            slides={slides}
+            index={lightboxIndex}
+            onIndex={setLightboxIndex}
+            onClose={() => { setSlideIndex(lightboxIndex); setLightboxOpen(false); }}
+            title={activeProject?.title}
+          />
+        )}
       </Box>
     );
   }
