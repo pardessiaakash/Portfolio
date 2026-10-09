@@ -53,7 +53,8 @@ export function HandleGrip() {
       backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)",
       transition: "border-color 0.25s ease, box-shadow 0.25s ease",
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "4px",
-      pointerEvents: "none",
+      // part of the handle: hover and drag on the capsule reach the parent
+      cursor: "col-resize",
     }}>
       {[0, 1, 2].map((i) => (
         <Box key={i} className="handle-dot" sx={{
