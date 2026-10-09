@@ -154,7 +154,16 @@ export default function InnerStage({
   const viewerW = W - 81;                         // 1148 at the Figma split
   const d = mainPath(activeTab, W);
   const hasSlides = slides.length > 0;
-  const dotCount = Math.max(1, slides.length);
+  // projects without slides yet keep Figma's full row of 12 dots, and the
+  // arrows / dots move through them like a real carousel
+  const PLACEHOLDER_DOTS = 12;
+  const [phIndex, setPhIndex] = useState(0);
+  useEffect(() => { setPhIndex(0); }, [activeTab, subTab]);
+  const dotCount = hasSlides ? slides.length : PLACEHOLDER_DOTS;
+  const current = hasSlides ? slideIndex : phIndex;
+  const goPrev = () => hasSlides ? onPrev() : setPhIndex((i) => (i + dotCount - 1) % dotCount);
+  const goNext = () => hasSlides ? onNext() : setPhIndex((i) => (i + 1) % dotCount);
+  const goTo = (i) => hasSlides ? onSlide(i) : setPhIndex(i);
 
   const splitRef = useRef(split);
   splitRef.current = split;
@@ -317,15 +326,15 @@ export default function InnerStage({
             )}
           </Box>
 
-          {/* controls stay in place for every project; without slides they do nothing */}
+          {/* controls stay in place for every project */}
           {(
             <>
               {/* prev / next sit across the viewer's edges */}
-              <Box component="button" aria-label="Previous slide" onClick={onPrev}
+              <Box component="button" aria-label="Previous slide" onClick={goPrev}
                 sx={{ ...glassBtn(42.3, "0.5px solid rgba(255,255,255,0.6)"), left: 5.9, top: 440.8, p: 0 }}>
                 <Chevron dir="left" />
               </Box>
-              <Box component="button" aria-label="Next slide" onClick={onNext}
+              <Box component="button" aria-label="Next slide" onClick={goNext}
                 sx={{ ...glassBtn(42.3, "0.5px solid rgba(255,255,255,0.6)"), left: W - 75.1, top: 440.8, p: 0 }}>
                 <Chevron dir="right" />
               </Box>
@@ -356,12 +365,12 @@ export default function InnerStage({
                 display: "flex", gap: "16px",
               }}>
                 {Array.from({ length: dotCount }, (_, i) => (
-                  <Box key={i} component="button" aria-label={`Slide ${i + 1}`} onClick={() => hasSlides && onSlide(i)}
+                  <Box key={i} component="button" aria-label={`Slide ${i + 1}`} onClick={() => goTo(i)}
                     sx={{
                       width: 12, height: 12, p: 0, borderRadius: "10px", cursor: "pointer",
                       boxSizing: "border-box",
-                      border: i === slideIndex ? "none" : "1px solid #616161",
-                      background: i === slideIndex ? PRIMARY : "rgba(97,97,97,0.55)",
+                      border: i === current ? "none" : "1px solid #616161",
+                      background: i === current ? PRIMARY : "rgba(97,97,97,0.55)",
                       boxShadow: "-1px 3px 13px rgba(0,0,0,0.35), inset 0 1px 2px rgba(0,0,0,0.25)",
                       transition: "background 0.25s ease",
                       "&:hover": { borderColor: "#9E9E9E" },
@@ -378,21 +387,31 @@ export default function InnerStage({
           onPointerDown={onHandleDown} onPointerMove={onHandleMove}
           onPointerUp={onHandleUp} onPointerCancel={onHandleUp}
           onDoubleClick={() => glideTo(split < (SPLIT.normal + SPLIT.wide) / 2 ? SPLIT.normal : SPLIT.wide)}
+          className={dragging ? "dragging" : ""}
           sx={{
             position: "absolute",
             left: split - STEP.d + GAP / 2 - 12, top: 520, width: 24, height: 74,
             display: "flex", alignItems: "center", justifyContent: "center",
-            cursor: "ew-resize", touchAction: "none", zIndex: 5,
-            "&:hover .pill, &:active .pill": { borderColor: "#9E9E9E" },
+            cursor: "col-resize", touchAction: "none", zIndex: 5, userSelect: "none",
+            // same pill and hover as the home screen's handle (ResizeHandle)
+            "&:hover .handle-pill, &.dragging .handle-pill": {
+              background: PRIMARY,
+              boxShadow: "0 0 12px rgba(0, 255, 156, 0.8)",
+              borderColor: "rgba(0, 255, 156, 0.5)",
+            },
           }}>
-          <Box className="pill" sx={{
-            width: 9.2, height: 50, boxSizing: "border-box", borderRadius: "20px",
-            background: "#616161", border: "1px solid #616161",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            transition: "border-color 0.2s ease",
+          <Box className="handle-pill" sx={{
+            width: 8, height: 42, boxSizing: "border-box", borderRadius: "4px",
+            background: "rgba(255, 255, 255, 0.15)",
+            border: "1px solid rgba(255, 255, 255, 0.12)",
+            backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)",
+            transition: "all 0.25s ease",
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "4px",
+            "&::before, &::after, & .grip-dot": {
+              content: '""', width: 2, height: 2, borderRadius: "50%", background: "rgba(0, 0, 0, 0.6)",
+            },
           }}>
-            <Box sx={{ width: 5.5, height: 28.4, boxSizing: "border-box", borderRadius: "20px",
-              background: "#353535", border: "1px solid #616161" }} />
+            <div className="grip-dot" />
           </Box>
         </Box>
 
