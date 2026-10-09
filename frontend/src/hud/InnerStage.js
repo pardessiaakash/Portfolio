@@ -15,6 +15,7 @@ import { buildPath, HudOutline } from "./hudShapes";
 import { glassPanelSx } from "./glass";
 import ChatbotPanel from "../ChatbotPanel";
 import CustomTooltip from "../CustomTooltip";
+import { HandleGrip, handleGripHoverSx } from "../ResizeHandle";
 
 const PRIMARY = "#00CD1F";
 const STAGE_W = 1920, STAGE_H = 1087;
@@ -381,9 +382,9 @@ export default function InnerStage({
           )}
         </Box>
 
-        {/* drag handle, centred in the lower channel (Figma: 9 × 50 pill) */}
+        {/* drag handle, centred in the lower channel */}
         <Box
-          role="separator" aria-orientation="vertical" aria-label="Resize chat panel"
+          role="separator" data-cursor="resize" aria-orientation="vertical" aria-label="Resize chat panel"
           onPointerDown={onHandleDown} onPointerMove={onHandleMove}
           onPointerUp={onHandleUp} onPointerCancel={onHandleUp}
           onDoubleClick={() => glideTo(split < (SPLIT.normal + SPLIT.wide) / 2 ? SPLIT.normal : SPLIT.wide)}
@@ -393,26 +394,10 @@ export default function InnerStage({
             left: split - STEP.d + GAP / 2 - 12, top: 460, width: 24, height: 74,
             display: "flex", alignItems: "center", justifyContent: "center",
             cursor: "col-resize", touchAction: "none", zIndex: 5, userSelect: "none",
-            // same pill and hover as the home screen's handle (ResizeHandle)
-            "&:hover .handle-pill, &.dragging .handle-pill": {
-              background: PRIMARY,
-              boxShadow: "0 0 12px rgba(0, 255, 156, 0.8)",
-              borderColor: "rgba(0, 255, 156, 0.5)",
-            },
+            // same handle as the home screen (ResizeHandle)
+            ...handleGripHoverSx,
           }}>
-          <Box className="handle-pill" sx={{
-            width: 8, height: 42, boxSizing: "border-box", borderRadius: "4px",
-            background: "rgba(255, 255, 255, 0.15)",
-            border: "1px solid rgba(255, 255, 255, 0.12)",
-            backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)",
-            transition: "all 0.25s ease",
-            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "4px",
-            "&::before, &::after, & .grip-dot": {
-              content: '""', width: 2, height: 2, borderRadius: "50%", background: "rgba(0, 0, 0, 0.6)",
-            },
-          }}>
-            <div className="grip-dot" />
-          </Box>
+          <HandleGrip />
         </Box>
 
         {/* chat HUD */}

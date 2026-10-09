@@ -309,7 +309,7 @@ function WelcomeScreen({ opacity }) {
           width: 0, mr: `${HUD_SHAPE.gap}px`, flexShrink: 0,
           position: "relative", zIndex: 30,
           "& .handle-line": { display: "none" },
-          "& .handle-pill": { transform: `translate(${HUD_SHAPE.pillShift}px, -50%)` },
+          "& .handle-pill": { transform: `translate(calc(-50% + ${HUD_SHAPE.pillShift}px), -50%)` },
         }}>
           <ResizeHandle onMouseDown={handleMouseDown} isDragging={isDragging} />
         </Box>
