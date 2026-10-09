@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Box, Typography, useMediaQuery } from "@mui/material";
 import { AboutMeContent } from "./AboutMe";
-import AudioButton from "./AudioButton";
 import ChatbotPanel from "./ChatbotPanel";
 import { useResizableChatbot } from "./hooks/useResizableChatbot";
 import ResizeHandle from "./ResizeHandle";
@@ -745,7 +744,6 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
       )}
 
       {/* ON/OFF mute button — bottom right */}
-      <AudioButton />
 
       {/* Scroll gif — bottom left, frame 1–5 (gif only) */}
 

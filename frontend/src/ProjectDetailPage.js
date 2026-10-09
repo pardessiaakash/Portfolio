@@ -11,7 +11,6 @@ import { fetchCategories, fetchProjects } from "./api/chatApi";
 import CustomTooltip from "./CustomTooltip";
 import { Tab } from "./AboutMe";
 import InnerStage from "./hud/InnerStage";
-import AudioButton from "./AudioButton";
 import FullScreenView from "./hud/FullScreenView";
 import { glassHudRectSx, spinBorderSx } from "./hud/glass";
 
@@ -264,7 +263,6 @@ export default function ProjectDetailPage() {
           orb={orb}
           requestedInput={requestedAIInput}
         />
-        <AudioButton />
         {/* expand → Figma "Full Scree Mode_For Claude"; closing keeps the slide */}
         {lightboxOpen && hasSlides && (
           <FullScreenView
