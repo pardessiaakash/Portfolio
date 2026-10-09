@@ -390,7 +390,7 @@ export default function InnerStage({
           className={dragging ? "dragging" : ""}
           sx={{
             position: "absolute",
-            left: split - STEP.d + GAP / 2 - 12, top: 520, width: 24, height: 74,
+            left: split - STEP.d + GAP / 2 - 12, top: 460, width: 24, height: 74,
             display: "flex", alignItems: "center", justifyContent: "center",
             cursor: "col-resize", touchAction: "none", zIndex: 5, userSelect: "none",
             // same pill and hover as the home screen's handle (ResizeHandle)
