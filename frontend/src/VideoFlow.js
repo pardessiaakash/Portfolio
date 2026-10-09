@@ -25,7 +25,7 @@ const UI_FADE_MS = 350;
 // how long the dimming takes to settle.
 // The strength follows the story: light (20%) outside the pod, building up
 // from the moment the door opens, and full once the main UI is up.
-export const ROOM_DIM = {
+const ROOM_DIM = {
   center: 0.45, mid: 0.62, edge: 0.85, fadeMs: 900,
   outside: 0.2,          // strength until the pod door opens
   doorOpenFrame: 90,     // the door starts opening here
@@ -42,10 +42,10 @@ const roomDimLevel = (frame, uiShown) => {
 // (see drawFrame). The welcome UI is laid out on a stage of the same size and
 // scaled the same way, so it lands exactly on the HUD baked into
 // LAST_HUD_FRAME and the hand-off at UI_SHOW_FRAME has no jump.
-export const STAGE_W = 1920;
-export const STAGE_H = 1080;
+const STAGE_W = 1920;
+const STAGE_H = 1080;
 // HUD geometry measured from LAST_HUD_FRAME, in stage pixels.
-export const HUD = {
+const HUD = {
   row: { left: 302, top: 247, width: 1324, height: 508 }, // main + gap + chat
   chatPercent: (371 / 1324) * 100,                          // chat panel 371px
   gap: 30,                                                  // between panels
@@ -61,7 +61,7 @@ export const HUD = {
 // the shapes themselves never touch.
 const HUD_SHAPE_CHANNEL = 11;
 const HUD_SHAPE_STEP = 25.5 * (HUD.row.height / 632);   // main HUD's step
-export const HUD_SHAPE = {
+const HUD_SHAPE = {
   channel: HUD_SHAPE_CHANNEL,
   gap: HUD_SHAPE_CHANNEL - HUD_SHAPE_STEP,               // box gap (negative)
   mainStep: HUD_SHAPE_STEP,
@@ -69,9 +69,7 @@ export const HUD_SHAPE = {
 // centre of the lower channel, relative to the (zero-width) handle box
 HUD_SHAPE.pillShift = (HUD_SHAPE.gap - HUD_SHAPE.mainStep) / 2;
 
-// `children` (optional) replaces the home content, so other pages can use
-// the same HUD shape; `contentSx` overrides the inner padding/scrolling.
-export function MainHudPanel({ isHalfSplit, children, contentSx }) {
+function MainHudPanel({ isHalfSplit }) {
   const [ref, { w, h }] = useElementSize();
   const d = w && h ? mainHudPath(w, h) : null;
   // keep the content where it was: the box grew by the old gap minus the new
@@ -108,10 +106,9 @@ export function MainHudPanel({ isHalfSplit, children, contentSx }) {
           // (split view: same 48px margin on both sides, so the cards reach
           // across the panel instead of leaving a blank band on the right)
           p: isHalfSplit ? `42px 48px 58px 48px` : `60px ${88 + extraRight}px 60px 88px`,
-          ...contentSx,
         }}
       >
-        {children ?? <AboutMeContent onClose={() => { }} mobile={false} inline={true} compact={isHalfSplit} hud={!isHalfSplit} />}
+        <AboutMeContent onClose={() => { }} mobile={false} inline={true} compact={isHalfSplit} hud={!isHalfSplit} />
       </Box>
       <HudOutline d={d} w={w} h={h} />
     </Box>
@@ -121,7 +118,7 @@ export function MainHudPanel({ isHalfSplit, children, contentSx }) {
 const coverScale = () =>
   Math.max(window.innerWidth / STAGE_W, window.innerHeight / STAGE_H);
 
-export function useCoverScale() {
+function useCoverScale() {
   const [scale, setScale] = useState(coverScale);
   useEffect(() => {
     const onResize = () => setScale(coverScale());
@@ -140,7 +137,7 @@ const framePath = (i) => {
 // in the background, a few at a time, so scrolling never waits on the network.
 const BG_CONCURRENCY = 4;
 
-export const socialIcons = [
+const socialIcons = [
   { label: "LinkedIn", icon: "/assets/icons/lindedin.svg",
     hoverIcon:"/assets/icons/withhover/linkedIn.png", link: "https://www.linkedin.com" },
   { label: "Behance", icon: "/assets/icons/behance.svg", hoverIcon:"/assets/icons/withhover/behance.png", link: "https://www.behance.net/pardessiaaec66" },
@@ -165,7 +162,7 @@ export const socialIcons = [
    gradient border appears around it and turns slowly (same as the other
    hover borders). Previously a 76px PNG was swapped in, which shrank the
    icon inside its ring and looked squished. */
-export function SocialIcon({ label, icon, link }) {
+function SocialIcon({ label, icon, link }) {
   const spin = useSpinOnHover();
   return (
     <Box
