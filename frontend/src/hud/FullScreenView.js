@@ -9,6 +9,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Box } from "@mui/material";
 import { spinBorderSx } from "./glass";
+import CustomTooltip from "../CustomTooltip";
 
 const PRIMARY = "#00CD1F";
 const STAGE_W = 1920, STAGE_H = 1087;
@@ -122,9 +123,11 @@ export default function FullScreenView({ slides, index, onIndex, onClose, title 
         </Box>
 
         {/* Contract_Icon: exit full screen */}
-        <Box component="button" ref={closeRef} aria-label="Exit full screen (Esc)" title="Exit full screen (Esc)"
+        <CustomTooltip title="Exit full screen (Esc)" placement="left"
+          wrapperSx={{ position: "absolute", left: CONTRACT.x, top: CONTRACT.y }}>
+        <Box component="button" ref={closeRef} aria-label="Exit full screen (Esc)"
           onClick={onClose}
-          sx={{ ...btnSx(CONTRACT.size, "1px solid #8F8F8F"), left: CONTRACT.x, top: CONTRACT.y,
+          sx={{ ...btnSx(CONTRACT.size, "1px solid #8F8F8F"), position: "relative",
             outline: "none", "&:focus-visible": { borderColor: PRIMARY } }}>
           <svg width="21" height="21" viewBox="0 0 21 21" aria-hidden>
             {/* four arrows pointing in to the centre */}
@@ -132,6 +135,7 @@ export default function FullScreenView({ slides, index, onIndex, onClose, title 
               fill="none" stroke="#fff" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </Box>
+        </CustomTooltip>
 
         {/* dots */}
         <Box sx={{

@@ -269,7 +269,7 @@ export default function InnerStage({
             position: "absolute", left: 26.9, top: 72,
             display: "flex", alignItems: "center", gap: "21px",
           }}>
-            <CustomTooltip title="Back to Home" placement="top">
+            <CustomTooltip title="Back to Home" placement="bottom">
               <Box component="button" aria-label="Back to home" onClick={onBack}
                 sx={{ ...glassBtn(42), position: "relative", p: 0 }}>
                 <svg width="16" height="13" viewBox="0 0 16 13" aria-hidden>
@@ -341,18 +341,20 @@ export default function InnerStage({
               </Box>
 
               {/* ask AI + expand, bottom-right inside the viewer */}
-              <CustomTooltip title="Ask To AI" placement="left">
+              <CustomTooltip title="Ask To AI" placement="left"
+                wrapperSx={{ position: "absolute", left: W - 116.1, top: 669 }}>
                 <Box component="button" aria-label="Ask AI about this slide" onClick={() => hasSlides && onAskAI(slideIndex)}
-                  sx={{ position: "absolute", left: W - 116.1, top: 669, width: 44, height: 44, p: 0,
+                  sx={{ position: "relative", width: 44, height: 44, p: 0,
                     border: 0, background: "none", cursor: "pointer", transition: "filter 0.25s ease",
                     "&:hover": { filter: "brightness(1.25)" } }}>
                   {/* the existing 44px Ask-AI button art (glass box with green sparkles) */}
                   <Box component="img" src="/assets/icons/AI.png" alt="" sx={{ width: 44, height: 44, display: "block" }} />
                 </Box>
               </CustomTooltip>
-              <CustomTooltip title="Maximize" placement="left">
+              <CustomTooltip title="Full screen" placement="left"
+                wrapperSx={{ position: "absolute", left: W - 116.1, top: 731 }}>
                 <Box component="button" aria-label="Show full screen" onClick={() => hasSlides && onExpand()}
-                  sx={{ ...glassBtn(44), left: W - 116.1, top: 731, p: 0, background: "rgba(10,14,12,0.55)" }}>
+                  sx={{ ...glassBtn(44), position: "relative", p: 0, background: "rgba(10,14,12,0.55)" }}>
                   <svg width="21" height="21" viewBox="0 0 21 21" aria-hidden>
                     <path d="M1 7V1h6M14 1h6v6M20 14v6h-6M7 20H1v-6M1 1l6.5 6.5M20 1l-6.5 6.5M20 20l-6.5-6.5M1 20l6.5-6.5"
                       fill="none" stroke="#fff" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
