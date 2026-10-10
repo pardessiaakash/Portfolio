@@ -7,6 +7,7 @@ import { useSpeech } from "./hooks/useSpeech";
 import { transcribeAudio } from "./api/chatApi";
 import { chatHudPath, hudChannel, useElementSize, HudOutline } from "./hud/hudShapes";
 import { glassSx, glassPanelSx, spinBorderSx, useSpinOnHover } from "./hud/glass";
+import CustomTooltip from "./CustomTooltip";
 
 const PRIMARY = "#00CD1F";
 const CHIP_BG = "#8F8F8F";
@@ -104,6 +105,12 @@ export default function ChatbotPanel({
   // Width of the gap to the main HUD; the left edge then runs parallel to
   // the main HUD's right edge (equal gap along the diagonal too).
   hudChannelGap = null,
+  // Exact left-edge geometry ({ inset, stepY, step, rUpper, rLower }) for a
+  // page whose HUD layout differs from the home screen (the category page).
+  hudChannelShape = null,
+  // Taller input box with the mic / send buttons nearer its right edge
+  // (category page); the home screen keeps the default.
+  tallInput = false,
   // Fade messages out toward the top of the chat (home screen).
   fadeTop = false,
 }) {
@@ -119,7 +126,7 @@ export default function ChatbotPanel({
     ? chatHudPath(shapeSize.w, shapeSize.h, {
         // orb centre and radius in this panel's coordinates
         cx: shapeSize.w - orbCenter, cy: orbCenter, r: orbSize / 2,
-      }, undefined, hudChannelGap != null ? hudChannel(shapeSize.h, hudChannelGap) : null)
+      }, undefined, hudChannelShape || (hudChannelGap != null ? hudChannel(shapeSize.h, hudChannelGap) : null))
     : null;
   const { messages, isLoading, sendMessage, messagesEndRef } = useChatContext();
   const [inputValue, setInputValue] = useState("");
@@ -152,7 +159,7 @@ export default function ChatbotPanel({
       {/* Orb — top-right, overflows the frame (Desktop only). No hover
           tooltip: the timed guide popup already points here. */}
       {!isMobile && (
-          <Box sx={{
+          <Box aria-hidden sx={{
             position: "absolute",
             top: orbOffset, right: orbOffset,
             width: orbSize, height: orbSize,
@@ -215,8 +222,11 @@ export default function ChatbotPanel({
         }),
       }}>
         {useShape && <HudOutline d={shapePath} w={shapeSize.w} h={shapeSize.h} border={1} />}
-        {/* Messages area */}
+        {/* Messages area (announced to screen readers as Nova replies) */}
         <Box
+          role="log"
+          aria-live="polite"
+          aria-label="Conversation with Nova"
           onWheel={(e) => e.stopPropagation()}
           sx={{
             flex: 1, overflowY: "auto",
@@ -294,13 +304,14 @@ export default function ChatbotPanel({
         <Box sx={{ px: hud ? "14px" : "15px", pb: hud ? "15px" : "20px", pt: "10px" }}>
           <Box sx={{
             display: "flex", alignItems: "flex-end", gap: "9px",
-            minHeight: hud ? "48px" : "54px",
+            minHeight: tallInput ? "60px" : hud ? "48px" : "54px",
             boxSizing: "border-box",
             background: "rgba(61, 76, 75, 0.92)",
             border: "1px solid rgba(255,255,255,0.16)",
             borderRadius: "7px",
             boxShadow: "0 10px 24px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.04)",
             px: "12px",
+            ...(tallInput ? { pl: "16px", pr: "7px" } : {}),
             py: hud ? "5.5px" : "8px",
             ...(hud ? { alignItems: "center" } : {}),
             // HUD glass, matching the panels: blurred backdrop, lit top edge,
@@ -316,6 +327,7 @@ export default function ChatbotPanel({
             <InputBase
               multiline
               maxRows={6}
+              inputProps={{ "aria-label": "Ask Nova anything" }}
               placeholder={isListening ? "Listening..." + (interimText ? ` ${interimText}` : "") : "Ask anything"}
               fullWidth value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
@@ -338,15 +350,19 @@ export default function ChatbotPanel({
             />
             {useShape ? (
               <>
+                <CustomTooltip title={isListening ? "Stop listening" : "Voice input"} placement="top">
                 <GlassIconButton onClick={toggleListening} active={isListening}
                   aria-label={isListening ? "Stop listening" : "Start voice input"}>
                   <MicIcon sx={{ fontSize: 20 }} />
                 </GlassIconButton>
+                </CustomTooltip>
+                <CustomTooltip title="Send" placement="top">
                 <GlassIconButton onClick={handleSend} disabled={isLoading || isProcessing} aria-label="Send message">
                   {isLoading || isProcessing
                     ? <CircularProgress size={15} sx={{ color: "#fff" }} />
                     : <ArrowUpwardIcon sx={{ fontSize: 21 }} />}
                 </GlassIconButton>
+                </CustomTooltip>
               </>
             ) : (<>
             <IconButton onClick={toggleListening} size="small"

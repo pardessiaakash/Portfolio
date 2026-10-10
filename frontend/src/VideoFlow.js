@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Box, Typography, useMediaQuery } from "@mui/material";
 import { AboutMeContent } from "./AboutMe";
-import AudioButton from "./AudioButton";
 import ChatbotPanel from "./ChatbotPanel";
 import { useResizableChatbot } from "./hooks/useResizableChatbot";
 import ResizeHandle from "./ResizeHandle";
+import CustomTooltip from "./CustomTooltip";
 import MobileWelcomeScreen from "./MobileWelcomeScreen";
 import AnimatedTooltip from "./AnimatedTooltip";
 import { mainHudPath, useElementSize, HudOutline } from "./hud/hudShapes";
@@ -143,13 +143,13 @@ const socialIcons = [
   { label: "Behance", icon: "/assets/icons/behance.svg", hoverIcon:"/assets/icons/withhover/behance.png", link: "https://www.behance.net/pardessiaaec66" },
   { label: "Dribbble", icon: "/assets/icons/dribble.svg", hoverIcon:"/assets/icons/withhover/dribble.png", link: "https://dribbble.com/pardessiaakash" },
   {
-    label: "Mobile",
+    label: "Call Akash",
     icon: "/assets/icons/mobile.svg",
     hoverIcon:"/assets/icons/withhover/mobile.png",
     link: "tel:+919011566393",
   },
   {
-    label: "Mail",
+    label: "Email Akash",
     icon: "/assets/icons/email.svg",
     hoverIcon:"/assets/icons/withhover/mail.png",
     link: "mailto:pardessiaakash@gmail.com",
@@ -183,6 +183,8 @@ function SocialIcon({ label, icon, link }) {
         borderRadius: "50%",
         textDecoration: "none",
         outline: "none",
+        // keyboard focus ring (mouse / touch never show it)
+        "&:focus-visible": { outline: "2px solid #00CD1F", outlineOffset: "2px" },
 
         "& img": {
           width: 40,
@@ -294,7 +296,9 @@ function WelcomeScreen({ opacity }) {
           position: "absolute",
         }}>
           {socialIcons.map(({ label, icon, link }) => (
-            <SocialIcon key={label} label={label} icon={icon} link={link} />
+            <CustomTooltip key={label} title={label} placement="right">
+              <SocialIcon label={label} icon={icon} link={link} />
+            </CustomTooltip>
           ))}
         </Box>
 
@@ -310,7 +314,7 @@ function WelcomeScreen({ opacity }) {
           width: 0, mr: `${HUD_SHAPE.gap}px`, flexShrink: 0,
           position: "relative", zIndex: 30,
           "& .handle-line": { display: "none" },
-          "& .handle-pill": { transform: `translate(${HUD_SHAPE.pillShift}px, -50%)` },
+          "& .handle-pill": { transform: `translate(calc(-50% + ${HUD_SHAPE.pillShift}px), -50%)` },
         }}>
           <ResizeHandle onMouseDown={handleMouseDown} isDragging={isDragging} />
         </Box>
@@ -331,6 +335,7 @@ function WelcomeScreen({ opacity }) {
             hudShape
             hudChannelGap={HUD_SHAPE.channel}
             fadeTop
+            tallInput
           />
 
           {/* Hint: points up-right at the assistant avatar in the top-right corner.
@@ -666,6 +671,8 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
       <Box sx={{ position: "fixed", inset: 0, zIndex: 9999, background: "#000" }}>
         <canvas
           ref={canvasRef}
+          role="img"
+          aria-label="Intro animation: flying through a rainy futuristic city into Akash's design lab"
           style={{ display: "block", position: "absolute", inset: 0, width: "100vw", height: "100vh" }}
         />
 
@@ -744,7 +751,6 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
       )}
 
       {/* ON/OFF mute button — bottom right */}
-      <AudioButton />
 
       {/* Scroll gif — bottom left, frame 1–5 (gif only) */}
 

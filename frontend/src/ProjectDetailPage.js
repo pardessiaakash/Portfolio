@@ -10,6 +10,10 @@ import ResizeHandle from "./ResizeHandle";
 import { fetchCategories, fetchProjects } from "./api/chatApi";
 import CustomTooltip from "./CustomTooltip";
 import { Tab } from "./AboutMe";
+import InnerStage from "./hud/InnerStage";
+import FullScreenView from "./hud/FullScreenView";
+import { glassHudRectSx, spinBorderSx } from "./hud/glass";
+import { pressable } from "./a11y";
 
 const PRIMARY = "#00CD1F";
 
@@ -17,8 +21,18 @@ const PORTFOLIO_TABS = [
   { label: "UI/UX", aliases: ["UI/UX"] },
   { label: "Social Media", aliases: ["Social Media"] },
   { label: "Videos", aliases: ["Videos", "Video"] },
-  { label: "XR", aliases: ["XR"] },
+  { label: "Print Media", aliases: ["Print Media", "Print", "XR"] },
 ];
+
+// Shown while the projects API is unavailable or a category has no projects
+// yet, so the category and project tabs can still be browsed. Projects with
+// no slides show a "coming soon" panel.
+const SWIFT_SLIDES = Array.from({ length: 9 }, (_, i) => `/assets/images/projects/swift/${i + 1}.jpg`);
+const placeholderProjects = (label) =>
+  [1, 2, 3, 4].map((n) => ({
+    title: `Project -${n}`,
+    slides: label === "UI/UX" && n === 1 ? SWIFT_SLIDES : [],
+  }));
 
 const orbVideos = [
   "/assets/orb/Idle State.mp4",
@@ -105,14 +119,16 @@ export default function ProjectDetailPage() {
       setLoading(true);
       fetchProjects(mainTabs[mainTab].category)
         .then(data => {
-          setProjects(data);
+          setProjects(Array.isArray(data) && data.length > 0 ? data : placeholderProjects(mainTabs[mainTab].label));
           setSubTab(0);
           setSlideIndex(0);
           setLoading(false);
         })
         .catch((err) => {
           console.error(err);
-          setProjects([]);
+          setProjects(placeholderProjects(mainTabs[mainTab].label));
+          setSubTab(0);
+          setSlideIndex(0);
           setLoading(false);
         });
     }
@@ -121,7 +137,8 @@ export default function ProjectDetailPage() {
   const activeProject = projects[subTab] || null;
   const slides = activeProject && activeProject.slides && activeProject.slides.length > 0
     ? activeProject.slides
-    : ["/assets/images/projects/swift/1.jpg"]; // fallback
+    : [];
+  const hasSlides = slides.length > 0;
 
   const { setMode, setProjectId } = useChatContext();
 
@@ -142,8 +159,8 @@ export default function ProjectDetailPage() {
 
   const orb = orbVideos[mainTab % orbVideos.length];
 
-  const next = () => setSlideIndex((p) => (p + 1) % slides.length);
-  const prev = () => setSlideIndex((p) => (p === 0 ? slides.length - 1 : p - 1));
+  const next = () => hasSlides && setSlideIndex((p) => (p + 1) % slides.length);
+  const prev = () => hasSlides && setSlideIndex((p) => (p === 0 ? slides.length - 1 : p - 1));
   const lbNext = () => setLightboxIndex((p) => (p + 1) % slides.length);
   const lbPrev = () => setLightboxIndex((p) => (p === 0 ? slides.length - 1 : p - 1));
   const openLightbox = () => { setLightboxIndex(slideIndex); setLightboxOpen(true); };
@@ -161,6 +178,105 @@ export default function ProjectDetailPage() {
       }
     }
   };
+
+  const lightbox = (
+    <>
+      {/* LIGHTBOX */}
+      {lightboxOpen && (
+        <Box sx={{
+          position: "fixed", inset: 0, zIndex: 999,
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          px: { xs: 2, md: 0 },
+        }} onClick={(e) => { if (e.target === e.currentTarget) setLightboxOpen(false); }}>
+          <Box sx={{
+            position: "relative",
+            maxWidth: "90vw", maxHeight: "90vh",
+            borderRadius: "10px",
+            border: "1px solid transparent",
+            background: `
+              linear-gradient(50deg, #0A0A0A 0%, #1B1B1B 100%) padding-box,
+              linear-gradient(11deg, #00CD1F 0%, #8C8C8C 6%, #8C8C8C 95%, #00CD1F 100%) border-box
+            `,
+            boxShadow: "0 0 2px rgba(0,255,133,.25), inset 0 0 1px rgba(255,255,255,.05)",
+          }}>
+            <IconButton onClick={lbPrev} sx={{ position: "absolute", top: "50%", left: "0px", transform: "translateY(-50%)", zIndex: 2, p: 0 }}>
+              <img src="/assets/icons/right.svg" alt="prev" style={{ width: isMobile ? 50 : undefined }} />
+            </IconButton>
+            <Box sx={{ borderRadius: "12px", overflow: "hidden", boxShadow: "0 0 60px rgba(0,0,0,0.8)" }}>
+              <img src={slides[lightboxIndex]} alt={`slide ${lightboxIndex + 1}`}
+                style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+            </Box>
+            <IconButton onClick={lbNext} sx={{ position: "absolute", top: "50%", right: "0px", transform: "translateY(-50%)", zIndex: 2, p: 0 }}>
+              <img src="/assets/icons/left.svg" alt="next" style={{ width: isMobile ? 50 : undefined }} />
+            </IconButton>
+            <CustomTooltip title="Minimize" placement="top">
+              <Box
+                component="img"
+                src="/assets/icons/minimize.png"
+                alt="minimize"
+                onClick={() => setLightboxOpen(false)}
+                sx={{ position: "absolute", bottom: 10, right: 10, zIndex: 2, cursor: "pointer" }}
+              />
+            </CustomTooltip>
+          </Box>
+          <Box sx={{ display: "flex", gap: 1, mt: 2 }}>
+            {slides.map((_, i) => (
+              <Box key={i} onClick={() => setLightboxIndex(i)} sx={{
+                width: 10, height: 10, borderRadius: "50%", cursor: "pointer",
+                background: i === lightboxIndex ? PRIMARY : "transparent",
+                border: i === lightboxIndex ? `2px solid ${PRIMARY}` : "2px solid #555",
+              }} />
+            ))}
+          </Box>
+        </Box>
+      )}
+    </>
+  );
+
+  const pageBg = {
+    width: "100vw", height: "100vh", overflow: "hidden", position: "relative",
+    backgroundImage: "linear-gradient(rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.12)), url('/assets/images/bg-images/bg.jpg')",
+    backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat",
+    color: "#fff",
+  };
+
+  // Desktop: the Figma frame "Inner_Page_For Claude"
+  if (!isMobile) {
+    return (
+      <Box sx={pageBg}>
+        <InnerStage
+          tabs={mainTabs.map((t) => t.label)}
+          activeTab={mainTab}
+          onSelectTab={(i) => navigate(`/portfolio/${encodeURIComponent(mainTabs[i].label)}`)}
+          projects={projects}
+          activeProject={activeProject}
+          subTab={subTab}
+          onSelectProject={(i) => { setSubTab(i); setSlideIndex(0); }}
+          loading={loading}
+          slides={slides}
+          slideIndex={slideIndex}
+          onSlide={setSlideIndex}
+          onPrev={prev}
+          onNext={next}
+          onAskAI={handleAskAI}
+          onExpand={openLightbox}
+          onBack={() => navigate("/")}
+          orb={orb}
+          requestedInput={requestedAIInput}
+        />
+        {/* expand → Figma "Full Scree Mode_For Claude"; closing keeps the slide */}
+        {lightboxOpen && hasSlides && (
+          <FullScreenView
+            slides={slides}
+            index={lightboxIndex}
+            onIndex={setLightboxIndex}
+            onClose={() => { setSlideIndex(lightboxIndex); setLightboxOpen(false); }}
+            title={activeProject?.title}
+          />
+        )}
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{
@@ -205,7 +321,7 @@ export default function ProjectDetailPage() {
           </Box>
         </CustomTooltip>
 
-        <Box sx={{
+        {isMobile && <Box sx={{
           display: "flex",
           gap: { xs: "10px", md: "0px" },
           overflowX: { xs: "auto", md: "visible" },
@@ -324,7 +440,7 @@ export default function ProjectDetailPage() {
               </Box>
             );
           })}
-        </Box>
+        </Box>}
       </Box>
 
       {/* CONTENT ROW */}
@@ -342,17 +458,12 @@ export default function ProjectDetailPage() {
           flex: 1,
           minWidth: 0,
           display: "flex", flexDirection: "column",
-          backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)",
-          border: "0.5px solid transparent",
-          background: `
-            linear-gradient(50deg, #0A0A0A 0%, #1B1B1B 100%) padding-box,
-            linear-gradient(11deg, #00CD1F 0%, #8C8C8C 6%, #8C8C8C 95%, #00CD1F 100%) border-box
-          `,
+          // same dark liquid glass and grey→green edge as the home HUDs
+          ...glassHudRectSx,
+          ...spinBorderSx(1),
           borderRadius: "20px",
           overflow: "hidden",
           minHeight: 0,
-          opacity: 0.95
         }}>
 
           {/* SUB TABS */}
@@ -385,32 +496,41 @@ export default function ProjectDetailPage() {
                 );
               }
 
-              // Desktop: keep original style
+              // Desktop: the home page's Work / About Me tab, as in the Figma template
               return (
-                <Box key={i} sx={{ position: "relative", flexShrink: 0 }}>
-                  <Box onClick={() => { setSubTab(i); setSlideIndex(0); }} sx={{
-                    borderRadius: "8px", cursor: "pointer",
-                    padding: "10px 30px",
-                    fontSize: "13px", fontWeight: 500,
-                    flexShrink: 0,
-                    whiteSpace: "nowrap",
-                    color: isActive ? PRIMARY : "rgba(255,255,255,0.4)",
-                    border: isActive ? "1px solid transparent" : "1px solid rgba(255,255,255,0.08)",
-                    background: isActive
-                      ? `linear-gradient(50deg, #0A0A0A 0%, #1B1B1B 100%) padding-box,
-                         linear-gradient(11deg, #00CD1F 0%, #8C8C8C 16%, #8C8C8C 85%, #00CD1F 100%) border-box`
-                      : "rgba(255,255,255,0.02)",
-                    transition: "all 0.2s",
-                  }}>{proj.title}</Box>
-                </Box>
+                <Tab
+                  key={i}
+                  active={isActive ? 1 : 0}
+                  w={132}
+                  h={36}
+                  fontSize={13}
+                  onClick={() => { setSubTab(i); setSlideIndex(0); }}
+                >
+                  {proj.title}
+                </Tab>
               );
             })}
           </Box>
 
           {/* SLIDER */}
           <Box sx={{ position: "relative", flex: 1, display: "flex", alignItems: "center", px: { xs: 0.5, md: 1 }, minHeight: 0 }}>
+            {/* Project without slides yet */}
+            {!loading && activeProject && !hasSlides && (
+              <Box sx={{
+                flex: 1, height: "100%", minHeight: 200, m: { xs: 1, md: 2 },
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1,
+                borderRadius: "12px",
+                border: "1px dashed rgba(255,255,255,0.14)",
+                background: "rgba(255,255,255,0.02)",
+                textAlign: "center",
+              }}>
+                <Box sx={{ fontSize: { xs: "16px", md: "20px" }, color: "#fff" }}>{activeProject.title}</Box>
+                <Box sx={{ fontSize: "13px", color: "rgba(255,255,255,0.55)" }}>Case study coming soon</Box>
+              </Box>
+            )}
+
             {/* Desktop: Show slider with navigation */}
-            {!isMobile && (
+            {!isMobile && hasSlides && (
               <>
                 <IconButton onClick={prev} sx={{ position: "absolute", left: 8, zIndex: 2, p: 0 }}>
                   <img src="/assets/icons/right.svg" alt="prev" />
@@ -445,7 +565,7 @@ export default function ProjectDetailPage() {
             )}
 
             {/* Mobile: Show all images stacked vertically */}
-            {isMobile && (
+            {isMobile && hasSlides && (
               <Box sx={{
                 width: "100%",
                 height: "100%",
@@ -480,7 +600,7 @@ export default function ProjectDetailPage() {
           </Box>
 
           {/* DOTS - Desktop only */}
-          {!isMobile && (
+          {!isMobile && hasSlides && (
             <Box sx={{ display: "flex", gap: 1, py: 4, justifyContent: "center", flexShrink: 0 }}>
               {slides.map((_, i) => (
                 <Box key={i} onClick={() => setSlideIndex(i)} sx={{
@@ -503,6 +623,8 @@ export default function ProjectDetailPage() {
               chips={["View Case Study", "About Akash"]}
               wrapperSx={{ width: `${widthPercent}%`, flexShrink: 0, minWidth: 0, height: "100%" }}
               requestedInput={requestedAIInput}
+              hud
+              fadeTop
             />
           </>
         )}
@@ -538,6 +660,8 @@ export default function ProjectDetailPage() {
             </Box>
             <Box
               onClick={() => setMobileChatOpen((p) => !p)}
+        {...pressable(() => setMobileChatOpen((p) => !p), mobileChatOpen ? "Close chat" : "Open chat with Nova")}
+        aria-expanded={mobileChatOpen}
               sx={{
                 position: "fixed", right: 0, bottom: "150px",
                 width: 34, height: 96,
@@ -572,6 +696,7 @@ export default function ProjectDetailPage() {
                 </Box>
                 <Box
                   onClick={(e) => { e.stopPropagation(); setChatTooltipDismissed(true); }}
+            {...pressable((e) => { e.stopPropagation(); setChatTooltipDismissed(true); }, "Dismiss")}
                   sx={{
                     width: 18, height: 18, borderRadius: "50%",
                     background: "rgba(255,255,255,0.12)",
@@ -586,55 +711,7 @@ export default function ProjectDetailPage() {
         )}
       </Box>
 
-      {/* LIGHTBOX */}
-      {lightboxOpen && (
-        <Box sx={{
-          position: "fixed", inset: 0, zIndex: 999,
-          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-          px: { xs: 2, md: 0 },
-        }} onClick={(e) => { if (e.target === e.currentTarget) setLightboxOpen(false); }}>
-          <Box sx={{
-            position: "relative",
-            maxWidth: "90vw", maxHeight: "90vh",
-            borderRadius: "10px",
-            border: "1px solid transparent",
-            background: `
-              linear-gradient(50deg, #0A0A0A 0%, #1B1B1B 100%) padding-box,
-              linear-gradient(11deg, #00CD1F 0%, #8C8C8C 6%, #8C8C8C 95%, #00CD1F 100%) border-box
-            `,
-            boxShadow: "0 0 2px rgba(0,255,133,.25), inset 0 0 1px rgba(255,255,255,.05)",
-          }}>
-            <IconButton onClick={lbPrev} sx={{ position: "absolute", top: "50%", left: "0px", transform: "translateY(-50%)", zIndex: 2, p: 0 }}>
-              <img src="/assets/icons/right.svg" alt="prev" style={{ width: isMobile ? 50 : undefined }} />
-            </IconButton>
-            <Box sx={{ borderRadius: "12px", overflow: "hidden", boxShadow: "0 0 60px rgba(0,0,0,0.8)" }}>
-              <img src={slides[lightboxIndex]} alt={`slide ${lightboxIndex + 1}`}
-                style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
-            </Box>
-            <IconButton onClick={lbNext} sx={{ position: "absolute", top: "50%", right: "0px", transform: "translateY(-50%)", zIndex: 2, p: 0 }}>
-              <img src="/assets/icons/left.svg" alt="next" style={{ width: isMobile ? 50 : undefined }} />
-            </IconButton>
-            <CustomTooltip title="Minimize" placement="top">
-              <Box
-                component="img"
-                src="/assets/icons/minimize.png"
-                alt="minimize"
-                onClick={() => setLightboxOpen(false)}
-                sx={{ position: "absolute", bottom: 10, right: 10, zIndex: 2, cursor: "pointer" }}
-              />
-            </CustomTooltip>
-          </Box>
-          <Box sx={{ display: "flex", gap: 1, mt: 2 }}>
-            {slides.map((_, i) => (
-              <Box key={i} onClick={() => setLightboxIndex(i)} sx={{
-                width: 10, height: 10, borderRadius: "50%", cursor: "pointer",
-                background: i === lightboxIndex ? PRIMARY : "transparent",
-                border: i === lightboxIndex ? `2px solid ${PRIMARY}` : "2px solid #555",
-              }} />
-            ))}
-          </Box>
-        </Box>
-      )}
+      {lightbox}
     </Box>
   );
 }

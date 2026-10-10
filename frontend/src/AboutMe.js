@@ -7,6 +7,7 @@ import { PRIMARY, primaryAlpha } from "./theme";
 import CustomTooltip from "./CustomTooltip";
 import { fetchCategories } from "./api/chatApi";
 import DownloadResume from "./DownloadResume";
+import { pressable } from "./a11y";
 import { glassShapeSx, STROKE_STOPS, STROKE_ANGLE, useSpinOnHover, normalizePath } from "./hud/glass";
 import { playHoverTick } from "./sound/uiTick";
 
@@ -76,6 +77,8 @@ export const Tab = React.forwardRef(({ active, onClick, children, w = 156, h = 3
       ref={ref}
       onClick={onClick}
       {...spin.hoverProps}
+      {...pressable(onClick, undefined, "tab")}
+      aria-selected={!!active}
       sx={{
         position: "relative",
         width: `${vw}px`,
@@ -223,6 +226,7 @@ export function CategoryCard({ cat, onClick, compact, hud = false, glass = false
   return (
     <Box
       onClick={onClick}
+      {...pressable(onClick, `${cat.label} projects`, "link")}
       onMouseEnter={() => {
         setHovered(true);
         if (glass) spin.hoverProps.onMouseEnter();
@@ -503,7 +507,7 @@ function AboutMeContent({ onClose, mobile, inline, compact = false, hud = false 
           </Typography>
         </Box>
 
-        <Box sx={{ display: "flex", alignItems: "center", gap: hud ? "13px" : 1, mt: "4px" }}>
+        <Box role="tablist" aria-label="Sections" sx={{ display: "flex", alignItems: "center", gap: hud ? "13px" : 1, mt: "4px" }}>
           <CustomTooltip title="View My Work" placement="top">
              <Tab active={activeTab === "work" ? 1 : 0} onClick={() => setActiveTab("work")} {...tabSize}>
             Work
