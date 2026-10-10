@@ -48,7 +48,6 @@
 :focus-visible {
   outline: 2px solid #00CD1F;
   outline-offset: 3px;
-  border-radius: 6px;
 }
 svg g:focus-visible { outline: none; }
 svg g:focus-visible path { stroke: #00CD1F; stroke-width: 2; }
