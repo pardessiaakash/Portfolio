@@ -69,7 +69,12 @@ function DownloadResume({ sx, glass = false }) {
             sx={{ width: 20, height: 20 }}
           />
         }
-        sx={{ ...(glass ? glassButtonStyles : buttonStyles), ...sx }}
+        sx={{
+          ...(glass ? glassButtonStyles : buttonStyles),
+          // keyboard focus ring (MUI turns the outline off; mouse never shows it)
+          "&.Mui-focusVisible": { outline: "2px solid #00CD1F", outlineOffset: "3px" },
+          ...sx,
+        }}
       >
         Download Resume
       </Button>
