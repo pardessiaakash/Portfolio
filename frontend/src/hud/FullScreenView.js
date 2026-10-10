@@ -113,14 +113,20 @@ export default function FullScreenView({ slides, index, onIndex, onClose, title 
         </Box>
 
         {/* prev / next, outside the box edges */}
+        <CustomTooltip title="Previous" placement="top"
+          wrapperSx={{ position: "absolute", left: ARROW.prevX, top: ARROW.y }}>
         <Box component="button" aria-label="Previous slide" onClick={prev}
-          sx={{ ...btnSx(ARROW.size, "1px solid rgba(255,255,255,0.6)"), left: ARROW.prevX, top: ARROW.y }}>
+          sx={{ ...btnSx(ARROW.size, "1px solid rgba(255,255,255,0.6)"), position: "relative" }}>
           <Chevron dir="left" />
         </Box>
+        </CustomTooltip>
+        <CustomTooltip title="Next" placement="top"
+          wrapperSx={{ position: "absolute", left: ARROW.nextX, top: ARROW.y }}>
         <Box component="button" aria-label="Next slide" onClick={next}
-          sx={{ ...btnSx(ARROW.size, "1px solid rgba(255,255,255,0.6)"), left: ARROW.nextX, top: ARROW.y }}>
+          sx={{ ...btnSx(ARROW.size, "1px solid rgba(255,255,255,0.6)"), position: "relative" }}>
           <Chevron dir="right" />
         </Box>
+        </CustomTooltip>
 
         {/* Contract_Icon: exit full screen */}
         <CustomTooltip title="Exit full screen (Esc)" placement="left"

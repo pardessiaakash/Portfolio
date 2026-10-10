@@ -7,6 +7,7 @@ import { useSpeech } from "./hooks/useSpeech";
 import { transcribeAudio } from "./api/chatApi";
 import { chatHudPath, hudChannel, useElementSize, HudOutline } from "./hud/hudShapes";
 import { glassSx, glassPanelSx, spinBorderSx, useSpinOnHover } from "./hud/glass";
+import CustomTooltip from "./CustomTooltip";
 
 const PRIMARY = "#00CD1F";
 const CHIP_BG = "#8F8F8F";
@@ -158,7 +159,7 @@ export default function ChatbotPanel({
       {/* Orb — top-right, overflows the frame (Desktop only). No hover
           tooltip: the timed guide popup already points here. */}
       {!isMobile && (
-          <Box sx={{
+          <Box aria-hidden sx={{
             position: "absolute",
             top: orbOffset, right: orbOffset,
             width: orbSize, height: orbSize,
@@ -221,8 +222,11 @@ export default function ChatbotPanel({
         }),
       }}>
         {useShape && <HudOutline d={shapePath} w={shapeSize.w} h={shapeSize.h} border={1} />}
-        {/* Messages area */}
+        {/* Messages area (announced to screen readers as Nova replies) */}
         <Box
+          role="log"
+          aria-live="polite"
+          aria-label="Conversation with Nova"
           onWheel={(e) => e.stopPropagation()}
           sx={{
             flex: 1, overflowY: "auto",
@@ -323,6 +327,7 @@ export default function ChatbotPanel({
             <InputBase
               multiline
               maxRows={6}
+              inputProps={{ "aria-label": "Ask Nova anything" }}
               placeholder={isListening ? "Listening..." + (interimText ? ` ${interimText}` : "") : "Ask anything"}
               fullWidth value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
@@ -345,15 +350,19 @@ export default function ChatbotPanel({
             />
             {useShape ? (
               <>
+                <CustomTooltip title={isListening ? "Stop listening" : "Voice input"} placement="top">
                 <GlassIconButton onClick={toggleListening} active={isListening}
                   aria-label={isListening ? "Stop listening" : "Start voice input"}>
                   <MicIcon sx={{ fontSize: 20 }} />
                 </GlassIconButton>
+                </CustomTooltip>
+                <CustomTooltip title="Send" placement="top">
                 <GlassIconButton onClick={handleSend} disabled={isLoading || isProcessing} aria-label="Send message">
                   {isLoading || isProcessing
                     ? <CircularProgress size={15} sx={{ color: "#fff" }} />
                     : <ArrowUpwardIcon sx={{ fontSize: 21 }} />}
                 </GlassIconButton>
+                </CustomTooltip>
               </>
             ) : (<>
             <IconButton onClick={toggleListening} size="small"

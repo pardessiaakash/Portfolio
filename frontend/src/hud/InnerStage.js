@@ -331,14 +331,20 @@ export default function InnerStage({
           {(
             <>
               {/* prev / next sit across the viewer's edges */}
+              <CustomTooltip title="Previous" placement="top"
+                wrapperSx={{ position: "absolute", left: 5.9, top: 440.8 }}>
               <Box component="button" aria-label="Previous slide" onClick={goPrev}
-                sx={{ ...glassBtn(42.3, "0.5px solid rgba(255,255,255,0.6)"), left: 5.9, top: 440.8, p: 0 }}>
+                sx={{ ...glassBtn(42.3, "0.5px solid rgba(255,255,255,0.6)"), position: "relative", p: 0 }}>
                 <Chevron dir="left" />
               </Box>
+              </CustomTooltip>
+              <CustomTooltip title="Next" placement="top"
+                wrapperSx={{ position: "absolute", left: W - 75.1, top: 440.8 }}>
               <Box component="button" aria-label="Next slide" onClick={goNext}
-                sx={{ ...glassBtn(42.3, "0.5px solid rgba(255,255,255,0.6)"), left: W - 75.1, top: 440.8, p: 0 }}>
+                sx={{ ...glassBtn(42.3, "0.5px solid rgba(255,255,255,0.6)"), position: "relative", p: 0 }}>
                 <Chevron dir="right" />
               </Box>
+              </CustomTooltip>
 
               {/* ask AI + expand, bottom-right inside the viewer */}
               <CustomTooltip title="Ask To AI" placement="left"
@@ -386,7 +392,16 @@ export default function InnerStage({
 
         {/* drag handle, centred in the lower channel */}
         <Box
-          role="separator" data-cursor="resize" aria-orientation="vertical" aria-label="Resize chat panel"
+          role="separator" data-cursor="resize" aria-orientation="vertical"
+          aria-label="Resize chat panel (left / right arrow keys)" tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowLeft") { e.preventDefault(); glideTo(SPLIT.wide); }
+            else if (e.key === "ArrowRight") { e.preventDefault(); glideTo(SPLIT.normal); }
+            else if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              glideTo(split < (SPLIT.normal + SPLIT.wide) / 2 ? SPLIT.normal : SPLIT.wide);
+            }
+          }}
           onPointerDown={onHandleDown} onPointerMove={onHandleMove}
           onPointerUp={onHandleUp} onPointerCancel={onHandleUp}
           onDoubleClick={() => glideTo(split < (SPLIT.normal + SPLIT.wide) / 2 ? SPLIT.normal : SPLIT.wide)}

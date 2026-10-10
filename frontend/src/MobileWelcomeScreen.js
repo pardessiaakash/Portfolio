@@ -16,6 +16,7 @@ import {
 import { fetchCategories } from "./api/chatApi";
 import DownloadResume from "./DownloadResume";
 import ChatbotPanel from "./ChatbotPanel";
+import { pressable } from "./a11y";
 
 /* ── Work tab ── */
 function MobileWorkTab() {
@@ -297,6 +298,8 @@ export default function MobileWelcomeScreen({ opacity, socialIcons }) {
       {/* Toggle tab */}
       <Box
         onClick={() => setMobileChatOpen((p) => !p)}
+        {...pressable(() => setMobileChatOpen((p) => !p), mobileChatOpen ? "Close chat" : "Open chat with Nova")}
+        aria-expanded={mobileChatOpen}
         sx={{
           position: "fixed", right: 0, bottom: "40px",
           width: 34, height: 96,
@@ -330,6 +333,7 @@ export default function MobileWelcomeScreen({ opacity, socialIcons }) {
           </Box>
           <Box
             onClick={(e) => { e.stopPropagation(); setChatTooltipDismissed(true); }}
+            {...pressable((e) => { e.stopPropagation(); setChatTooltipDismissed(true); }, "Dismiss")}
             sx={{
               width: 18, height: 18, borderRadius: "50%",
               background: "rgba(255,255,255,0.12)",
