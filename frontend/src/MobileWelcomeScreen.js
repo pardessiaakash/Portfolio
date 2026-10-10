@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Box, Typography } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
-import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import { PRIMARY} from "./theme";
 import {
   Tab,
@@ -15,8 +13,7 @@ import {
 } from "./AboutMe";
 import { fetchCategories } from "./api/chatApi";
 import DownloadResume from "./DownloadResume";
-import ChatbotPanel from "./ChatbotPanel";
-import { pressable } from "./a11y";
+import MobileChatDrawer from "./hud/MobileChatDrawer";
 
 /* ── Work tab ── */
 function MobileWorkTab() {
@@ -71,7 +68,7 @@ function MobileWorkTab() {
           mt: "30px",
         }}
       >
-        Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since 1966.
+        Designing immersive, intuitive experiences, focused on clarity
       </Typography>
       <Box sx={{ mt: "30px" }}>
         <DownloadResume />
@@ -157,8 +154,6 @@ function MobileAboutTab() {
 /* ── Main Mobile Welcome Screen ── */
 export default function MobileWelcomeScreen({ opacity, socialIcons }) {
   const [activeTab, setActiveTab] = useState("work");
-  const [mobileChatOpen, setMobileChatOpen] = useState(false);
-  const [chatTooltipDismissed, setChatTooltipDismissed] = useState(false);
 
   return (
     <Box
@@ -172,8 +167,9 @@ export default function MobileWelcomeScreen({ opacity, socialIcons }) {
         visibility: opacity > 0 ? "visible" : "hidden",
         pointerEvents: opacity > 0.5 ? "auto" : "none",
         px: "16px",
-        pt: "20px",
-        pb: "12px",
+        // keep clear of the notch / status bar and the home indicator
+        pt: "max(20px, env(safe-area-inset-top))",
+        pb: "max(12px, env(safe-area-inset-bottom))",
         overflowY: "auto",
         "&::-webkit-scrollbar": { display: "none" },
       }}
@@ -205,7 +201,7 @@ export default function MobileWelcomeScreen({ opacity, socialIcons }) {
         </Box>
 
         {/* Desktop-style SVG speech-bubble tabs */}
-        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", mb: 1, gap: "4px" }}>
+        <Box role="tablist" aria-label="Sections" sx={{ display: "flex", alignItems: "center", justifyContent: "center", mb: 1, gap: "4px" }}>
           <Tab active={activeTab === "work" ? 1 : 0} onClick={() => setActiveTab("work")}>
             Work
           </Tab>
@@ -246,6 +242,7 @@ export default function MobileWelcomeScreen({ opacity, socialIcons }) {
             href={link}
             target="_blank"
             rel="noopener noreferrer"
+            aria-label={label}
             sx={{
               width: 44,
               height: 44,
@@ -260,91 +257,14 @@ export default function MobileWelcomeScreen({ opacity, socialIcons }) {
             <Box
               component="img"
               src={icon}
-              alt={label}
+              alt=""
               sx={{ width: 45, height: 45, filter: "brightness(0) invert(0.85)" }}
             />
           </Box>
         ))}
       </Box>
-      {/* ── Chatbot drawer (same as ProjectDetailPage) ── */}
-      {/* Backdrop */}
-      <Box
-        onClick={() => setMobileChatOpen(false)}
-        sx={{
-          position: "fixed", inset: 0,
-          background: "rgba(0,0,0,0.55)",
-          opacity: mobileChatOpen ? 1 : 0,
-          pointerEvents: mobileChatOpen ? "auto" : "none",
-          transition: "opacity 0.3s ease",
-          zIndex: 40,
-        }}
-      />
-
-      {/* Sliding panel */}
-      <Box sx={{
-        position: "fixed", top: 0, left: 0,
-        width: "100vw", height: "100vh",
-        zIndex: 50, p: "12px",
-        boxSizing: "border-box",
-        transform: mobileChatOpen ? "translateX(0)" : "translateX(100%)",
-        transition: "transform 0.90s cubic-bezier(0.4, 0, 0.2, 1)",
-      }}>
-        <ChatbotPanel
-          chips={["View Case Study", "How I Design", "Start Chat"]}
-          wrapperSx={{ width: "100%", height: "100%" }}
-        />
-      </Box>
-
-      {/* Toggle tab */}
-      <Box
-        onClick={() => setMobileChatOpen((p) => !p)}
-        {...pressable(() => setMobileChatOpen((p) => !p), mobileChatOpen ? "Close chat" : "Open chat with Nova")}
-        aria-expanded={mobileChatOpen}
-        sx={{
-          position: "fixed", right: 0, bottom: "40px",
-          width: 34, height: 96,
-          background: PRIMARY,
-          borderRadius: "14px 0 0 14px",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          cursor: "pointer", zIndex: 55,
-          boxShadow: "0 0 18px rgba(0,205,31,0.5)",
-        }}
-      >
-        {mobileChatOpen
-          ? <ChevronRightIcon sx={{ color: "#08120a" }} />
-          : <ChevronLeftIcon sx={{ color: "#08120a" }} />}
-      </Box>
-
-      {/* "Click to talk with AI" tooltip bubble */}
-      {!mobileChatOpen && !chatTooltipDismissed && (
-        <Box sx={{
-          position: "fixed", right: 44, bottom: "58px",
-          zIndex: 56,
-          background: "rgba(20,24,20,0.95)",
-          border: "1px solid rgba(255,255,255,0.15)",
-          borderRadius: "10px",
-          px: "12px", py: "8px",
-          display: "flex", alignItems: "center", gap: "8px",
-          boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
-          whiteSpace: "nowrap",
-        }}>
-          <Box sx={{ fontSize: "12px", color: "#fff", lineHeight: 1.4 }}>
-            Click to<br />talk with AI
-          </Box>
-          <Box
-            onClick={(e) => { e.stopPropagation(); setChatTooltipDismissed(true); }}
-            {...pressable((e) => { e.stopPropagation(); setChatTooltipDismissed(true); }, "Dismiss")}
-            sx={{
-              width: 18, height: 18, borderRadius: "50%",
-              background: "rgba(255,255,255,0.12)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              cursor: "pointer", flexShrink: 0,
-              fontSize: "11px", color: "rgba(255,255,255,0.7)",
-              "&:active": { background: "rgba(255,255,255,0.2)" },
-            }}
-          >✕</Box>
-        </Box>
-      )}
+      {/* chat: green edge tab, short hint and full-screen drawer */}
+      <MobileChatDrawer chips={["View Case Study", "How I Design", "Start Chat"]} />
     </Box>
   );
 }

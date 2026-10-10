@@ -1,8 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Box, IconButton,useMediaQuery } from "@mui/material";
-import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
-import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import ChatbotPanel from "./ChatbotPanel";
 import { useChatContext } from "./ChatContext";
 import { useResizableChatbot } from "./hooks/useResizableChatbot";
@@ -12,6 +10,7 @@ import CustomTooltip from "./CustomTooltip";
 import { Tab } from "./AboutMe";
 import InnerStage from "./hud/InnerStage";
 import FullScreenView from "./hud/FullScreenView";
+import MobileChatDrawer from "./hud/MobileChatDrawer";
 import { glassHudRectSx, spinBorderSx } from "./hud/glass";
 import { pressable } from "./a11y";
 
@@ -66,6 +65,26 @@ const SLIDE_PROMPTS = [
   `Final High-Fidelity Solution (Validated & Optimized)\nNova: "I can explain the final solution, summarize the key improvements, or walk you through how research and testing shaped the final experience."`
 ];
 
+// Fade a horizontally scrolling row only on the side(s) with more to scroll to.
+function useEdgeFade(ref, deps) {
+  const [edges, setEdges] = useState({ l: false, r: false });
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const update = () => setEdges({
+      l: el.scrollLeft > 2,
+      r: el.scrollLeft + el.clientWidth < el.scrollWidth - 2,
+    });
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => { el.removeEventListener("scroll", update); window.removeEventListener("resize", update); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
+  const m = `linear-gradient(to right, ${edges.l ? "transparent" : "#000"}, #000 28px, #000 calc(100% - 28px), ${edges.r ? "transparent" : "#000"})`;
+  return { maskImage: m, WebkitMaskImage: m };
+}
+
 export default function ProjectDetailPage() {
   const navigate = useNavigate();
   const { category: urlCategory } = useParams();
@@ -74,7 +93,6 @@ export default function ProjectDetailPage() {
   const { widthPercent, isDragging, handleMouseDown, containerRef } = useResizableChatbot(30, "project_chatbot_width_percentage_v2", 30, 50, [30, 50]);
 
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
-  const [chatTooltipDismissed, setChatTooltipDismissed] = useState(false);
 
   const [mainTabs, setMainTabs] = useState(() => PORTFOLIO_TABS.map((tab) => ({
     ...tab,
@@ -139,6 +157,21 @@ export default function ProjectDetailPage() {
     ? activeProject.slides
     : [];
   const hasSlides = slides.length > 0;
+
+  // mobile: keep the selected category / project tab in view
+  const mainTabsRef = useRef(null);
+  const subTabsRef = useRef(null);
+  useEffect(() => {
+    [mainTabsRef, subTabsRef].forEach((r) => {
+      const row = r.current;
+      const tab = row?.querySelector('[aria-selected="true"]');
+      if (!row || !tab) return;
+      const left = tab.offsetLeft - (row.clientWidth - tab.offsetWidth) / 2;
+      row.scrollTo({ left: Math.max(0, left), behavior: "smooth" });
+    });
+  }, [mainTab, subTab, projects.length, isMobile]);
+  const mainFade = useEdgeFade(mainTabsRef, [isMobile, mainTabs.length]);
+  const subFade = useEdgeFade(subTabsRef, [isMobile, projects.length]);
 
   const { setMode, setProjectId } = useChatContext();
 
@@ -281,6 +314,8 @@ export default function ProjectDetailPage() {
   return (
     <Box sx={{
       width: "100vw", height: "100vh", overflow: "hidden",
+      // phones: the visible height (browser toolbars excluded) where supported
+      "@supports (height: 100dvh)": { height: "100dvh" },
       backgroundImage: "linear-gradient(rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.12)), url('/assets/images/bg-images/bg.jpg')",
       backgroundSize: "cover",
       backgroundPosition: "center",
@@ -288,6 +323,9 @@ export default function ProjectDetailPage() {
       display: "flex", flexDirection: "column",
       boxSizing: "border-box",
       p: { xs: "20px 16px", md: "12.5vh 10.5vw" },
+      // keep clear of the notch / status bar and the home indicator
+      pt: { xs: "max(20px, env(safe-area-inset-top))" },
+      pb: { xs: "max(16px, env(safe-area-inset-bottom))" },
       color: "#fff",
       position: "relative",
     }}>
@@ -306,7 +344,7 @@ export default function ProjectDetailPage() {
       }}>
         {/* Back Button */}
         <CustomTooltip title="Back to Home" placement="top">
-          <Box onClick={() => navigate("/")} sx={{
+          <Box onClick={() => navigate("/")} {...pressable(() => navigate("/"), "Back to home")} sx={{
             display: "flex", alignItems: "center", justifyContent: "center",
             width: 32, height: 32,
             cursor: "pointer",
@@ -317,16 +355,18 @@ export default function ProjectDetailPage() {
             padding: "25px",
             flexShrink: 0,
           }}>
-            <img src="/assets/icons/home.png" alt="Home" />
+            <img src="/assets/icons/home.png" alt="" />
           </Box>
         </CustomTooltip>
 
-        {isMobile && <Box sx={{
+        {isMobile && <Box ref={mainTabsRef} role="tablist" aria-label="Categories" sx={{
           display: "flex",
           gap: { xs: "10px", md: "0px" },
           overflowX: { xs: "auto", md: "visible" },
           "&::-webkit-scrollbar": { display: "none" },
           scrollbarWidth: "none",
+          // soft fade on the side(s) with more tabs to swipe to
+          ...mainFade,
         }}>
           {mainTabs.map((tab, i) => {
             const isActive = mainTab === i;
@@ -337,6 +377,8 @@ export default function ProjectDetailPage() {
                 <Box
                   key={i}
                   onClick={() => navigate(`/portfolio/${encodeURIComponent(tab.label)}`)}
+                  {...pressable(() => navigate(`/portfolio/${encodeURIComponent(tab.label)}`), undefined, "tab")}
+                  aria-selected={isActive}
                   sx={{
                     position: "relative",
                     cursor: "pointer",
@@ -467,7 +509,7 @@ export default function ProjectDetailPage() {
         }}>
 
           {/* SUB TABS */}
-          <Box sx={{
+          <Box ref={subTabsRef} role="tablist" aria-label="Projects" sx={{
             display: "flex",
             alignItems: "center",
             gap: 1,
@@ -476,6 +518,7 @@ export default function ProjectDetailPage() {
             overflowX: { xs: "auto", md: "visible" },
             "&::-webkit-scrollbar": { display: "none" },
             scrollbarWidth: "none",
+            ...(isMobile ? subFade : {}),
           }}>
             {!loading && projects.length === 0 && (
               <Box sx={{ color: "rgba(255,255,255,0.5)", fontSize: "14px", p: 1 }}>No projects found for this category.</Box>
@@ -629,85 +672,14 @@ export default function ProjectDetailPage() {
           </>
         )}
 
-        {/* MOBILE: slide-in chatbot */}
+        {/* MOBILE: green edge tab, short hint and full-screen chat drawer */}
         {isMobile && (
-          <>
-            <Box
-              onClick={() => setMobileChatOpen(false)}
-              sx={{
-                position: "fixed", inset: 0,
-                background: "rgba(0,0,0,0.55)",
-                opacity: mobileChatOpen ? 1 : 0,
-                pointerEvents: mobileChatOpen ? "auto" : "none",
-                transition: "opacity 0.3s ease",
-                zIndex: 40,
-              }}
-            />
-            <Box sx={{
-              position: "fixed", top: 0, left: 0,
-              width: "100vw", height: "100vh",
-              zIndex: 50, p: "12px",
-              boxSizing: "border-box",
-              transform: mobileChatOpen ? "translateX(0)" : "translateX(100%)",
-              transition: "transform 0.90s cubic-bezier(0.4, 0, 0.2, 1)",
-            }}>
-              <ChatbotPanel
-                orb={orb}
-                chips={["View Case Study", "About Akash"]}
-                wrapperSx={{ width: "100%", height: "100%" }}
-                requestedInput={requestedAIInput}
-              />
-            </Box>
-            <Box
-              onClick={() => setMobileChatOpen((p) => !p)}
-        {...pressable(() => setMobileChatOpen((p) => !p), mobileChatOpen ? "Close chat" : "Open chat with Nova")}
-        aria-expanded={mobileChatOpen}
-              sx={{
-                position: "fixed", right: 0, bottom: "150px",
-                width: 34, height: 96,
-                background: PRIMARY,
-                borderRadius: "14px 0 0 14px",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer", zIndex: 55,
-                boxShadow: "0 0 18px rgba(0,205,31,0.5)",
-                transition: "right 0.6s cubic-bezier(0.4, 0, 0.2, 1)",
-              }}
-            >
-              {mobileChatOpen
-                ? <ChevronRightIcon sx={{ color: "#08120a" }} />
-                : <ChevronLeftIcon sx={{ color: "#08120a" }} />}
-            </Box>
-
-            {/* "Click to talk with AI" tooltip bubble */}
-            {!mobileChatOpen && !chatTooltipDismissed && (
-              <Box sx={{
-                position: "fixed", right: 44, bottom: "168px",
-                zIndex: 56,
-                background: "rgba(20,24,20,0.95)",
-                border: "1px solid rgba(255,255,255,0.15)",
-                borderRadius: "10px",
-                px: "12px", py: "8px",
-                display: "flex", alignItems: "center", gap: "8px",
-                boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
-                whiteSpace: "nowrap",
-              }}>
-                <Box sx={{ fontSize: "12px", color: "#fff", lineHeight: 1.4 }}>
-                  Click to<br />talk with AI
-                </Box>
-                <Box
-                  onClick={(e) => { e.stopPropagation(); setChatTooltipDismissed(true); }}
-            {...pressable((e) => { e.stopPropagation(); setChatTooltipDismissed(true); }, "Dismiss")}
-                  sx={{
-                    width: 18, height: 18, borderRadius: "50%",
-                    background: "rgba(255,255,255,0.12)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    cursor: "pointer", flexShrink: 0,
-                    fontSize: "11px", color: "rgba(255,255,255,0.7)",
-                    "&:active": { background: "rgba(255,255,255,0.2)" },
-                  }}
-                >✕</Box>
-              </Box>
-            )}          </>
+          <MobileChatDrawer
+            chips={["View Case Study", "About Akash"]}
+            requestedInput={requestedAIInput}
+            open={mobileChatOpen}
+            onOpenChange={setMobileChatOpen}
+          />
         )}
       </Box>
 

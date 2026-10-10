@@ -6,6 +6,7 @@ import { useResizableChatbot } from "./hooks/useResizableChatbot";
 import ResizeHandle from "./ResizeHandle";
 import CustomTooltip from "./CustomTooltip";
 import MobileWelcomeScreen from "./MobileWelcomeScreen";
+import MobileIntro from "./hud/MobileIntro";
 import AnimatedTooltip from "./AnimatedTooltip";
 import { mainHudPath, useElementSize, HudOutline } from "./hud/hudShapes";
 import { glassPanelSx, glassHudRectSx, spinBorderSx, useSpinOnHover } from "./hud/glass";
@@ -374,6 +375,14 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
 
   // On mobile, skip animation entirely — always show UI at full opacity
   const effectiveSkipIntro = skipIntro || isMobile;
+  // Phones get a short video intro instead of the scroll sequence (first
+  // visit only; skipped when the visitor prefers reduced motion).
+  const [mobileIntro, setMobileIntro] = useState(() =>
+    !skipIntro &&
+    typeof window !== "undefined" && !!window.matchMedia &&
+    window.matchMedia("(max-width:1024px)").matches &&
+    !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
 
   const posRef = useRef(effectiveSkipIntro ? END_FRAME : 0);
   const targetPosRef = useRef(effectiveSkipIntro ? END_FRAME : 0);
@@ -668,6 +677,9 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
 
   return (
     <>
+      {isMobile && mobileIntro && (
+        <MobileIntro onDone={() => { setMobileIntro(false); onComplete?.(); }} />
+      )}
       <Box sx={{ position: "fixed", inset: 0, zIndex: 9999, background: "#000" }}>
         <canvas
           ref={canvasRef}
