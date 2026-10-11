@@ -44,6 +44,10 @@ function MobileWorkTab() {
           gridTemplateColumns: "1fr 1fr",
           gap: "12px",
           mt: "4px",
+          // the card outline is drawn 15/216 in from each side of its box, so
+          // pull the grid out by that much: the visible cards then line up
+          // with the "Welcome / Akash P" heading and the bio text
+          mx: "calc((100% - 12px) * -15 / 402)",
         }}
       >
         {workCategories.map((cat) => (
@@ -211,7 +215,7 @@ export default function MobileWelcomeScreen({ opacity, socialIcons }) {
         </Box>
 
         {/* Tab content */}
-        <Box sx={{ flex: 1, overflowY: "auto", "&::-webkit-scrollbar": { display: "none" } }}>
+        <Box sx={{ flex: 1, overflowY: "auto", overflowX: "hidden", "&::-webkit-scrollbar": { display: "none" } }}>
           {activeTab === "work" ? <MobileWorkTab /> : <MobileAboutTab />}
         </Box>
       </Box>
