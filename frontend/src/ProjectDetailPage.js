@@ -338,7 +338,8 @@ export default function ProjectDetailPage() {
       boxSizing: "border-box",
       p: { xs: "20px 16px", md: "12.5vh 10.5vw" },
       // keep clear of the notch / status bar and the home indicator
-      pt: { xs: "max(20px, env(safe-area-inset-top))" },
+      // extra breathing room above the tabs on phones / tablets
+      pt: { xs: "max(32px, calc(env(safe-area-inset-top) + 16px))" },
       pb: { xs: "max(16px, env(safe-area-inset-bottom))" },
       color: "#fff",
       position: "relative",
@@ -348,10 +349,12 @@ export default function ProjectDetailPage() {
         display: "flex",
         width: "100%",
         pr: { xs: 0, md: `${widthPercent}%` },
-        alignItems: "center",
+        // phones / tablets: the tabs reserve space below for their tail, so
+        // line the back button up with the tab bodies, not the whole row
+        alignItems: isMobile ? "flex-start" : "center",
         justifyContent: "flex-start",
         gap: "12px",
-        mb: { xs: "-2px", md: "0px" },
+        mb: isMobile ? "8px" : "0px",
         flexShrink: 0,
         position: "relative",
         zIndex: 2,
@@ -418,8 +421,9 @@ export default function ProjectDetailPage() {
                         ? "0 6px 10px rgba(0,205,31,0.45)"
                         : "0 2px 4px rgba(0,0,0,0.35)",
                       px: "18px",
-                      pt: "10px",
-                      pb: "10px",
+                      // same 44px height as the back button beside it
+                      height: "44px", boxSizing: "border-box",
+                      display: "flex", alignItems: "center",
                       transition: "all 0.2s",
                     }}
                   >

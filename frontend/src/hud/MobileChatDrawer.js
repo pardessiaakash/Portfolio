@@ -12,6 +12,7 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Box } from "@mui/material";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import CloseIcon from "@mui/icons-material/Close";
+import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import ChatbotPanel from "../ChatbotPanel";
 import { pressable } from "../a11y";
 
@@ -120,26 +121,47 @@ export default function MobileChatDrawer({ chips, requestedInput, open: openProp
         aria-expanded={open}
         sx={{
           position: "fixed", right: 0, top: "78%", transform: "translateY(-50%)",
-          height: hint ? 44 : 80,
-          width: hint ? 136 : 30,
-          pl: hint ? "12px" : 0,
+          height: hint ? 44 : 92,
+          width: hint ? 156 : 38,
+          pl: hint ? "10px" : 0,
           boxSizing: "border-box",
           background: PRIMARY,
-          borderRadius: hint ? "22px 0 0 22px" : "14px 0 0 14px",
-          display: "flex", alignItems: "center", justifyContent: hint ? "flex-start" : "center", gap: "2px",
+          borderRadius: hint ? "22px 0 0 22px" : "16px 0 0 16px",
+          display: "flex", flexDirection: hint ? "row" : "column",
+          alignItems: "center", justifyContent: hint ? "flex-start" : "center", gap: hint ? "4px" : "6px",
           overflow: "hidden", whiteSpace: "nowrap",
           cursor: "pointer", zIndex: 55,
-          boxShadow: "0 0 18px rgba(0,205,31,0.45)",
+          boxShadow: "0 0 18px rgba(0,205,31,0.45), inset 1px 0 0 rgba(255,255,255,0.35)",
           opacity: open ? 0 : 1,
           pointerEvents: open ? "none" : "auto",
           transition: "width 0.45s cubic-bezier(0.4,0,0.2,1), height 0.45s cubic-bezier(0.4,0,0.2,1), border-radius 0.45s ease, padding 0.45s ease, opacity 0.25s ease",
           // generous invisible touch area to the left of the slim tab
           "&::before": { content: '""', position: "absolute", inset: "-8px 0 -8px -14px" },
+          // slim tab: the chevron nudges left now and then ("pull me open")
+          "& .nova-chev": hint ? {} : { animation: "novaNudge 3.2s ease-in-out 1s infinite" },
+          "@keyframes novaNudge": {
+            "0%, 70%, 100%": { transform: "translateX(0)" },
+            "78%": { transform: "translateX(-4px)" },
+            "86%": { transform: "translateX(0)" },
+            "92%": { transform: "translateX(-2px)" },
+          },
+          "@media (prefers-reduced-motion: reduce)": { "& .nova-chev": { animation: "none" } },
         }}>
-        <ChevronLeftIcon sx={{ color: "#08120a", flexShrink: 0 }} />
+        {/* AI sparkle: says "this is Nova, the assistant" */}
         <Box aria-hidden sx={{
-          color: "#08120a", fontSize: "13px", fontWeight: 600,
+          width: 24, height: 24, flexShrink: 0, borderRadius: "50%",
+          background: "#08120a",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          order: hint ? 1 : 0,
+        }}>
+          <AutoAwesomeIcon sx={{ fontSize: 14, color: PRIMARY }} />
+        </Box>
+        <ChevronLeftIcon className="nova-chev" aria-hidden
+          sx={{ color: "#08120a", flexShrink: 0, fontSize: 24, order: hint ? 0 : 1, ml: hint ? "-4px" : 0 }} />
+        <Box aria-hidden sx={{
+          color: "#08120a", fontSize: "13px", fontWeight: 600, order: 2,
           opacity: hint ? 1 : 0, transition: "opacity 0.2s ease",
+          display: hint ? "block" : "none",
         }}>Talk to Nova</Box>
       </Box>
     </>
