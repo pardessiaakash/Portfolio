@@ -115,7 +115,7 @@ export default function ChatbotPanel({
   fadeTop = false,
   // Phones / tablets (chat drawer): the desktop HUD look on a rounded
   // rectangle: liquid-glass panel, gradient rim, glass chips, input and
-  // buttons, and the orb tucked inside the top-right corner.
+  // buttons (no orb).
   glass = false,
 }) {
   // Centre of the orb, measured from the panel's top-right corner. The panel
@@ -182,20 +182,6 @@ export default function ChatbotPanel({
           </Box>
       )}
 
-      {/* Orb inside the top-right corner (phones / tablets drawer) */}
-      {glassMobile && (
-        <Box aria-hidden sx={{
-          position: "absolute", top: 14, right: 14, zIndex: 20,
-          width: 64, height: 64, borderRadius: "50%", overflow: "hidden",
-          background: "rgba(0,0,0,0.6)",
-          border: "1.5px solid rgba(0,255,150,0.3)",
-          boxShadow: "0 0 24px rgba(0,255,150,0.2), inset 0 0 14px rgba(0,255,150,0.07)",
-        }}>
-          <video key={orb} src={orb} autoPlay loop muted playsInline
-            style={{ width: "160%", height: "160%", objectFit: "cover", mixBlendMode: "screen", marginLeft: "-30%", marginTop: "-30%" }} />
-        </Box>
-      )}
-
       {/* HUD frame + content */}
       <Box ref={shapeRef} sx={{
         flex: 1,
@@ -258,7 +244,7 @@ export default function ChatbotPanel({
           onWheel={(e) => e.stopPropagation()}
           sx={{
             flex: 1, overflowY: "auto",
-            pt: glassMobile ? "92px" : isMobile ? "20px" : "75px", // Adjusted pt for mobile (no orb) vs desktop (orb present)
+            pt: glassMobile ? "68px" : isMobile ? "20px" : "75px", // Adjusted pt for mobile (no orb) vs desktop (orb present)
             pl: hud ? "14px" : "20px", pr: hud ? "28px" : "20px", pb: hud ? "16px" : "8px",
             // home screen: the greeting sits just above the chips (also in the split view)
             ...((hud || fadeTop) && messages.length === 0 ? { display: "flex", flexDirection: "column", justifyContent: "flex-end" } : {}),
