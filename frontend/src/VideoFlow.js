@@ -14,14 +14,15 @@ import { glassPanelSx, glassHudRectSx, spinBorderSx, useSpinOnHover } from "./hu
 // module-level, so it resets only on a full page load (refresh / first visit)
 let chatHintsShown = false;
 
-// Frame numbers for the 165-frame sequence. (The original export had a
-// duplicate every 5th frame, which made the motion stall; those were removed.)
+// Frame numbers for the 169-frame sequence: 163 frames from the intro video
+// (the export repeats every 5th frame, which made the motion stall; those
+// repeats were removed) followed by the empty room the live UI sits on.
 const STOP_FRAME = 8;
 const STOP_FRAME_END = 16;
 const SCROLL_HINT_FRAME = 4;          // "scroll down" hint shows after this
-const LAST_HUD_FRAME = 158;           // last frame with the HUD drawn in
+const LAST_HUD_FRAME = 162;           // last frame with the HUD drawn in
 const UI_SHOW_FRAME = LAST_HUD_FRAME + 1;
-const END_FRAME = 164;
+const END_FRAME = 168;
 // The live UI cross-fades over LAST_HUD_FRAME for this long; the canvas
 // holds on that frame meanwhile so the two HUDs dissolve into each other.
 const UI_FADE_MS = 350;
@@ -132,14 +133,56 @@ function useCoverScale() {
   return scale;
 }
 
-const framePath = (i) => {
-  const n = String(i).padStart(5, "0");
-  return `/assets/images/Updated-Sequence/Comp 1_${n}.webp`;
-};
+// Frames are 1920x1080 WebP (~55 KB each). Every frame after the drawn-in
+// HUD is the same empty room, so they all share one file.
+const SEQ_DIR = "/assets/images/Sequence-v2";
+const framePath = (i) =>
+  i > LAST_HUD_FRAME
+    ? `${SEQ_DIR}/end.webp`
+    : `${SEQ_DIR}/f_${String(i).padStart(3, "0")}.webp`;
+
+// Scroll progress bar shown while flying in. The bright part follows the
+// scroll position; the faint part behind it shows how far the frames have
+// loaded, like a video buffer.
+const stageLabel = (f) =>
+  f < 70 ? "Flying in" : f < 90 ? "Reaching the pod" : f < 125 ? "Opening the pod" : "Entering the lab";
+
+function IntroLoadingBar({ frame, buffered, visible }) {
+  const progress = Math.max(0, Math.min(1, frame / LAST_HUD_FRAME));
+  const pct = `${(progress * 100).toFixed(2)}%`;
+  return (
+    <Box aria-hidden sx={{
+      position: "fixed", left: "50%", bottom: 34, transform: "translateX(-50%)",
+      width: "min(440px, 46vw)", zIndex: 99998, pointerEvents: "none",
+      opacity: visible ? 1 : 0, transition: "opacity 0.4s ease",
+    }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", mb: "10px" }}>
+        <Typography sx={{ fontSize: "10px", letterSpacing: "3px", textTransform: "uppercase", color: "rgba(255,255,255,0.7)" }}>
+          {stageLabel(frame)}
+        </Typography>
+        <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#00CD1F", fontVariantNumeric: "tabular-nums" }}>
+          {Math.round(progress * 100)}%
+        </Typography>
+      </Box>
+      <Box sx={{ position: "relative", height: "2px", borderRadius: "2px", background: "rgba(255,255,255,0.12)" }}>
+        <Box sx={{ position: "absolute", left: 0, top: 0, bottom: 0, borderRadius: "2px",
+          width: `${Math.max(progress, buffered) * 100}%`, background: "rgba(255,255,255,0.2)",
+          transition: "width 0.3s ease" }} />
+        <Box sx={{ position: "absolute", left: 0, top: 0, bottom: 0, borderRadius: "2px", width: pct,
+          background: "linear-gradient(90deg, rgba(0,205,31,0.15), #00CD1F)",
+          boxShadow: "0 0 8px rgba(0,205,31,0.6)", transition: "width 0.15s linear" }} />
+        <Box sx={{ position: "absolute", left: pct, top: "50%", width: 10, height: 10, borderRadius: "50%",
+          transform: "translate(-50%, -50%)", background: "#00CD1F",
+          boxShadow: "0 0 0 4px rgba(0,205,31,0.18), 0 0 12px rgba(0,205,31,0.8)",
+          transition: "left 0.15s linear" }} />
+      </Box>
+    </Box>
+  );
+}
 
 // After the first frames are in, the rest of the sequence is fetched quietly
 // in the background, a few at a time, so scrolling never waits on the network.
-const BG_CONCURRENCY = 4;
+const BG_CONCURRENCY = 6;
 
 const socialIcons = [
   { label: "LinkedIn", icon: "/assets/icons/lindedin.svg",
@@ -415,6 +458,33 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
 
   const setStoppedSync = (v) => { stoppedRef.current = v; setStopped(v); };
 
+  // ── Frame requests ───────────────────────────────────────────────────────
+  // Every frame goes through requestFrame, which records loads so the bar can
+  // show how far the sequence is ready (contiguously from the start).
+  const loadedRef = useRef(new Set());
+  const contigRef = useRef(-1);
+  const bufferTimerRef = useRef(null);
+  const [buffered, setBuffered] = useState(0);
+  const requestFrame = useCallback((i, onSettled) => {
+    const img = new Image();
+    img.decoding = "async";
+    img.onload = () => {
+      loadedRef.current.add(i);
+      while (loadedRef.current.has(contigRef.current + 1)) contigRef.current++;
+      if (!bufferTimerRef.current) {
+        bufferTimerRef.current = setTimeout(() => {
+          bufferTimerRef.current = null;
+          setBuffered(Math.min(1, (contigRef.current + 1) / (LAST_HUD_FRAME + 1)));
+        }, 150);
+      }
+      onSettled?.();
+    };
+    img.onerror = () => onSettled?.();
+    img.src = framePath(i);
+    cacheRef.current[i] = img;
+    return img;
+  }, []);
+
   // ── Load frames around index ──────────────────────────────────────────────
   // Requests go out nearest-first, so the frame we need now arrives before
   // the ones we might need later.
@@ -423,12 +493,10 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     for (let d = 0; d <= radius; d++) {
       for (const i of d === 0 ? [index] : [index + d, index - d]) {
         if (i < 0 || i > END_FRAME || cache[i]) continue;
-        const img = new Image();
-        img.src = framePath(i);
-        cache[i] = img;
+        requestFrame(i);
       }
     }
-  }, []);
+  }, [requestFrame]);
 
   // preload backward from index in small batches so browser isn't overwhelmed
   const preloadBackward = useCallback((from, count = 30) => {
@@ -436,12 +504,10 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     let loaded = 0;
     for (let i = from; i >= 0 && loaded < count; i--) {
       if (cache[i]) continue;
-      const img = new Image();
-      img.src = framePath(i);
-      cache[i] = img;
+      requestFrame(i);
       loaded++;
     }
-  }, []);
+  }, [requestFrame]);
 
   // Background fill: walk forward from `start`, then pick up anything earlier.
   // Frames already requested (by scrolling) are skipped.
@@ -456,15 +522,11 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
       if (cancelled) return;
       while (next < order.length && cache[order[next]]) next++;
       if (next >= order.length) return;
-      const i = order[next++];
-      const img = new Image();
-      img.onload = img.onerror = pump;
-      img.src = framePath(i);
-      cache[i] = img;
+      requestFrame(order[next++], pump);
     };
     for (let k = 0; k < BG_CONCURRENCY; k++) pump();
     return () => { cancelled = true; };
-  }, []);
+  }, [requestFrame]);
 
   // direction ref: +1 forward, -1 backward
   const dirRef = useRef(1);
@@ -576,9 +638,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
         const cache = cacheRef.current;
         for (let i = END_FRAME; i >= 0; i--) {
           if (cache[i]) continue;
-          const img = new Image();
-          img.src = framePath(i);
-          cache[i] = img;
+          requestFrame(i);
         }
       }
 
@@ -592,7 +652,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
         reversingRef.current = false;
       }
     }
-  }, [drawFrame, loadAround, preloadBackward, onComplete, onFrameChange]);
+  }, [drawFrame, loadAround, preloadBackward, requestFrame, onComplete, onFrameChange]);
 
   // ── Init ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -790,6 +850,11 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
           />
 
         </Box>
+      )}
+
+      {!isMobile && (
+        <IntroLoadingBar frame={currentFrame} buffered={buffered}
+          visible={currentFrame > 0 && welcomeOpacity === 0} />
       )}
 
       {/* No scroll hint on the final UI screen: the visitor is inside the

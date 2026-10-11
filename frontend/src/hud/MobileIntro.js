@@ -1,6 +1,6 @@
 // Mobile intro: a short, portrait cut of the desktop flythrough.
 //
-// The desktop scrolls through 165 full-size frames; on phones that is too
+// The desktop scrolls through 169 full-size frames; on phones that is too
 // heavy and scroll-scrubbing fights the page, so this plays a 4-second
 // portrait video (≈1.2 MB) made from the same frames: clouds → city → the
 // pod door opening, then fades into the mobile UI.
