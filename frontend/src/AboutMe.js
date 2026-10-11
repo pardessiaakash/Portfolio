@@ -190,12 +190,12 @@ export const ICON_MAP = {
   "Print Media": "/assets/icons/print-designs.svg",
   "Print-Designs": "/assets/icons/print-designs.svg",
   "XR": "/assets/icons/XR.svg",
-  "Immersive/VR/XR": "/assets/icons/XR.svg",
+  "Immersive": "/assets/icons/XR.svg",
 };
 
 // The fourth category used to be "Print Media"; the work now shown there is
 // immersive / VR / XR. Older names from the projects API map to the new one.
-const CATEGORY_RENAMES = { "Print Media": "Immersive/VR/XR", "Print-Designs": "Immersive/VR/XR", "Print": "Immersive/VR/XR", "XR": "Immersive/VR/XR" };
+const CATEGORY_RENAMES = { "Print Media": "Immersive", "Print-Designs": "Immersive", "Print": "Immersive", "XR": "Immersive", "Immersive/VR/XR": "Immersive" };
 export const toCategoryCard = (name) => {
   const label = CATEGORY_RENAMES[name] || name;
   return { label, icon: ICON_MAP[label] || "/assets/icons/UX.svg" };
@@ -205,7 +205,7 @@ export const DEFAULT_WORK_CATEGORIES = [
   { label: "UI/UX", icon: "/assets/icons/UX.svg" },
   { label: "Social Media", icon: "/assets/icons/social-media.svg" },
   { label: "Video", icon: "/assets/icons/Video.svg" },
-  { label: "Immersive/VR/XR", icon: "/assets/icons/XR.svg" },
+  { label: "Immersive", icon: "/assets/icons/XR.svg" },
 ];
 
 /* ── Category card with exact Figma SVG shape ── */
