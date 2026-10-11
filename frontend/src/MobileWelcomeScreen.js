@@ -110,7 +110,7 @@ function MobileAboutTab() {
         }}
       >
         {experiences.map((exp) => (
-          <ExpCard key={exp.company}>
+          <ExpCard key={exp.company} sx={{ textAlign: "left" }}>
             <Typography
               sx={{ fontSize: "12px", fontWeight: 700, color: "#fff", lineHeight: 1.3 }}
             >
