@@ -303,6 +303,7 @@ export default function ProjectDetailPage() {
           onBack={() => navigate("/")}
           orb={orb}
           requestedInput={requestedAIInput}
+          keysDisabled={lightboxOpen}
         />
         {/* expand → Figma "Full Scree Mode_For Claude"; closing keeps the slide */}
         {lightboxOpen && hasSlides && (

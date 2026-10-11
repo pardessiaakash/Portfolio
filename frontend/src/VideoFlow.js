@@ -692,9 +692,11 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     };
   }, [loop, drawFrame, loadAround, preloadAllInBackground, effectiveSkipIntro]);
 
-  // ── Wheel: scrub frames ───────────────────────────────────────────────────
+  // ── Wheel / keys: scrub frames ───────────────────────────────────────────
+  // The arrow keys (also Page Up/Down and Space) play the sequence just like
+  // the wheel, for visitors without a trackpad or mouse wheel.
   useEffect(() => {
-    const onWheel = (e) => {
+    const step = (dir, frames) => {
       if (stoppedRef.current) {
         const frame = Math.round(targetPosRef.current);
         // only dismiss if scrolling out of the stop zone
@@ -704,18 +706,17 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
       }
 
       // if welcome UI is fully shown and user scrolls up — scrub backward
-      if (e.deltaY < 0 && welcomeOpacity >= 1) {
+      if (dir < 0 && welcomeOpacity >= 1) {
         uiShownRef.current = false;
         reversingRef.current = true;
         preloadBackward(Math.round(targetPosRef.current), 40);
       }
 
-      const delta = e.deltaY > 0 ? 1 : -1;
-      const newTarget = Math.max(0, Math.min(END_FRAME, targetPosRef.current + delta));
+      const newTarget = Math.max(0, Math.min(END_FRAME, targetPosRef.current + dir * frames));
       targetPosRef.current = newTarget;
 
       const t = Math.round(newTarget);
-      if (e.deltaY < 0) {
+      if (dir < 0) {
         preloadBackward(t, 30);
       } else {
         loadAround(t, 15);
@@ -730,12 +731,30 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
       }, 180);
     };
 
+    const onWheel = (e) => step(e.deltaY > 0 ? 1 : -1, 1);
+
+    const FWD = ["ArrowDown", "ArrowRight", "PageDown", " "];
+    const BACK = ["ArrowUp", "ArrowLeft", "PageUp"];
+    const onKey = (e) => {
+      if (isMobile || e.altKey || e.ctrlKey || e.metaKey) return;
+      const fwd = FWD.includes(e.key), back = BACK.includes(e.key);
+      if (!fwd && !back) return;
+      // once the main UI is up the keys belong to it (chat, panels)
+      if (welcomeOpacity >= 1) return;
+      const t = e.target;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON|A)$/.test(t.tagName))) return;
+      e.preventDefault();
+      step(fwd ? 1 : -1, 3);
+    };
+
     window.addEventListener("wheel", onWheel, { passive: true });
+    window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("keydown", onKey);
       clearTimeout(scrollTimerRef.current);
     };
-  }, [loadAround, preloadBackward, welcomeOpacity]);
+  }, [loadAround, preloadBackward, welcomeOpacity, isMobile]);
 
 
 
@@ -818,7 +837,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
             {/* Text */}
             <Box>
               <Typography sx={{ color: "rgba(255,255,255,0.75)", fontSize: "15px", fontWeight: 400, lineHeight: 1.5 }}>
-                Scroll to enter in the
+                Scroll or press ↓ to enter the
               </Typography>
               <Typography sx={{ color: "#fff", fontSize: "14px", fontWeight: 700, lineHeight: 1.3 }}>
                 Design lab

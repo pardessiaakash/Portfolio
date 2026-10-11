@@ -137,6 +137,8 @@ function useStageScale() {
   return s;
 }
 
+const DOTS = { slot: 30, view: 330 };   // dot slot width, visible window
+
 /* ── component ─────────────────────────────────────────────────────────── */
 
 export default function InnerStage({
@@ -144,7 +146,7 @@ export default function InnerStage({
   projects, activeProject, subTab, onSelectProject, loading,
   slides, slideIndex, onSlide, onPrev, onNext,
   onAskAI, onExpand, onBack,
-  orb, requestedInput,
+  orb, requestedInput, keysDisabled = false,
 }) {
   const s = useStageScale();
   const stageRef = useRef(null);
@@ -165,6 +167,25 @@ export default function InnerStage({
   const goPrev = () => hasSlides ? onPrev() : setPhIndex((i) => (i + dotCount - 1) % dotCount);
   const goNext = () => hasSlides ? onNext() : setPhIndex((i) => (i + 1) % dotCount);
   const goTo = (i) => hasSlides ? onSlide(i) : setPhIndex(i);
+
+  // ← / → change slides, like the arrow buttons (not while typing, while
+  // the resize handle has focus, or while full screen is open)
+  const navRef = useRef({});
+  navRef.current = { goPrev, goNext };
+  useEffect(() => {
+    if (keysDisabled) return undefined;
+    const onKey = (e) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      const t = e.target;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) ||
+        t.getAttribute?.("role") === "separator")) return;
+      e.preventDefault();
+      if (e.key === "ArrowLeft") navRef.current.goPrev(); else navRef.current.goNext();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [keysDisabled]);
 
   const splitRef = useRef(split);
   splitRef.current = split;
@@ -368,23 +389,47 @@ export default function InnerStage({
                 </Box>
               </CustomTooltip>
 
-              {/* dots, centred in the bottom section */}
-              <Box sx={{
-                position: "absolute", top: 820, left: 367.9, transform: "translateX(-50%)",
-                display: "flex", gap: "16px",
+              {/* dots: a sliding window centred on the active slide, fading out
+                  to the left and right so long decks read as a continuing row */}
+              <Box role="group" aria-label={`Slide ${current + 1} of ${dotCount}`} sx={{
+                position: "absolute", top: 814, left: 367.9 - DOTS.view / 2, width: DOTS.view, height: 24,
+                overflow: "hidden",
+                maskImage: "linear-gradient(90deg, transparent 0, #000 30%, #000 70%, transparent 100%)",
+                WebkitMaskImage: "linear-gradient(90deg, transparent 0, #000 30%, #000 70%, transparent 100%)",
               }}>
-                {Array.from({ length: dotCount }, (_, i) => (
-                  <Box key={i} component="button" aria-label={`Slide ${i + 1}`} onClick={() => goTo(i)}
-                    sx={{
-                      width: 12, height: 12, p: 0, borderRadius: "10px", cursor: "pointer",
-                      boxSizing: "border-box",
-                      border: i === current ? "none" : "1px solid #616161",
-                      background: i === current ? PRIMARY : "rgba(97,97,97,0.55)",
-                      boxShadow: "-1px 3px 13px rgba(0,0,0,0.35), inset 0 1px 2px rgba(0,0,0,0.25)",
-                      transition: "background 0.25s ease",
-                      "&:hover": { borderColor: "#9E9E9E" },
-                    }} />
-                ))}
+                <Box sx={{
+                  position: "absolute", top: 0, left: 0, height: 24, display: "flex",
+                  transform: `translateX(${DOTS.view / 2 - (current + 0.5) * DOTS.slot}px)`,
+                  transition: "transform 0.35s cubic-bezier(.2,.8,.2,1)",
+                  "@media (prefers-reduced-motion: reduce)": { transition: "none" },
+                }}>
+                  {Array.from({ length: dotCount }, (_, i) => {
+                    const dist = Math.abs(i - current);
+                    const on = i === current;
+                    return (
+                      <Box key={i} component="button" aria-label={`Slide ${i + 1}`}
+                        aria-current={on ? "true" : undefined} onClick={() => goTo(i)}
+                        tabIndex={dist > 4 ? -1 : 0}
+                        sx={{
+                          width: DOTS.slot, height: 24, p: 0, border: "none", background: "none",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          cursor: "pointer", flexShrink: 0,
+                          "&:focus-visible": { outline: "none" },
+                          "&:focus-visible > span": { outline: `2px solid ${PRIMARY}`, outlineOffset: "3px" },
+                          "&:hover > span": { background: on ? PRIMARY : "rgba(255,255,255,0.55)" },
+                        }}>
+                        <Box component="span" sx={{
+                          display: "block", height: 10, borderRadius: "10px",
+                          width: on ? 28 : 10,
+                          transform: `scale(${on ? 1 : dist === 1 ? 0.9 : 0.75})`,
+                          background: on ? PRIMARY : "rgba(255,255,255,0.28)",
+                          boxShadow: on ? "0 0 10px rgba(0,205,31,0.75)" : "none",
+                          transition: "width 0.3s ease, transform 0.3s ease, background 0.25s ease",
+                        }} />
+                      </Box>
+                    );
+                  })}
+                </Box>
               </Box>
             </>
           )}
