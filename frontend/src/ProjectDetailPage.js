@@ -9,6 +9,7 @@ import { fetchCategories, fetchProjects } from "./api/chatApi";
 import CustomTooltip from "./CustomTooltip";
 import { Tab } from "./AboutMe";
 import InnerStage from "./hud/InnerStage";
+import SlideDots from "./hud/SlideDots";
 import FullScreenView from "./hud/FullScreenView";
 import MobileChatDrawer from "./hud/MobileChatDrawer";
 import { glassHudRectSx, spinBorderSx } from "./hud/glass";
@@ -208,10 +209,15 @@ export default function ProjectDetailPage() {
   // mobile / tablet expanded slide: Esc closes it
   useEffect(() => {
     if (!lightboxOpen || !isMobile) return undefined;
-    const onKey = (e) => { if (e.key === "Escape") setLightboxOpen(false); };
+    const n = slides.length || 1;
+    const onKey = (e) => {
+      if (e.key === "Escape") setLightboxOpen(false);
+      else if (e.key === "ArrowLeft") setLightboxIndex((p) => (p === 0 ? n - 1 : p - 1));
+      else if (e.key === "ArrowRight") setLightboxIndex((p) => (p + 1) % n);
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [lightboxOpen, isMobile]);
+  }, [lightboxOpen, isMobile, slides.length]);
 
   const lightbox = (
     <>
@@ -259,15 +265,9 @@ export default function ProjectDetailPage() {
               />
             </CustomTooltip>
           </Box>
-          <Box sx={{ display: "flex", gap: 1, mt: 2 }}>
-            {slides.map((_, i) => (
-              <Box key={i} onClick={() => setLightboxIndex(i)} sx={{
-                width: 10, height: 10, borderRadius: "50%", cursor: "pointer",
-                background: i === lightboxIndex ? PRIMARY : "transparent",
-                border: i === lightboxIndex ? `2px solid ${PRIMARY}` : "2px solid #555",
-              }} />
-            ))}
-          </Box>
+          {/* same sliding dots as the desktop carousel */}
+          <SlideDots count={slides.length} current={lightboxIndex} onSelect={setLightboxIndex}
+            view={270} sx={{ position: "relative", mt: 2, flexShrink: 0 }} />
         </Box>
       )}
     </>
