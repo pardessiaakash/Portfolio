@@ -11,6 +11,9 @@ import AnimatedTooltip from "./AnimatedTooltip";
 import { mainHudPath, useElementSize, HudOutline } from "./hud/hudShapes";
 import { glassPanelSx, glassHudRectSx, spinBorderSx, useSpinOnHover } from "./hud/glass";
 
+// module-level, so it resets only on a full page load (refresh / first visit)
+let chatHintsShown = false;
+
 // Frame numbers for the 165-frame sequence. (The original export had a
 // duplicate every 5th frame, which made the motion stall; those were removed.)
 const STOP_FRAME = 8;
@@ -236,8 +239,11 @@ function WelcomeScreen({ opacity }) {
   // one pointing at the chat input. Both self-dismiss (progress bar) or
   // can be closed manually; AnimatedTooltip also no-ops on mobile itself,
   // this state just avoids re-showing them once dismissed.
-  const [showAvatarHint, setShowAvatarHint] = useState(true);
-  const [showInputHint, setShowInputHint] = useState(true);
+  // Shown once per page load: a refresh brings them back, but returning
+  // from a category page (client-side navigation) does not.
+  const [showAvatarHint, setShowAvatarHint] = useState(!chatHintsShown);
+  const [showInputHint, setShowInputHint] = useState(!chatHintsShown);
+  useEffect(() => { chatHintsShown = true; }, []);
 
   if (isMobile) {
     return (
