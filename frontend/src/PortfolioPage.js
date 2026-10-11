@@ -94,7 +94,7 @@ const DEFAULT_CATEGORIES = [
   { label: "UI/UX", route: "UI/UX" },
   { label: "Social Media", route: "Social Media" },
   { label: "Videos", route: "Video" },
-  { label: "Print Media", route: "Print-Designs" },
+  { label: "Immersive/VR/XR", route: "Immersive/VR/XR" },
 ];
 
 const DEFAULT_DESKTOP_CATEGORIES = [

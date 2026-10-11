@@ -8,7 +8,7 @@ import {
   CertCard,
   CategoryCard,
   experiences,
-  ICON_MAP,
+  toCategoryCard,
   DEFAULT_WORK_CATEGORIES,
 } from "./AboutMe";
 import { fetchCategories } from "./api/chatApi";
@@ -41,12 +41,7 @@ function MobileWorkTab() {
     fetchCategories()
       .then((data) => {
         if (data && data.length > 0) {
-          setWorkCategories(
-            data.map((cat) => ({
-              label: cat,
-              icon: ICON_MAP[cat] || "/assets/icons/UX.svg",
-            }))
-          );
+          setWorkCategories(data.map(toCategoryCard));
         }
       })
       .catch(() => {});

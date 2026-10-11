@@ -20,7 +20,8 @@ const PORTFOLIO_TABS = [
   { label: "UI/UX", aliases: ["UI/UX"] },
   { label: "Social Media", aliases: ["Social Media"] },
   { label: "Videos", aliases: ["Videos", "Video"] },
-  { label: "Print Media", aliases: ["Print Media", "Print", "XR"] },
+  // formerly "Print Media"; the old names still open this tab and find its projects
+  { label: "Immersive/VR/XR", aliases: ["Print Media", "Print", "XR", "Immersive/VR/XR"] },
 ];
 
 // Shown while the projects API is unavailable or a category has no projects
