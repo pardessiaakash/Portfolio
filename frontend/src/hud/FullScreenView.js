@@ -10,6 +10,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Box } from "@mui/material";
 import { spinBorderSx } from "./glass";
 import CustomTooltip from "../CustomTooltip";
+import SlideDots, { DOTS } from "./SlideDots";
 
 const PRIMARY = "#00CD1F";
 const STAGE_W = 1920, STAGE_H = 1087;
@@ -143,25 +144,9 @@ export default function FullScreenView({ slides, index, onIndex, onClose, title 
         </Box>
         </CustomTooltip>
 
-        {/* dots */}
-        <Box sx={{
-          position: "absolute", top: DOTS_Y, left: BOX.x + BOX.w / 2, transform: "translateX(-50%)",
-          display: "flex", gap: "16px",
-        }}>
-          {slides.map((_, i) => (
-            <Box key={i} component="button" aria-label={`Slide ${i + 1}`} aria-current={i === index}
-              onClick={() => onIndex(i)}
-              sx={{
-                width: 12, height: 12, p: 0, borderRadius: "10px", cursor: "pointer",
-                boxSizing: "border-box",
-                border: i === index ? "none" : "1px solid #DDDDDD",
-                background: i === index ? PRIMARY : "rgba(255,255,255,0.03)",
-                boxShadow: "-1px 3px 13px rgba(0,0,0,0.35), inset 0 1px 2px rgba(0,0,0,0.25)",
-                transition: "background 0.25s ease",
-                "&:hover": { background: i === index ? PRIMARY : "rgba(255,255,255,0.25)" },
-              }} />
-          ))}
-        </Box>
+        {/* dots: same sliding window as the project carousel */}
+        <SlideDots count={n} current={index} onSelect={onIndex}
+          sx={{ top: DOTS_Y - 6, left: BOX.x + BOX.w / 2 - DOTS.view / 2 }} />
       </Box>
     </Box>
   );

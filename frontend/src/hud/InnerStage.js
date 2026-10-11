@@ -6,6 +6,7 @@
 // the other tabs sit behind it. The chat HUD is the shared ChatbotPanel cut to
 // this page's geometry (orb cut-out and a ~25px channel to the main HUD).
 
+import SlideDots, { DOTS } from "./SlideDots";
 import React, { useEffect, useRef, useState } from "react";
 import { Box, GlobalStyles } from "@mui/material";
 import light from "@fontsource/montserrat/files/montserrat-latin-300-normal.woff2";
@@ -136,8 +137,6 @@ function useStageScale() {
   }, []);
   return s;
 }
-
-const DOTS = { slot: 30, view: 330 };   // dot slot width, visible window
 
 /* ── component ─────────────────────────────────────────────────────────── */
 
@@ -389,48 +388,9 @@ export default function InnerStage({
                 </Box>
               </CustomTooltip>
 
-              {/* dots: a sliding window centred on the active slide, fading out
-                  to the left and right so long decks read as a continuing row */}
-              <Box role="group" aria-label={`Slide ${current + 1} of ${dotCount}`} sx={{
-                position: "absolute", top: 814, left: 367.9 - DOTS.view / 2, width: DOTS.view, height: 24,
-                overflow: "hidden",
-                maskImage: "linear-gradient(90deg, transparent 0, #000 30%, #000 70%, transparent 100%)",
-                WebkitMaskImage: "linear-gradient(90deg, transparent 0, #000 30%, #000 70%, transparent 100%)",
-              }}>
-                <Box sx={{
-                  position: "absolute", top: 0, left: 0, height: 24, display: "flex",
-                  transform: `translateX(${DOTS.view / 2 - (current + 0.5) * DOTS.slot}px)`,
-                  transition: "transform 0.35s cubic-bezier(.2,.8,.2,1)",
-                  "@media (prefers-reduced-motion: reduce)": { transition: "none" },
-                }}>
-                  {Array.from({ length: dotCount }, (_, i) => {
-                    const dist = Math.abs(i - current);
-                    const on = i === current;
-                    return (
-                      <Box key={i} component="button" aria-label={`Slide ${i + 1}`}
-                        aria-current={on ? "true" : undefined} onClick={() => goTo(i)}
-                        tabIndex={dist > 4 ? -1 : 0}
-                        sx={{
-                          width: DOTS.slot, height: 24, p: 0, border: "none", background: "none",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          cursor: "pointer", flexShrink: 0,
-                          "&:focus-visible": { outline: "none" },
-                          "&:focus-visible > span": { outline: `2px solid ${PRIMARY}`, outlineOffset: "3px" },
-                          "&:hover > span": { background: on ? PRIMARY : "rgba(255,255,255,0.55)" },
-                        }}>
-                        <Box component="span" sx={{
-                          display: "block", height: 10, borderRadius: "10px",
-                          width: on ? 28 : 10,
-                          transform: `scale(${on ? 1 : dist === 1 ? 0.9 : 0.75})`,
-                          background: on ? PRIMARY : "rgba(255,255,255,0.28)",
-                          boxShadow: on ? "0 0 10px rgba(0,205,31,0.75)" : "none",
-                          transition: "width 0.3s ease, transform 0.3s ease, background 0.25s ease",
-                        }} />
-                      </Box>
-                    );
-                  })}
-                </Box>
-              </Box>
+              {/* dots: sliding window centred on the active slide (shared) */}
+              <SlideDots count={dotCount} current={current} onSelect={goTo}
+                sx={{ top: 814, left: 367.9 - DOTS.view / 2 }} />
             </>
           )}
         </Box>
