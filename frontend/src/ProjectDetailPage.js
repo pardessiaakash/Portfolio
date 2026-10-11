@@ -212,14 +212,28 @@ export default function ProjectDetailPage() {
     }
   };
 
+  // mobile / tablet expanded slide: Esc closes it
+  useEffect(() => {
+    if (!lightboxOpen || !isMobile) return undefined;
+    const onKey = (e) => { if (e.key === "Escape") setLightboxOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightboxOpen, isMobile]);
+
   const lightbox = (
     <>
       {/* LIGHTBOX */}
       {lightboxOpen && (
-        <Box sx={{
+        <Box role="dialog" aria-modal="true" aria-label="Expanded slide" sx={{
           position: "fixed", inset: 0, zIndex: 999,
           display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
           px: { xs: 2, md: 0 },
+          // dim and blur everything behind, so only the expanded slide is in focus
+          background: "rgba(0,0,0,0.72)",
+          backdropFilter: "blur(14px)",
+          WebkitBackdropFilter: "blur(14px)",
+          animation: "lbIn 0.25s ease-out",
+          "@keyframes lbIn": { from: { opacity: 0 }, to: { opacity: 1 } },
         }} onClick={(e) => { if (e.target === e.currentTarget) setLightboxOpen(false); }}>
           <Box sx={{
             position: "relative",
@@ -344,18 +358,26 @@ export default function ProjectDetailPage() {
       }}>
         {/* Back Button */}
         <CustomTooltip title="Back to Home" placement="top">
-          <Box onClick={() => navigate("/")} {...pressable(() => navigate("/"), "Back to home")} sx={{
+          {/* back: the same glass arrow button as the desktop category page */}
+          <Box component="button" onClick={() => navigate("/")} aria-label="Back to home" sx={{
             display: "flex", alignItems: "center", justifyContent: "center",
-            width: 32, height: 32,
+            width: 44, height: 44, p: 0, boxSizing: "border-box",
             cursor: "pointer",
-            borderRadius: "8px",
-            background: "rgba(255,255,255,0.02)",
-            color: "rgba(255,255,255,0.6)",
-            transition: "all 0.2s ease-in-out",
-            padding: "25px",
+            borderRadius: "10px",
+            border: "1px solid #8F8F8F",
+            // darker glass so it reads over the bright ceiling lights too
+            background: "rgba(12,14,13,0.62)",
+            backdropFilter: "blur(13.55px)", WebkitBackdropFilter: "blur(13.55px)",
+            boxShadow: "-1px 3px 13px rgba(0,0,0,0.35), inset 0 1px 2px rgba(0,0,0,0.25)",
+            color: "#fff",
+            transition: "border-color 0.25s ease, background 0.25s ease",
+            "&:hover": { borderColor: "rgba(255,255,255,0.85)", background: "rgba(30,34,32,0.7)" },
             flexShrink: 0,
           }}>
-            <img src="/assets/icons/home.png" alt="" />
+            <svg width="16" height="13" viewBox="0 0 16 13" aria-hidden>
+              <path d="M15 6.5H1.5M6.5 1 1 6.5 6.5 12" fill="none" stroke="#fff" strokeWidth="1.4"
+                strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </Box>
         </CustomTooltip>
 
