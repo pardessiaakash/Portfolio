@@ -95,7 +95,7 @@ export default function MobileChatDrawer({ chips, requestedInput, open: openProp
             : "transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s 0.4s",
         }}>
         <Box sx={{ position: "relative", width: "100%", height: "100%" }}>
-          <ChatbotPanel chips={chips} wrapperSx={{ width: "100%", height: "100%" }} requestedInput={requestedInput} fadeTop />
+          <ChatbotPanel chips={chips} wrapperSx={{ width: "100%", height: "100%" }} requestedInput={requestedInput} fadeTop glass />
           {/* close, top-left inside the panel (same glass square as the HUD buttons) */}
           <Box component="button" ref={closeRef} aria-label="Close chat" onClick={close} sx={{
             position: "absolute", top: 12, left: 12, zIndex: 5,
