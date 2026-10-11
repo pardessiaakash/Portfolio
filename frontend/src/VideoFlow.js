@@ -135,7 +135,7 @@ function useCoverScale() {
 
 // Frames are 1920x1080 WebP (~55 KB each). Every frame after the drawn-in
 // HUD is the same empty room, so they all share one file.
-const SEQ_DIR = "/assets/images/Sequence-v2";
+const SEQ_DIR = "/assets/images/Sequence-v3";
 const framePath = (i) =>
   i > LAST_HUD_FRAME
     ? `${SEQ_DIR}/end.webp`
