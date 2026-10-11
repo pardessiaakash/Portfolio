@@ -24,15 +24,33 @@ const PORTFOLIO_TABS = [
   { label: "Immersive", aliases: ["Print Media", "Print", "XR", "Immersive", "Immersive/VR/XR"] },
 ];
 
-// Shown while the projects API is unavailable or a category has no projects
-// yet, so the category and project tabs can still be browsed. Projects with
-// no slides show a "coming soon" panel.
-const SWIFT_SLIDES = Array.from({ length: 9 }, (_, i) => `/assets/images/projects/swift/${i + 1}.jpg`);
-const placeholderProjects = (label) =>
-  [1, 2, 3, 4].map((n) => ({
-    title: `Project -${n}`,
-    slides: label === "UI/UX" && n === 1 ? SWIFT_SLIDES : [],
-  }));
+// UI/UX case studies, exported from the Figma slide decks (1676 × 961).
+// They always fill the first two UI/UX project tabs; other categories use
+// the projects API, or placeholders while it is unavailable.
+const deck = (folder, n) => Array.from({ length: n }, (_, i) =>
+  `/assets/images/projects/${folder}/${String(i + 1).padStart(2, "0")}.webp`);
+const SC_TOPICS = ["Cover", "Project Scope", "Root Cause", "Competitor Analysis", "Gap Analysis",
+  "User Research", "Survey Insights", "Stakeholder Interviews", "Affinity Mapping", "Empathy Map",
+  "Problem Statement", "Ideation & Dot Voting", "Prioritisation", "Personas", "Journey Map",
+  "Information Architecture & Flow", "Phase 1 Hi-fi Iteration", "Usability Testing", "Iteration",
+  "Design System", "Final Solution: AI Briefing", "Final Solution: Supporting Context",
+  "Secondary Capabilities", "AI Safeguards", "Traceability", "Outcomes & Next Steps", "Let's Talk"];
+const FA_TOPICS = ["Cover", "The Ask", "Framework", "Research Goals", "User Interviews", "Synthesis",
+  "Empathy Map", "Problem Statement", "Personas", "Research to Design", "IA & Wireframes",
+  "Visual Design", "Proposed Product Page", "Final UI: Discover", "Final UI: Evaluate & Buy",
+  "Validation & Next Steps", "Let's Talk"];
+const CASE_STUDIES = [
+  { title: "SwiftConnect", slides: deck("swiftconnect", SC_TOPICS.length), topics: SC_TOPICS },
+  { title: "Chicora", slides: deck("chicora", FA_TOPICS.length), topics: FA_TOPICS },
+];
+const isCaseStudy = (p) => /swift|chicora|fashion/i.test(p?.title || "");
+const placeholderProjects = (label, from = 1) =>
+  [1, 2, 3, 4].slice(from - 1).map((n) => ({ title: `Project -${n}`, slides: [] }));
+const withCaseStudies = (label, list) => {
+  if (label !== "UI/UX") return list.length > 0 ? list : placeholderProjects(label);
+  const rest = list.filter((p) => !isCaseStudy(p));
+  return [...CASE_STUDIES, ...(rest.length > 0 ? rest : placeholderProjects(label, 3))];
+};
 
 const orbVideos = [
   "/assets/orb/Idle State.mp4",
@@ -41,30 +59,6 @@ const orbVideos = [
   "/assets/orb/Speaking State.mp4",
 ];
 
-const SLIDE_PROMPTS = [
-  `Project Scope & Requirements\nNova: "I can explain the project scope, summarize the key requirements, or walk you through the goals and constraints."`,
-  `Competitor SWOT Analysis\nNova: "I can explain the competitor SWOT analysis, summarize the key market insights, or walk you through the opportunities identified for SwiftConnect."`,
-  `The "SwiftConnect" Opportunity\nNova: "I can explain the SwiftConnect opportunity, summarize the user and business gaps, or walk you through the opportunity behind the solution."`,
-  `User Research & Synthesis\nNova: "I can explain the user research, summarize the key insights, or walk you through how the findings shaped the design direction."`,
-  `Survey Questions (Quantitative) – Report\nNova: "I can explain the survey results, summarize the key data-driven insights, or walk you through how the findings influenced the design."`,
-  `Stakeholder & Admin Interviews – Qualitative\nNova: "I can explain the interview findings, summarize the key qualitative insights, or walk you through how stakeholder needs shaped the product direction."`,
-  `Top Pain Points (Ranking)\nNova: "I can explain the top pain points, summarize their impact, or walk you through how they were prioritized."`,
-  `Actionable Observations\nNova: "I can explain the key observations, summarize the most important findings, or walk you through how they became design opportunities."`,
-  `Sample Demographics & Behavior\nNova: "I can explain the user demographics, summarize the key behavioral patterns, or walk you through what these insights mean for the product."`,
-  `Problem Statement\nNova: "I can explain the core problem, summarize who it affects, or walk you through why solving it matters."`,
-  `Affinity Mapping\nNova: "I can explain the affinity mapping process, summarize the key themes, or walk you through how research data was grouped into insights."`,
-  `Empathy Map: The Support Agent (Peak Season)\nNova: "I can explain the Support Agent empathy map, summarize their key needs and frustrations, or walk you through their peak-season experience."`,
-  `User Personas\nNova: "I can introduce the user personas, summarize their goals and frustrations, or walk you through how they influenced the design."`,
-  `Support Agent Journey Map\nNova: "I can explain the Support Agent journey, summarize the key pain points, or walk you through the opportunities identified at each stage."`,
-  `Information Architecture\nNova: "I can explain the Information Architecture, summarize the content structure, or walk you through how it helps users find information."`,
-  `User Task Flow\nNova: "I can explain the user task flow, summarize the key steps, or walk you through how users complete their primary task."`,
-  `Phase 1: Initial High-Fidelity Iteration (Pre-Usability Testing)\nNova: "I can explain the initial high-fidelity design, summarize the key UX decisions, or walk you through the thinking behind this iteration."`,
-  `Usability Testing Data Report\nNova: "I can explain the usability testing results, summarize the key findings, or walk you through what was improved based on user feedback."`,
-  `Colours\nNova: "I can explain the colour system, summarize the visual decisions, or walk you through how colour supports hierarchy and accessibility."`,
-  `Typography\nNova: "I can explain the typography system, summarize the type choices, or walk you through how typography supports readability and hierarchy."`,
-  `Space & Radius\nNova: "I can explain the spacing and radius system, summarize the visual rules, or walk you through how they create consistency across the interface."`,
-  `Final High-Fidelity Solution (Validated & Optimized)\nNova: "I can explain the final solution, summarize the key improvements, or walk you through how research and testing shaped the final experience."`
-];
 
 // Fade a horizontally scrolling row only on the side(s) with more to scroll to.
 function useEdgeFade(ref, deps) {
@@ -138,14 +132,14 @@ export default function ProjectDetailPage() {
       setLoading(true);
       fetchProjects(mainTabs[mainTab].category)
         .then(data => {
-          setProjects(Array.isArray(data) && data.length > 0 ? data : placeholderProjects(mainTabs[mainTab].label));
+          setProjects(withCaseStudies(mainTabs[mainTab].label, Array.isArray(data) ? data : []));
           setSubTab(0);
           setSlideIndex(0);
           setLoading(false);
         })
         .catch((err) => {
           console.error(err);
-          setProjects(placeholderProjects(mainTabs[mainTab].label));
+          setProjects(withCaseStudies(mainTabs[mainTab].label, []));
           setSubTab(0);
           setSlideIndex(0);
           setLoading(false);
@@ -200,18 +194,16 @@ export default function ProjectDetailPage() {
   const openLightbox = () => { setLightboxIndex(slideIndex); setLightboxOpen(true); };
 
   const handleAskAI = (index = slideIndex) => {
-    if (index >= 0 && index < SLIDE_PROMPTS.length) {
-      const rawPrompt = SLIDE_PROMPTS[index];
-      // Extract only the topic title (the part before the newline/Nova: description)
-      // and form a clean question so the intent classifier routes it correctly.
-      const topicTitle = rawPrompt.split('\n')[0].trim();
-      const cleanQuestion = `Tell me about the ${topicTitle} for this project.`;
-      setRequestedAIInput({ text: cleanQuestion, timestamp: Date.now() });
-      if (isMobile) {
-        setMobileChatOpen(true);
-      }
-    }
+    const topics = activeProject?.topics || [];
+    const topic = topics[index] && index > 0 ? topics[index] : null;
+    const name = activeProject?.title || "this project";
+    const cleanQuestion = topic
+      ? `Tell me about the ${topic} of the ${name} case study.`
+      : `Give me an overview of the ${name} case study.`;
+    setRequestedAIInput({ text: cleanQuestion, timestamp: Date.now() });
+    if (isMobile) setMobileChatOpen(true);
   };
+
 
   // mobile / tablet expanded slide: Esc closes it
   useEffect(() => {
