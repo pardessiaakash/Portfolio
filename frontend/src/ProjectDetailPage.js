@@ -659,7 +659,16 @@ export default function ProjectDetailPage() {
                       </CustomTooltip>
 
                       <CustomTooltip title="Maximize" placement="top">
-                        <Box onClick={() => { setLightboxIndex(index); setLightboxOpen(true); }} component="img" src="/assets/images/extend.svg" alt="Maximize" sx={{ cursor: "pointer", width: "40px" }} />
+                        {/* extend.svg is a 44px button inside a 70px canvas (room for its
+                            shadow), so scale and offset it to the same 36px as the AI button */}
+                        <Box onClick={() => { setLightboxIndex(index); setLightboxOpen(true); }}
+                          {...pressable(() => { setLightboxIndex(index); setLightboxOpen(true); }, "Maximize")}
+                          sx={{ position: "relative", width: "36px", height: "36px", cursor: "pointer" }}>
+                          <Box component="img" src="/assets/images/extend.svg" alt="" aria-hidden sx={{
+                            position: "absolute", width: `${36 * 70 / 44}px`, maxWidth: "none",
+                            left: `${-36 * 14 / 44}px`, top: `${-36 * 10 / 44}px`, pointerEvents: "none",
+                          }} />
+                        </Box>
                       </CustomTooltip>
                     </Box>
                   </Box>
