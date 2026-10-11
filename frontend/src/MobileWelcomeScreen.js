@@ -15,6 +15,23 @@ import { fetchCategories } from "./api/chatApi";
 import DownloadResume from "./DownloadResume";
 import MobileChatDrawer from "./hud/MobileChatDrawer";
 
+/* ── Short copy + Download Resume, at the end of both tabs (as on desktop) ── */
+const WORK_COPY = "Pick a category to explore my projects, or download my resume for the full picture.";
+const ABOUT_COPY = "A UI/UX designer who turns complex problems into clear, human-centred experiences, now designing with generative AI.";
+
+function BioAndResume({ text }) {
+  return (
+    <>
+      <Typography sx={{ fontSize: "14px", lineHeight: 1.75, color: "#fff", textAlign: "left", mt: "30px" }}>
+        {text}
+      </Typography>
+      <Box sx={{ mt: "30px" }}>
+        <DownloadResume />
+      </Box>
+    </>
+  );
+}
+
 /* ── Work tab ── */
 function MobileWorkTab() {
   const navigate = useNavigate();
@@ -62,21 +79,7 @@ function MobileWorkTab() {
         ))}
       </Box>
 
-      {/* Bio + download */}
-      <Typography
-        sx={{
-          fontSize: "14px",
-          lineHeight: 1.75,
-          color: "#fff",
-          textAlign: "left",
-          mt: "30px",
-        }}
-      >
-        Designing immersive, intuitive experiences, focused on clarity
-      </Typography>
-      <Box sx={{ mt: "30px" }}>
-        <DownloadResume />
-      </Box>
+      <BioAndResume text={WORK_COPY} />
     </Box>
   );
 }
@@ -151,6 +154,7 @@ function MobileAboutTab() {
           </Typography>
         </Box>
       </CertCard>
+      <BioAndResume text={ABOUT_COPY} />
     </Box>
   );
 }

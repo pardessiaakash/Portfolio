@@ -404,7 +404,8 @@ function WorkTab({ onClose, inline, compact, hud }) {
       {/* Bio + Download Resume */}
       <Box sx={{ display: "flex", justifyContent: "space-between", gap: 3, mt: compact ? "28px" : "48px", alignItems: "center" }}>
         <Typography sx={{ fontSize: "13px", lineHeight: 1.75, textAlign: "left", flex: 1, maxWidth: "450px" }}>
-          Designing immersive, intuitive experiences, focused on clarity         </Typography>
+          Pick a category to explore my projects, or download my resume for the full picture.
+        </Typography>
         <DownloadResume glass={inline} />
       </Box>
     </Box>
@@ -476,7 +477,7 @@ function AboutMeTab({ mobile, inline }) {
       {/* Skills rows + Download Resume */}
       <Box sx={{ display: "flex", justifyContent: "space-between", gap: 3 }}>
         <Typography sx={{ fontSize: "13px", lineHeight: 1.8, flex: 1, textAlign: "left" }}>
-          Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's.
+          A UI/UX designer who turns complex problems into clear, human-centred experiences, now designing with generative AI.
         </Typography>
         <DownloadResume glass={inline} />
       </Box>
