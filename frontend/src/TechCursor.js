@@ -88,47 +88,60 @@ export default function TechCursor() {
     };
 
     // Guided moves ("techcursor:goto"): the cursor glides to an element and
-    // rests on it (hover state + the element's own hover effect) until the
-    // visitor moves the mouse; then it glides back to the real pointer.
+    // rests on it (hover state + the element's own hover effect). When the
+    // visitor moves the mouse, the cursor carries on from the element (the
+    // gap to the real pointer is closed gradually as the mouse travels), so
+    // it never snaps back to where the real pointer was.
     let mx = -100, my = -100;          // real pointer
-    let glide = null;                  // { fx, fy, tx, ty, t0, dur, el, back }
-    let parked = null;                 // { el, mx, my }
+    let glide = null;                  // { fx, fy, tx, ty, t0, dur, el }
+    let parked = null;                 // element the cursor rests on
+    let ox = 0, oy = 0;                // shown cursor = real pointer + offset
+    const OFFSET_DECAY_PX = 260;       // mouse travel that closes ~63% of the gap
     const ease = (t) => 1 - Math.pow(1 - t, 3);
     const hover = (el, on) => {
       try {
         el.dispatchEvent(new MouseEvent(on ? "mouseover" : "mouseout", { bubbles: true, relatedTarget: null }));
       } catch { /* old browsers */ }
     };
+    const offsetActive = () => Math.abs(ox) > 0.5 || Math.abs(oy) > 0.5;
     const onGoto = (e) => {
       const sel = e.detail && e.detail.selector;
       const el = sel && [...document.querySelectorAll(sel)].find((n) => n.offsetParent !== null);
       if (!el || still) return;
       const r = el.getBoundingClientRect();
-      if (!visible) { x = rx = window.innerWidth / 2; y = ry = window.innerHeight / 2; show(true); }
+      if (!visible) { x = rx = mx > -100 ? mx : window.innerWidth / 2; y = ry = my > -100 ? my : window.innerHeight / 2; show(true); }
       glide = { fx: x, fy: y, tx: r.left + r.width / 2, ty: r.top + r.height / 2,
         t0: performance.now(), dur: e.detail.duration || 1100, el };
-      parked = null;
-    };
-    const release = () => {
-      if (parked) hover(parked.el, false);
-      parked = null;
-      glide = { fx: x, fy: y, tx: mx, ty: my, t0: performance.now(), dur: 260, back: true };
     };
 
     const onMove = (e) => {
+      const dx = e.clientX - mx, dy = e.clientY - my;
+      const first = mx === -100 && my === -100;
+      // pointer position was unknown when the guided move ended
+      if (first && (parked || offsetActive())) { ox = x - e.clientX; oy = y - e.clientY; }
       mx = e.clientX; my = e.clientY;
-      if (glide && !glide.back) {
-        return;                                        // let the guided move finish
+      if (glide) return;                               // let the guided move finish
+      if (!first && offsetActive()) {
+        const k = Math.exp(-Math.hypot(dx, dy) / OFFSET_DECAY_PX);
+        ox *= k; oy *= k;
+        if (!offsetActive()) { ox = 0; oy = 0; }
       }
-      if (parked) {
-        if (Math.hypot(mx - parked.mx, my - parked.my) < 4) return;
-        release();
-      }
-      if (glide && glide.back) { glide.tx = mx; glide.ty = my; setState(classify(e.target)); return; }
-      x = mx; y = my;
+      x = mx + ox; y = my + oy;
       if (!visible) { rx = x; ry = y; }
       show(true);
-      setState(classify(e.target));
+      // while offset, judge hover by what's under the shown cursor
+      const under = offsetActive() ? document.elementFromPoint(x, y) : e.target;
+      if (parked && (!under || !parked.contains(under))) { hover(parked, false); parked = null; }
+      setState(classify(under));
+    };
+
+    // A click while the shown cursor is offset goes to what it points at.
+    const onClickCapture = (e) => {
+      if (!offsetActive() || !e.isTrusted) return;
+      const el = document.elementFromPoint(x, y);
+      if (!el || el === e.target) return;
+      e.preventDefault(); e.stopPropagation();
+      el.click();
     };
     const onDown = () => { ring.dataset.pressed = "1"; };
     const onUp = () => { delete ring.dataset.pressed; };
@@ -144,11 +157,10 @@ export default function TechCursor() {
         x = glide.fx + (glide.tx - glide.fx) * e;
         y = glide.fy + (glide.ty - glide.fy) * e;
         if (p >= 1) {
-          if (!glide.back) {
-            parked = { el: glide.el, mx, my };
-            setState("link");
-            hover(glide.el, true);
-          }
+          parked = glide.el;
+          ox = x - mx; oy = y - my;                    // carry on from here
+          setState("link");
+          hover(parked, true);
           glide = null;
         }
       }
@@ -162,6 +174,7 @@ export default function TechCursor() {
 
     window.addEventListener("mousemove", onMove, { passive: true });
     window.addEventListener("techcursor:goto", onGoto);
+    window.addEventListener("click", onClickCapture, true);
     window.addEventListener("mousedown", onDown);
     window.addEventListener("mouseup", onUp);
     document.addEventListener("mouseout", onLeave);
@@ -172,6 +185,7 @@ export default function TechCursor() {
       cancelAnimationFrame(raf);
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("techcursor:goto", onGoto);
+      window.removeEventListener("click", onClickCapture, true);
       window.removeEventListener("mousedown", onDown);
       window.removeEventListener("mouseup", onUp);
       document.removeEventListener("mouseout", onLeave);
