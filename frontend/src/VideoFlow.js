@@ -185,6 +185,11 @@ function IntroLoadingBar({ frame, buffered, visible }) {
 // in the background, a few at a time, so scrolling never waits on the network.
 const BG_CONCURRENCY = 6;
 
+// Intro playback: how quickly the scene catches up with the scroll (higher =
+// snappier, lower = longer ease-out) and the top speed in frames per second.
+const GLIDE = 6;
+const MAX_FRAMES_PER_SEC = 75;
+
 // Scroll distance (px) per intro frame; see onWheel.
 const WHEEL_PX = 28;
 
@@ -444,6 +449,8 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
   const lastDrawnRef = useRef(-1);
   const exactDrawnRef = useRef(-1);
   const lastIdxRef = useRef(-1);     // playback position last handled
+  const lastTickRef = useRef(0);
+  const lastBlendRef = useRef(-1);
   const holdUntilRef = useRef(0);    // canvas holds LAST_HUD_FRAME until then
   const uiShownRef = useRef(effectiveSkipIntro ? true : false);
 
@@ -536,7 +543,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
   const dirRef = useRef(1);
 
   // ── Draw frame ───────────────────────────────────────────────────────────
-  const drawFrame = useCallback((index) => {
+  const drawFrame = useCallback((index, blendTo = -1, blend = 0) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const cache = cacheRef.current;
@@ -559,7 +566,16 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     const cw = canvas.width, ch = canvas.height;
     const scale = Math.max(cw / img.naturalWidth, ch / img.naturalHeight);
     const dw = img.naturalWidth * scale, dh = img.naturalHeight * scale;
+    ctx.globalAlpha = 1;
     ctx.drawImage(img, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
+    // between two frames: lay the next one over at partial opacity, so
+    // slow scrolling and the ease-out glide look continuous, not steppy
+    const nb = blendTo >= 0 ? cache[blendTo] : null;
+    if (exact && blend > 0.02 && nb && nb.complete && nb.naturalWidth > 0) {
+      ctx.globalAlpha = blend;
+      ctx.drawImage(nb, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
+      ctx.globalAlpha = 1;
+    }
     lastDrawnRef.current = index;
     // A stand-in frame was drawn; keep redrawing until the real one is in.
     // Without this the canvas could stay on an earlier frame (one that still
@@ -589,12 +605,19 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     if (diff > 0.1) dirRef.current = 1;
     else if (diff < -0.1) dirRef.current = -1;
 
-    // step toward target one frame at a time so every frame gets drawn
+    // Glide toward the target and ease out when scrolling stops: speed is
+    // proportional to the remaining distance (smooth deceleration), capped
+    // so frames aren't skipped during fast scrolls.
+    const now = performance.now();
+    const dt = Math.min(0.05, (now - (lastTickRef.current || now)) / 1000) || 1 / 60;
+    lastTickRef.current = now;
     let next;
-    if (Math.abs(diff) < 0.5) {
+    if (Math.abs(diff) < 0.02) {
       next = target;
     } else {
-      next = current + Math.sign(diff) * Math.min(Math.abs(diff), 1);
+      const glide = diff * (1 - Math.exp(-dt * GLIDE));
+      const cap = MAX_FRAMES_PER_SEC * dt;
+      next = current + Math.sign(diff) * Math.max(Math.min(Math.abs(glide), cap), Math.min(Math.abs(diff), 0.02));
     }
     posRef.current = next;
 
@@ -612,7 +635,14 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
 
     // Redraw if the frame changed, or only a stand-in was ready last time.
     // On the way into the UI the canvas stays on the HUD frame (hold above).
-    if (!enteringUI && (idx !== lastDrawnRef.current || exactDrawnRef.current !== idx)) {
+    const base = Math.max(0, Math.min(END_FRAME, Math.floor(next)));
+    const frac = next - base;
+    const blendKey = Math.round(frac * 20);
+    if (!enteringUI && base < UI_SHOW_FRAME &&
+      (base !== lastDrawnRef.current || exactDrawnRef.current !== base || blendKey !== lastBlendRef.current)) {
+      lastBlendRef.current = blendKey;
+      drawFrame(base, base + 1 <= LAST_HUD_FRAME ? base + 1 : -1, frac);
+    } else if (!enteringUI && base >= UI_SHOW_FRAME && (idx !== lastDrawnRef.current || exactDrawnRef.current !== idx)) {
       drawFrame(idx);
     }
 
