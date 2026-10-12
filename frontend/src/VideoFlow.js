@@ -191,7 +191,19 @@ const BG_CONCURRENCY = 8;
 // snappier, lower = longer ease-out) and the top speed in frames per second.
 const GLIDE = 6;
 const MAX_FRAMES_PER_SEC = 75;
-const SKIP_FRAMES_PER_SEC = 150;    // fast-forward speed (~1 s to the lab)
+// "Skip the cinematic" speed (frames / s) along the flight: eases in, flies
+// through the city, then slows from the half-open pod door and eases out
+// into the lab, so the visitor still sees where they've arrived (~4 s).
+const SKIP_SPEED = { start: 24, city: 70, door: 30, end: 12 };
+const SKIP_AT = { cruise: 14, doorHalf: 96, doorOpen: 112 };
+const mix = (a, b, t) => a + (b - a) * Math.max(0, Math.min(1, t));
+const skipSpeed = (f) => {
+  if (f < SKIP_AT.cruise) return mix(SKIP_SPEED.start, SKIP_SPEED.city, f / SKIP_AT.cruise);
+  if (f < SKIP_AT.doorHalf) return SKIP_SPEED.city;
+  if (f < SKIP_AT.doorOpen) return mix(SKIP_SPEED.city, SKIP_SPEED.door, (f - SKIP_AT.doorHalf) / (SKIP_AT.doorOpen - SKIP_AT.doorHalf));
+  const t = (f - SKIP_AT.doorOpen) / (LAST_HUD_FRAME - SKIP_AT.doorOpen);
+  return mix(SKIP_SPEED.door, SKIP_SPEED.end, 1 - (1 - t) * (1 - t));   // ease-out
+};
 
 // Scroll distance (px) per intro frame; see onWheel.
 const WHEEL_PX = 28;
@@ -650,7 +662,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
       next = target;
     } else {
       const glide = skippingRef.current ? diff : diff * (1 - Math.exp(-dt * GLIDE));
-      const cap = (skippingRef.current ? SKIP_FRAMES_PER_SEC : MAX_FRAMES_PER_SEC) * dt;
+      const cap = (skippingRef.current ? skipSpeed(current) : MAX_FRAMES_PER_SEC) * dt;
       next = current + Math.sign(diff) * Math.max(Math.min(Math.abs(glide), cap), Math.min(Math.abs(diff), 0.02));
     }
     posRef.current = next;
