@@ -39,14 +39,19 @@ export default function IntroAmbience({ canvasRef, frame, active }) {
     size();
     window.addEventListener("resize", size);
 
-    // two depths of rain: far = short, faint, slow; near = long, brighter, fast
-    const make = (n, near) => Array.from({ length: n }, () => ({
+    // Natural rain: three depths of thin, fast streaks. Far rain is short,
+    // faint and dense; near rain is long, brighter and sparse. Each layer is
+    // one batched path (cheap to draw), with a gentle gusting wind.
+    const make = (n, len, v) => Array.from({ length: n }, () => ({
       x: Math.random(), y: Math.random(),
-      len: near ? 18 + Math.random() * 22 : 8 + Math.random() * 10,
-      v: near ? 1.6 + Math.random() * 0.8 : 0.8 + Math.random() * 0.4,   // screen heights / s
-      a: near ? 0.22 + Math.random() * 0.18 : 0.10 + Math.random() * 0.10,
+      len: len[0] + Math.random() * (len[1] - len[0]),
+      v: v[0] + Math.random() * (v[1] - v[0]),            // screen heights / s
     }));
-    const layers = [{ drops: make(140, false), depth: 30 }, { drops: make(70, true), depth: 95 }];
+    const layers = [
+      { drops: make(170, [9, 16], [1.9, 2.4]), alpha: 0.10, width: 0.6, depth: 6 },
+      { drops: make(90, [18, 30], [2.6, 3.2]), alpha: 0.15, width: 0.9, depth: 14 },
+      { drops: make(28, [34, 56], [3.6, 4.4]), alpha: 0.22, width: 1.3, depth: 26 },
+    ];
 
     // cursor, normalised to -1..1 from the centre, smoothed
     const target = { x: 0, y: 0 }, cur = { x: 0, y: 0 };
@@ -88,21 +93,21 @@ export default function IntroAmbience({ canvasRef, frame, active }) {
       rainA += (wantRain - rainA) * Math.min(1, dt * 3);
       ctx.clearRect(0, 0, w, h);
       if (rainA < 0.01) return;
-      const slant = 0.18 + cur.x * 0.12;           // wind leans with the cursor
+      const wind = 0.10 + Math.sin(t / 2300) * 0.03 + Math.sin(t / 700) * 0.01;
       ctx.lineCap = "round";
-      for (const { drops, depth } of layers) {
-        const ox = -px * depth, oy = -py * depth * 0.6;
-        ctx.lineWidth = depth > 20 ? 1.3 : 0.8;
+      for (const { drops, alpha, width, depth } of layers) {
+        const ox = -px * depth, oy = -py * depth * 0.5;
+        ctx.strokeStyle = `rgba(205,222,232,${alpha * rainA})`;
+        ctx.lineWidth = width;
+        ctx.beginPath();
         for (const d of drops) {
           d.y += d.v * dt;
-          if (d.y > 1.1) { d.y = -0.1; d.x = Math.random() * 1.2 - 0.1; }
+          if (d.y > 1.08) { d.y = -0.08 - Math.random() * 0.1; d.x = Math.random() * 1.2 - 0.1; }
           const x = d.x * w + ox, y = d.y * h + oy;
-          ctx.strokeStyle = `rgba(200,225,235,${d.a * rainA})`;
-          ctx.beginPath();
           ctx.moveTo(x, y);
-          ctx.lineTo(x - d.len * slant, y + d.len);
-          ctx.stroke();
+          ctx.lineTo(x - d.len * wind, y + d.len);
         }
+        ctx.stroke();
       }
     };
     raf = requestAnimationFrame(tick);

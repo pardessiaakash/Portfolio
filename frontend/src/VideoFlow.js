@@ -450,7 +450,6 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
   const exactDrawnRef = useRef(-1);
   const lastIdxRef = useRef(-1);     // playback position last handled
   const lastTickRef = useRef(0);
-  const lastBlendRef = useRef(-1);
   const holdUntilRef = useRef(0);    // canvas holds LAST_HUD_FRAME until then
   const uiShownRef = useRef(effectiveSkipIntro ? true : false);
 
@@ -543,7 +542,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
   const dirRef = useRef(1);
 
   // ── Draw frame ───────────────────────────────────────────────────────────
-  const drawFrame = useCallback((index, blendTo = -1, blend = 0) => {
+  const drawFrame = useCallback((index) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const cache = cacheRef.current;
@@ -568,14 +567,6 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     const dw = img.naturalWidth * scale, dh = img.naturalHeight * scale;
     ctx.globalAlpha = 1;
     ctx.drawImage(img, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
-    // between two frames: lay the next one over at partial opacity, so
-    // slow scrolling and the ease-out glide look continuous, not steppy
-    const nb = blendTo >= 0 ? cache[blendTo] : null;
-    if (exact && blend > 0.02 && nb && nb.complete && nb.naturalWidth > 0) {
-      ctx.globalAlpha = blend;
-      ctx.drawImage(nb, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
-      ctx.globalAlpha = 1;
-    }
     lastDrawnRef.current = index;
     // A stand-in frame was drawn; keep redrawing until the real one is in.
     // Without this the canvas could stay on an earlier frame (one that still
@@ -635,14 +626,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
 
     // Redraw if the frame changed, or only a stand-in was ready last time.
     // On the way into the UI the canvas stays on the HUD frame (hold above).
-    const base = Math.max(0, Math.min(END_FRAME, Math.floor(next)));
-    const frac = next - base;
-    const blendKey = Math.round(frac * 20);
-    if (!enteringUI && base < UI_SHOW_FRAME &&
-      (base !== lastDrawnRef.current || exactDrawnRef.current !== base || blendKey !== lastBlendRef.current)) {
-      lastBlendRef.current = blendKey;
-      drawFrame(base, base + 1 <= LAST_HUD_FRAME ? base + 1 : -1, frac);
-    } else if (!enteringUI && base >= UI_SHOW_FRAME && (idx !== lastDrawnRef.current || exactDrawnRef.current !== idx)) {
+    if (!enteringUI && (idx !== lastDrawnRef.current || exactDrawnRef.current !== idx)) {
       drawFrame(idx);
     }
 
