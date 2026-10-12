@@ -366,9 +366,9 @@ export default function InnerStage({
               </Box>
               </CustomTooltip>
 
-              {/* ask AI + expand, bottom-right inside the viewer */}
+              {/* ask AI + expand: straddle the viewer's right edge like the Next arrow, so they stay clear of the slide content */}
               <CustomTooltip title="Ask To AI" placement="left"
-                wrapperSx={{ position: "absolute", left: W - 116.1, top: 669 }}>
+                wrapperSx={{ position: "absolute", left: W - 76.1, top: 646 }}>
                 <Box component="button" aria-label="Ask AI about this slide" onClick={() => hasSlides && onAskAI(slideIndex)}
                   sx={{ position: "relative", width: 44, height: 44, p: 0,
                     border: 0, background: "none", cursor: "pointer", transition: "filter 0.25s ease",
@@ -378,7 +378,7 @@ export default function InnerStage({
                 </Box>
               </CustomTooltip>
               <CustomTooltip title="Full screen" placement="left"
-                wrapperSx={{ position: "absolute", left: W - 116.1, top: 731 }}>
+                wrapperSx={{ position: "absolute", left: W - 76.1, top: 704 }}>
                 <Box component="button" aria-label="Show full screen" onClick={() => hasSlides && onExpand()}
                   sx={{ ...glassBtn(44), position: "relative", p: 0, background: "rgba(10,14,12,0.55)" }}>
                   <svg width="21" height="21" viewBox="0 0 21 21" aria-hidden>
