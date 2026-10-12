@@ -706,6 +706,13 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
       // forward: crossed UI_SHOW_FRAME → notify parent
       if (!uiShownRef.current && idx >= UI_SHOW_FRAME) {
         uiShownRef.current = true;
+        // after "Skip the cinematic", guide the cursor to Download Resume
+        // while the lab UI fades in
+        if (skippingRef.current) {
+          setTimeout(() => window.dispatchEvent(new CustomEvent("techcursor:goto", {
+            detail: { selector: '[data-autohover="download-resume"]', duration: 1100 },
+          })), UI_FADE_MS + 150);
+        }
         skippingRef.current = false;
         onComplete?.();
         // preload all frames backward so reverse is smooth

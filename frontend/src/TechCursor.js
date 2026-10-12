@@ -87,8 +87,45 @@ export default function TechCursor() {
       dot.style.opacity = ring.style.opacity = v ? "" : "0";
     };
 
+    // Guided moves ("techcursor:goto"): the cursor glides to an element and
+    // rests on it (hover state + the element's own hover effect) until the
+    // visitor moves the mouse; then it glides back to the real pointer.
+    let mx = -100, my = -100;          // real pointer
+    let glide = null;                  // { fx, fy, tx, ty, t0, dur, el, back }
+    let parked = null;                 // { el, mx, my }
+    const ease = (t) => 1 - Math.pow(1 - t, 3);
+    const hover = (el, on) => {
+      try {
+        el.dispatchEvent(new MouseEvent(on ? "mouseover" : "mouseout", { bubbles: true, relatedTarget: null }));
+      } catch { /* old browsers */ }
+    };
+    const onGoto = (e) => {
+      const sel = e.detail && e.detail.selector;
+      const el = sel && [...document.querySelectorAll(sel)].find((n) => n.offsetParent !== null);
+      if (!el || still) return;
+      const r = el.getBoundingClientRect();
+      if (!visible) { x = rx = window.innerWidth / 2; y = ry = window.innerHeight / 2; show(true); }
+      glide = { fx: x, fy: y, tx: r.left + r.width / 2, ty: r.top + r.height / 2,
+        t0: performance.now(), dur: e.detail.duration || 1100, el };
+      parked = null;
+    };
+    const release = () => {
+      if (parked) hover(parked.el, false);
+      parked = null;
+      glide = { fx: x, fy: y, tx: mx, ty: my, t0: performance.now(), dur: 260, back: true };
+    };
+
     const onMove = (e) => {
-      x = e.clientX; y = e.clientY;
+      mx = e.clientX; my = e.clientY;
+      if (glide && !glide.back) {
+        return;                                        // let the guided move finish
+      }
+      if (parked) {
+        if (Math.hypot(mx - parked.mx, my - parked.my) < 4) return;
+        release();
+      }
+      if (glide && glide.back) { glide.tx = mx; glide.ty = my; setState(classify(e.target)); return; }
+      x = mx; y = my;
       if (!visible) { rx = x; ry = y; }
       show(true);
       setState(classify(e.target));
@@ -101,6 +138,20 @@ export default function TechCursor() {
     const tick = (t) => {
       const dt = last ? Math.min(100, t - last) : 16;
       last = t;
+      if (glide) {
+        const p = Math.min(1, (t - glide.t0) / glide.dur);
+        const e = ease(p);
+        x = glide.fx + (glide.tx - glide.fx) * e;
+        y = glide.fy + (glide.ty - glide.fy) * e;
+        if (p >= 1) {
+          if (!glide.back) {
+            parked = { el: glide.el, mx, my };
+            setState("link");
+            hover(glide.el, true);
+          }
+          glide = null;
+        }
+      }
       const k = still ? 1 : 1 - Math.exp(-dt / TRAIL_MS);
       rx += (x - rx) * k;
       ry += (y - ry) * k;
@@ -110,6 +161,7 @@ export default function TechCursor() {
     };
 
     window.addEventListener("mousemove", onMove, { passive: true });
+    window.addEventListener("techcursor:goto", onGoto);
     window.addEventListener("mousedown", onDown);
     window.addEventListener("mouseup", onUp);
     document.addEventListener("mouseout", onLeave);
@@ -119,6 +171,7 @@ export default function TechCursor() {
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("techcursor:goto", onGoto);
       window.removeEventListener("mousedown", onDown);
       window.removeEventListener("mouseup", onUp);
       document.removeEventListener("mouseout", onLeave);

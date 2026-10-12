@@ -58,6 +58,7 @@ function DownloadResume({ sx, glass = false }) {
         component="a"
         href="/Round-1_Corrections.pdf"
         download
+        data-autohover="download-resume"
         variant="contained"
         ref={glass ? spin.ref : undefined}
         {...(glass ? spin.hoverProps : {})}
