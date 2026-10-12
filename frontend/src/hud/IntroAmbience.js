@@ -11,7 +11,7 @@ const RAIN = { from: 6, full: 12, fadeAt: 96, to: 114 };   // frames
 const PARALLAX_OFF = { at: 128, to: 150 };                  // ease to 0 here
 // strength of the cursor "look around": degrees, pixels, overscan to hide
 // the edges, and how quickly the scene follows the cursor (higher = snappier)
-const MOVE = { rotY: 5, rotX: 3.5, shiftX: 42, shiftY: 28, overscan: 0.16, follow: 9 };
+const MOVE = { rotY: 1.6, rotX: 1.1, shiftX: 14, shiftY: 9, overscan: 0.06, follow: 3 };
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 const rainLevel = (f) =>
@@ -77,12 +77,12 @@ export default function IntroAmbience({ canvasRef, frame, active }) {
       cur.y += (target.y - cur.y) * Math.min(1, dt * MOVE.follow);
 
       // idle drift so a paused frame still breathes
-      const ix = Math.sin(t / 2600) * 0.22, iy = Math.cos(t / 3400) * 0.16;
+      const ix = Math.sin(t / 3200) * 0.18, iy = Math.cos(t / 4100) * 0.12;
       const px = (cur.x + ix) * level, py = (cur.y + iy) * level;
 
       if (level > 0.001) {
         scene.style.transform =
-          `perspective(1800px) rotateY(${px * MOVE.rotY}deg) rotateX(${-py * MOVE.rotX}deg) ` +
+          `perspective(1400px) rotateY(${px * MOVE.rotY}deg) rotateX(${-py * MOVE.rotX}deg) ` +
           `translate3d(${-px * MOVE.shiftX}px, ${-py * MOVE.shiftY}px, 0) scale(${1 + MOVE.overscan * level})`;
       } else if (scene.style.transform) {
         scene.style.transform = "";
