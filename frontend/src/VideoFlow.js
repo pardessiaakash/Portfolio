@@ -8,6 +8,7 @@ import CustomTooltip from "./CustomTooltip";
 import MobileWelcomeScreen from "./MobileWelcomeScreen";
 import MobileIntro from "./hud/MobileIntro";
 import IntroAmbience from "./hud/IntroAmbience";
+import IntroLoader from "./hud/IntroLoader";
 import AnimatedTooltip from "./AnimatedTooltip";
 import { mainHudPath, useElementSize, HudOutline } from "./hud/hudShapes";
 import { glassPanelSx, glassHudRectSx, spinBorderSx, useSpinOnHover } from "./hud/glass";
@@ -183,12 +184,13 @@ function IntroLoadingBar({ frame, buffered, visible }) {
 
 // After the first frames are in, the rest of the sequence is fetched quietly
 // in the background, a few at a time, so scrolling never waits on the network.
-const BG_CONCURRENCY = 6;
+const BG_CONCURRENCY = 8;
 
 // Intro playback: how quickly the scene catches up with the scroll (higher =
 // snappier, lower = longer ease-out) and the top speed in frames per second.
 const GLIDE = 6;
 const MAX_FRAMES_PER_SEC = 75;
+const SKIP_FRAMES_PER_SEC = 150;    // fast-forward speed (~1 s to the lab)
 
 // Scroll distance (px) per intro frame; see onWheel.
 const WHEEL_PX = 28;
@@ -274,6 +276,29 @@ function SocialIcon({ label, icon, link }) {
     >
       <Box className="social-ring" aria-hidden />
       <Box component="img" src={icon} alt="" />
+    </Box>
+  );
+}
+
+/* "Skip the cinematic": fast-forwards the flight straight into the lab */
+function SkipButton({ onClick, large }) {
+  return (
+    <Box component="button" onClick={onClick} sx={{
+      pointerEvents: "auto", cursor: "pointer", fontFamily: "inherit",
+      display: "flex", alignItems: "center", gap: "10px",
+      px: large ? "24px" : "16px", py: large ? "18px" : "10px",
+      borderRadius: large ? "14px" : "999px",
+      background: "rgba(40,50,45,0.55)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)",
+      border: "1px solid rgba(255,255,255,0.14)", color: "#fff",
+      fontSize: large ? "14px" : "12px", fontWeight: 600, letterSpacing: "0.3px",
+      boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+      transition: "border-color 0.2s ease, background 0.2s ease",
+      "&:hover, &:focus-visible": { borderColor: "#00CD1F", background: "rgba(0,205,31,0.12)", outline: "none" },
+    }}>
+      Skip the cinematic
+      <svg width="16" height="12" viewBox="0 0 16 12" aria-hidden>
+        <path d="M1 1l5 5-5 5M8 1l5 5-5 5" fill="none" stroke="#00CD1F" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
     </Box>
   );
 }
@@ -450,6 +475,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
   const exactDrawnRef = useRef(-1);
   const lastIdxRef = useRef(-1);     // playback position last handled
   const lastTickRef = useRef(0);
+  const skippingRef = useRef(false);   // "Skip the cinematic" fast-forward
   const holdUntilRef = useRef(0);    // canvas holds LAST_HUD_FRAME until then
   const uiShownRef = useRef(effectiveSkipIntro ? true : false);
 
@@ -458,6 +484,25 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
 
   // keep introComplete accessible in wheel handler via ref
   const reversingRef = useRef(false);
+
+  // Desktop first visit: a loader covers everything until the frames are in,
+  // then "Enter the Design Lab"; scrolling only works after entering.
+  const needsLoader = !effectiveSkipIntro;
+  const enteredRef = useRef(!needsLoader);
+  const [loaderState, setLoaderState] = useState(needsLoader ? "loading" : "gone"); // loading → ready → leaving → gone
+  const enterLab = useCallback(() => {
+    enteredRef.current = true;
+    setLoaderState("leaving");
+    setTimeout(() => setLoaderState("gone"), 650);
+  }, []);
+  const skipCinematic = useCallback(() => {
+    if (!enteredRef.current || uiShownRef.current) return;
+    setStoppedSync(false);
+    skippingRef.current = true;
+    targetPosRef.current = END_FRAME;
+    loadAround(END_FRAME, 6);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // frame-derived UI states
   const [currentFrame, setCurrentFrame] = useState(skipIntro ? END_FRAME : 0);
@@ -475,21 +520,26 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
   const contigRef = useRef(-1);
   const bufferTimerRef = useRef(null);
   const [buffered, setBuffered] = useState(0);
+  // loader: every frame request that has finished (loaded or failed)
+  const settledRef = useRef(new Set());
+  const [settled, setSettled] = useState(0);
   const requestFrame = useCallback((i, onSettled) => {
     const img = new Image();
     img.decoding = "async";
     img.onload = () => {
       loadedRef.current.add(i);
       while (loadedRef.current.has(contigRef.current + 1)) contigRef.current++;
+      settledRef.current.add(i);
       if (!bufferTimerRef.current) {
         bufferTimerRef.current = setTimeout(() => {
           bufferTimerRef.current = null;
           setBuffered(Math.min(1, (contigRef.current + 1) / (LAST_HUD_FRAME + 1)));
-        }, 150);
+          setSettled(settledRef.current.size);
+        }, 120);
       }
       onSettled?.();
     };
-    img.onerror = () => onSettled?.();
+    img.onerror = () => { settledRef.current.add(i); setSettled(settledRef.current.size); onSettled?.(); };
     img.src = framePath(i);
     cacheRef.current[i] = img;
     return img;
@@ -606,8 +656,8 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     if (Math.abs(diff) < 0.02) {
       next = target;
     } else {
-      const glide = diff * (1 - Math.exp(-dt * GLIDE));
-      const cap = MAX_FRAMES_PER_SEC * dt;
+      const glide = skippingRef.current ? diff : diff * (1 - Math.exp(-dt * GLIDE));
+      const cap = (skippingRef.current ? SKIP_FRAMES_PER_SEC : MAX_FRAMES_PER_SEC) * dt;
       next = current + Math.sign(diff) * Math.max(Math.min(Math.abs(glide), cap), Math.min(Math.abs(diff), 0.02));
     }
     posRef.current = next;
@@ -651,6 +701,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
       // forward: crossed UI_SHOW_FRAME → notify parent
       if (!uiShownRef.current && idx >= UI_SHOW_FRAME) {
         uiShownRef.current = true;
+        skippingRef.current = false;
         onComplete?.();
         // preload all frames backward so reverse is smooth
         const cache = cacheRef.current;
@@ -715,6 +766,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
   // the wheel, for visitors without a trackpad or mouse wheel.
   useEffect(() => {
     const step = (dir, frames) => {
+      if (!enteredRef.current || skippingRef.current) return;
       if (stoppedRef.current) {
         const frame = Math.round(targetPosRef.current);
         // only dismiss if scrolling out of the stop zone
@@ -793,6 +845,16 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
 
   const showScrollEntry = currentFrame < STOP_FRAME && !stopped && !isMobile;
 
+  // loader: ready once every frame request has finished (or after 30 s)
+  useEffect(() => {
+    if (loaderState === "loading" && settled >= END_FRAME + 1) setLoaderState("ready");
+  }, [settled, loaderState]);
+  useEffect(() => {
+    if (loaderState !== "loading") return undefined;
+    const t = setTimeout(() => setLoaderState((s) => (s === "loading" ? "ready" : s)), 30000);
+    return () => clearTimeout(t);
+  }, [loaderState]);
+
   return (
     <>
       {isMobile && mobileIntro && (
@@ -852,7 +914,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
       {showScrollEntry && (
         <Box sx={{
           position: "fixed", inset: 0, zIndex: 99997,
-          display: "flex", alignItems: "center", justifyContent: "center",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: "16px",
           pointerEvents: "none",
         }}>
           <Box sx={{
@@ -883,7 +945,21 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
               </Typography>
             </Box>
           </Box>
+          <SkipButton onClick={skipCinematic} large />
         </Box>
+      )}
+
+      {/* skip stays available (bottom right) for the rest of the flight */}
+      {!isMobile && !showScrollEntry && welcomeOpacity === 0 && loaderState === "gone" && (
+        <Box sx={{ position: "fixed", right: 28, bottom: 26, zIndex: 99998 }}>
+          <SkipButton onClick={skipCinematic} />
+        </Box>
+      )}
+
+      {/* loader: first thing on a desktop visit, until the frames are in */}
+      {loaderState !== "gone" && (
+        <IntroLoader progress={settled / (END_FRAME + 1)} ready={loaderState !== "loading"}
+          leaving={loaderState === "leaving"} onEnter={enterLab} />
       )}
 
       {/* ON/OFF mute button — bottom right */}
