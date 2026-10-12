@@ -185,6 +185,9 @@ function IntroLoadingBar({ frame, buffered, visible }) {
 // in the background, a few at a time, so scrolling never waits on the network.
 const BG_CONCURRENCY = 6;
 
+// Scroll distance (px) per intro frame; see onWheel.
+const WHEEL_PX = 28;
+
 const socialIcons = [
   { label: "LinkedIn", icon: "/assets/icons/lindedin.svg",
     hoverIcon:"/assets/icons/withhover/linkedIn.png", link: "https://www.linkedin.com" },
@@ -732,7 +735,22 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
       }, 180);
     };
 
-    const onWheel = (e) => step(e.deltaY > 0 ? 1 : -1, 1);
+    // Trackpads (e.g. MacBook) send many small wheel events per swipe, plus
+    // momentum; a mouse wheel sends a few big ones. So frames follow the
+    // scrolled distance: one frame per WHEEL_PX, at most one per event.
+    // A mouse notch (~100px) still moves exactly one frame.
+    let acc = 0;
+    const onWheel = (e) => {
+      const px = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * window.innerHeight : e.deltaY;
+      if (!px) return;
+      if (Math.sign(px) !== Math.sign(acc)) acc = 0;     // direction changed
+      acc += px;
+      if (Math.abs(acc) < WHEEL_PX) return;
+      const dir = acc > 0 ? 1 : -1;
+      acc -= dir * WHEEL_PX;
+      if (Math.abs(acc) > WHEEL_PX) acc = dir * WHEEL_PX;  // don't bank a backlog
+      step(dir, 1);
+    };
 
     const FWD = ["ArrowDown", "ArrowRight", "PageDown", " "];
     const BACK = ["ArrowUp", "ArrowLeft", "PageUp"];
