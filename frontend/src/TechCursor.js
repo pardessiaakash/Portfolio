@@ -15,7 +15,7 @@ const TRAIL_MS = 70;      // ring's trailing time constant; time-based, so the
                           // feel is the same at any frame rate (~0.2s to settle)
 
 const INTERACTIVE =
-  'a, button, [role="button"], [role="tab"], label, select, summary, ' +
+  'a, button, [role="button"], [role="tab"], [role="link"], [role="menuitem"], [role="option"], [role="switch"], [role="checkbox"], label, select, summary, ' +
   '.MuiButtonBase-root, [data-cursor="pointer"], [onclick]';
 const TEXT = 'input:not([type="button"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"]), textarea, [contenteditable="true"]';
 const RESIZE = '.handle-pill, [data-cursor="resize"]';
@@ -57,16 +57,35 @@ export default function TechCursor() {
     };
 
     // The cursor the site itself sets for an element (pointer on cards,
-    // col-resize on the handle…). Our `cursor: none` rule masks it, so lift
-    // the rule for one synchronous style read; nothing is painted meanwhile.
+    // col-resize on the handle…). Our `cursor: none` rule masks it, so read
+    // it from a bare copy of the element inside an off-screen probe box the
+    // rule doesn't cover. (Lifting the rule page-wide instead made the
+    // system arrow flash on macOS.)
     const nativeCursor = new WeakMap();
-    const siteCursor = (el) => {
+    const probe = document.createElement("div");
+    probe.className = "tc-probe";
+    probe.setAttribute("aria-hidden", "true");
+    document.body.appendChild(probe);
+    const ownCursor = (el) => {
       if (nativeCursor.has(el)) return nativeCursor.get(el);
-      root.classList.remove("tech-cursor");
-      const c = getComputedStyle(el).cursor;
-      root.classList.add("tech-cursor");
+      let c = "auto";
+      if (el.cloneNode && !/^(VIDEO|AUDIO|IFRAME|SOURCE)$/i.test(el.tagName)) {
+        const copy = el.cloneNode(false);
+        if (copy.removeAttribute) copy.removeAttribute("id");
+        probe.appendChild(copy);
+        c = getComputedStyle(copy).cursor;
+        probe.removeChild(copy);
+      }
       nativeCursor.set(el, c);
       return c;
+    };
+    // cursor is inherited, so the nearest ancestor that sets one decides
+    const siteCursor = (el) => {
+      for (let n = el, i = 0; n && n.nodeType === 1 && n !== document.body && i < 8; n = n.parentElement, i++) {
+        const c = ownCursor(n);
+        if (c && c !== "auto") return c;
+      }
+      return "auto";
     };
 
     const classify = (el) => {
@@ -190,6 +209,7 @@ export default function TechCursor() {
       window.removeEventListener("mouseup", onUp);
       document.removeEventListener("mouseout", onLeave);
       root.classList.remove("tech-cursor");
+      probe.remove();
     };
   }, []);
 
@@ -197,10 +217,12 @@ export default function TechCursor() {
     <>
       <style>{`
         @media (pointer: fine) {
-          html.tech-cursor, html.tech-cursor * { cursor: none !important; }
+          html.tech-cursor, html.tech-cursor *:not(.tc-probe):not(.tc-probe *) { cursor: none !important; }
           html.tech-cursor input:not([type="button"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"]),
           html.tech-cursor textarea, html.tech-cursor [contenteditable="true"] { cursor: text !important; }
         }
+        .tc-probe { position: fixed; left: -9999px; top: -9999px; width: 0; height: 0;
+          overflow: hidden; visibility: hidden; pointer-events: none; }
         .tc-dot, .tc-ring {
           position: fixed; left: 0; top: 0; z-index: 2147483647;
           pointer-events: none; will-change: transform;
