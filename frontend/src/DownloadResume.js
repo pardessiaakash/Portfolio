@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Box, Button } from "@mui/material";
 import CustomTooltip from "./CustomTooltip";
 import { glassSx, spinBorderSx, useSpinOnHover } from "./hud/glass";
@@ -47,8 +48,26 @@ const glassButtonStyles = {
   },
 };
 
+// Icon: the resume file, which turns into the green download icon (Figma
+// "Resume_Default" → "Resume_Hover") while hovered or focused.
+function ResumeIcon({ active }) {
+  const layer = { position: "absolute", inset: 0, width: 20, height: 20, transition: "opacity 0.2s ease, transform 0.25s ease" };
+  return (
+    <Box component="span" sx={{ position: "relative", display: "block", width: 20, height: 20 }}>
+      <Box component="img" src="/assets/icons/download-resume.svg" alt=""
+        sx={{ ...layer, opacity: active ? 0 : 1, transform: active ? "scale(0.85)" : "none" }} />
+      <Box component="img" src="/assets/icons/download-resume-hover.svg" alt=""
+        sx={{ ...layer, opacity: active ? 1 : 0, transform: active ? "none" : "translateY(-3px)" }} />
+    </Box>
+  );
+}
+
 function DownloadResume({ sx, glass = false }) {
   const spin = useSpinOnHover();
+  const [active, setActive] = useState(false);
+  const on = (h) => (e) => { setActive(true); h?.(e); };
+  const off = (h) => (e) => { setActive(false); h?.(e); };
+  const hp = glass ? spin.hoverProps : {};
   return (
     <CustomTooltip
       title={<>Click to Download</>}
@@ -61,15 +80,11 @@ function DownloadResume({ sx, glass = false }) {
         data-autohover="download-resume"
         variant="contained"
         ref={glass ? spin.ref : undefined}
-        {...(glass ? spin.hoverProps : {})}
-        startIcon={
-          <Box
-            component="img"
-            src="/assets/icons/download-resume.svg"
-            alt=""
-            sx={{ width: 20, height: 20 }}
-          />
-        }
+        onMouseEnter={on(hp.onMouseEnter)}
+        onMouseLeave={off(hp.onMouseLeave)}
+        onFocus={on(hp.onFocus)}
+        onBlur={off(hp.onBlur)}
+        startIcon={<ResumeIcon active={active} />}
         sx={{
           ...(glass ? glassButtonStyles : buttonStyles),
           // keyboard focus ring (MUI turns the outline off; mouse never shows it)
