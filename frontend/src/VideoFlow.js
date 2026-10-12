@@ -7,6 +7,7 @@ import ResizeHandle from "./ResizeHandle";
 import CustomTooltip from "./CustomTooltip";
 import MobileWelcomeScreen from "./MobileWelcomeScreen";
 import MobileIntro from "./hud/MobileIntro";
+import IntroAmbience from "./hud/IntroAmbience";
 import AnimatedTooltip from "./AnimatedTooltip";
 import { mainHudPath, useElementSize, HudOutline } from "./hud/hudShapes";
 import { glassPanelSx, glassHudRectSx, spinBorderSx, useSpinOnHover } from "./hud/glass";
@@ -770,8 +771,14 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
           ref={canvasRef}
           role="img"
           aria-label="Intro animation: flying through a rainy futuristic city into Akash's design lab"
-          style={{ display: "block", position: "absolute", inset: 0, width: "100vw", height: "100vh" }}
+          style={{ display: "block", position: "absolute", inset: 0, width: "100vw", height: "100vh",
+            willChange: "transform", transformOrigin: "50% 50%" }}
         />
+
+        {/* cursor parallax + falling rain while the visitor pauses mid-flight */}
+        {!isMobile && (
+          <IntroAmbience canvasRef={canvasRef} frame={currentFrame} active={welcomeOpacity === 0} />
+        )}
 
         {/* Room dimmer: once the main UI is up, darken the room (most at the
             edges, where the ceiling lights, floor strips and screens are) so
