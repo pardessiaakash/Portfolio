@@ -9,6 +9,7 @@ import MobileWelcomeScreen from "./MobileWelcomeScreen";
 import MobileIntro from "./hud/MobileIntro";
 import IntroAmbience from "./hud/IntroAmbience";
 import IntroLoader from "./hud/IntroLoader";
+import GlassButton from "./hud/GlassButton";
 import AnimatedTooltip from "./AnimatedTooltip";
 import { mainHudPath, useElementSize, HudOutline } from "./hud/hudShapes";
 import { glassPanelSx, glassHudRectSx, spinBorderSx, useSpinOnHover } from "./hud/glass";
@@ -280,26 +281,18 @@ function SocialIcon({ label, icon, link }) {
   );
 }
 
-/* "Skip the cinematic": fast-forwards the flight straight into the lab */
-function SkipButton({ onClick, large }) {
+/* "Skip the cinematic": fast-forwards the flight straight into the lab
+   (the site's standard glass button) */
+function SkipButton({ onClick }) {
   return (
-    <Box component="button" onClick={onClick} sx={{
-      pointerEvents: "auto", cursor: "pointer", fontFamily: "inherit",
-      display: "flex", alignItems: "center", gap: "10px",
-      px: large ? "24px" : "16px", py: large ? "18px" : "10px",
-      borderRadius: large ? "14px" : "999px",
-      background: "rgba(40,50,45,0.55)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)",
-      border: "1px solid rgba(255,255,255,0.14)", color: "#fff",
-      fontSize: large ? "14px" : "12px", fontWeight: 600, letterSpacing: "0.3px",
-      boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-      transition: "border-color 0.2s ease, background 0.2s ease",
-      "&:hover, &:focus-visible": { borderColor: "#00CD1F", background: "rgba(0,205,31,0.12)", outline: "none" },
-    }}>
+    <GlassButton onClick={onClick} sx={{ pointerEvents: "auto" }}
+      icon={
+        <svg width="16" height="12" viewBox="0 0 16 12" aria-hidden>
+          <path d="M1 1l5 5-5 5M8 1l5 5-5 5" fill="none" stroke="#00CD1F" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      }>
       Skip the cinematic
-      <svg width="16" height="12" viewBox="0 0 16 12" aria-hidden>
-        <path d="M1 1l5 5-5 5M8 1l5 5-5 5" fill="none" stroke="#00CD1F" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    </Box>
+    </GlassButton>
   );
 }
 
@@ -914,7 +907,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
       {showScrollEntry && (
         <Box sx={{
           position: "fixed", inset: 0, zIndex: 99997,
-          display: "flex", alignItems: "center", justifyContent: "center", gap: "16px",
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "18px",
           pointerEvents: "none",
         }}>
           <Box sx={{
@@ -945,7 +938,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
               </Typography>
             </Box>
           </Box>
-          <SkipButton onClick={skipCinematic} large />
+          <SkipButton onClick={skipCinematic} />
         </Box>
       )}
 

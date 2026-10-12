@@ -4,12 +4,22 @@
 // only after it's clicked (or Enter / Space is pressed).
 import React, { useEffect, useRef } from "react";
 import { Box, Typography } from "@mui/material";
+import GlassButton from "./GlassButton";
 
 const PRIMARY = "#00CD1F";
 
 export default function IntroLoader({ progress, ready, leaving, onEnter }) {
   const btnRef = useRef(null);
-  useEffect(() => { if (ready) btnRef.current?.focus({ preventScroll: true }); }, [ready]);
+  // Enter (or Space) enters once ready, without moving focus to the button
+  // (which would show its keyboard focus ring to mouse users)
+  useEffect(() => {
+    if (!ready || leaving) return undefined;
+    const onKey = (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onEnter(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [ready, leaving, onEnter]);
   const pct = Math.round(Math.max(0, Math.min(1, progress)) * 100);
 
   return (
@@ -51,20 +61,14 @@ export default function IntroLoader({ progress, ready, leaving, onEnter }) {
           </>
         ) : (
           <>
-            <Box ref={btnRef} component="button" onClick={onEnter} sx={{
-              mt: "8px", px: "34px", py: "16px", borderRadius: "999px", cursor: "pointer",
-              border: `1px solid ${PRIMARY}`, background: "rgba(0,205,31,0.10)", color: "#fff",
-              fontFamily: "inherit", fontSize: "16px", fontWeight: 600, letterSpacing: "0.5px",
-              boxShadow: "0 0 24px rgba(0,205,31,0.25)",
-              animation: "enterIn 0.5s ease-out, enterPulse 2.4s ease-in-out 0.5s infinite",
-              transition: "background 0.2s ease, transform 0.2s ease",
-              "&:hover, &:focus-visible": { background: "rgba(0,205,31,0.22)", outline: "none", transform: "scale(1.03)" },
+            <GlassButton ref={btnRef} onClick={onEnter} size="lg" sx={{
+              mt: "8px",
+              animation: "enterIn 0.5s ease-out",
               "@keyframes enterIn": { from: { opacity: 0, transform: "translateY(8px)" }, to: { opacity: 1, transform: "none" } },
-              "@keyframes enterPulse": { "0%,100%": { boxShadow: "0 0 18px rgba(0,205,31,0.2)" }, "50%": { boxShadow: "0 0 34px rgba(0,205,31,0.45)" } },
               "@media (prefers-reduced-motion: reduce)": { animation: "none" },
             }}>
               Enter the Design Lab
-            </Box>
+            </GlassButton>
             <Typography sx={{ mt: "16px", fontSize: "12px", color: "rgba(255,255,255,0.5)" }}>
               Click, or press Enter
             </Typography>
