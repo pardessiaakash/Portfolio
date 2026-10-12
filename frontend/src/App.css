@@ -41,3 +41,13 @@
   0%, 100% { transform: scale(1) translateY(0); opacity: 1; }
   50% { transform: scale(1.08) translateY(-3px); opacity: 0.8; }
 }
+
+/* Keyboard focus ring (accessibility). Shows only when tabbing with the
+   keyboard (:focus-visible), never on mouse clicks, so the design is
+   unchanged for mouse and touch users. */
+:focus-visible {
+  outline: 2px solid #00CD1F;
+  outline-offset: 3px;
+}
+svg g:focus-visible { outline: none; }
+svg g:focus-visible path { stroke: #00CD1F; stroke-width: 2; }

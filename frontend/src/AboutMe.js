@@ -7,7 +7,9 @@ import { PRIMARY, primaryAlpha } from "./theme";
 import CustomTooltip from "./CustomTooltip";
 import { fetchCategories } from "./api/chatApi";
 import DownloadResume from "./DownloadResume";
+import { pressable } from "./a11y";
 import { glassShapeSx, STROKE_STOPS, STROKE_ANGLE, useSpinOnHover, normalizePath } from "./hud/glass";
+import { playHoverTick } from "./sound/uiTick";
 
 /* ── Styled components ── */
 const ModalBox = styled(Box)(({ mobile }) => ({
@@ -75,6 +77,8 @@ export const Tab = React.forwardRef(({ active, onClick, children, w = 156, h = 3
       ref={ref}
       onClick={onClick}
       {...spin.hoverProps}
+      {...pressable(onClick, undefined, "tab")}
+      aria-selected={!!active}
       sx={{
         position: "relative",
         width: `${vw}px`,
@@ -186,13 +190,22 @@ export const ICON_MAP = {
   "Print Media": "/assets/icons/print-designs.svg",
   "Print-Designs": "/assets/icons/print-designs.svg",
   "XR": "/assets/icons/XR.svg",
+  "Immersive": "/assets/icons/XR.svg",
+};
+
+// The fourth category used to be "Print Media"; the work now shown there is
+// immersive / VR / XR. Older names from the projects API map to the new one.
+const CATEGORY_RENAMES = { "Print Media": "Immersive", "Print-Designs": "Immersive", "Print": "Immersive", "XR": "Immersive", "Immersive/VR/XR": "Immersive" };
+export const toCategoryCard = (name) => {
+  const label = CATEGORY_RENAMES[name] || name;
+  return { label, icon: ICON_MAP[label] || "/assets/icons/UX.svg" };
 };
 
 export const DEFAULT_WORK_CATEGORIES = [
   { label: "UI/UX", icon: "/assets/icons/UX.svg" },
   { label: "Social Media", icon: "/assets/icons/social-media.svg" },
   { label: "Video", icon: "/assets/icons/Video.svg" },
-  { label: "Print Media", icon: "/assets/icons/print-designs.svg" },
+  { label: "Immersive", icon: "/assets/icons/XR.svg" },
 ];
 
 /* ── Category card with exact Figma SVG shape ── */
@@ -222,7 +235,13 @@ export function CategoryCard({ cat, onClick, compact, hud = false, glass = false
   return (
     <Box
       onClick={onClick}
-      onMouseEnter={() => { setHovered(true); if (glass) spin.hoverProps.onMouseEnter(); }}
+      {...pressable(onClick, `${cat.label} projects`, "link")}
+      onMouseEnter={() => {
+        setHovered(true);
+        if (glass) spin.hoverProps.onMouseEnter();
+        // techno UI tick, mouse/trackpad only (taps also fire mouseenter)
+        if (window.matchMedia?.("(hover: hover)").matches) playHoverTick();
+      }}
       onMouseLeave={() => { setHovered(false); if (glass) spin.hoverProps.onMouseLeave(); }}
       sx={{
         position: "relative",
@@ -354,10 +373,7 @@ function WorkTab({ onClose, inline, compact, hud }) {
     fetchCategories()
       .then(data => {
         if (data && data.length > 0) {
-          setWorkCategories(data.map(cat => ({
-            label: cat,
-            icon: ICON_MAP[cat] || "/assets/icons/UX.svg",
-          })));
+          setWorkCategories(data.map(toCategoryCard));
         }
       })
       .catch(() => { });
@@ -394,7 +410,8 @@ function WorkTab({ onClose, inline, compact, hud }) {
       {/* Bio + Download Resume */}
       <Box sx={{ display: "flex", justifyContent: "space-between", gap: 3, mt: compact ? "28px" : "48px", alignItems: "center" }}>
         <Typography sx={{ fontSize: "13px", lineHeight: 1.75, textAlign: "left", flex: 1, maxWidth: "450px" }}>
-          Designing immersive, intuitive experiences, focused on clarity         </Typography>
+          Pick a category to explore my projects, or download my resume for the full picture.
+        </Typography>
         <DownloadResume glass={inline} />
       </Box>
     </Box>
@@ -466,7 +483,7 @@ function AboutMeTab({ mobile, inline }) {
       {/* Skills rows + Download Resume */}
       <Box sx={{ display: "flex", justifyContent: "space-between", gap: 3 }}>
         <Typography sx={{ fontSize: "13px", lineHeight: 1.8, flex: 1, textAlign: "left" }}>
-          Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's.
+          A UI/UX designer who turns complex problems into clear, human-centred experiences, now designing with generative AI.
         </Typography>
         <DownloadResume glass={inline} />
       </Box>
@@ -497,7 +514,7 @@ function AboutMeContent({ onClose, mobile, inline, compact = false, hud = false 
           </Typography>
         </Box>
 
-        <Box sx={{ display: "flex", alignItems: "center", gap: hud ? "13px" : 1, mt: "4px" }}>
+        <Box role="tablist" aria-label="Sections" sx={{ display: "flex", alignItems: "center", gap: hud ? "13px" : 1, mt: "4px" }}>
           <CustomTooltip title="View My Work" placement="top">
              <Tab active={activeTab === "work" ? 1 : 0} onClick={() => setActiveTab("work")} {...tabSize}>
             Work

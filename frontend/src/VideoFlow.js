@@ -1,23 +1,31 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Box, Typography, useMediaQuery } from "@mui/material";
 import { AboutMeContent } from "./AboutMe";
-import AudioButton from "./AudioButton";
 import ChatbotPanel from "./ChatbotPanel";
 import { useResizableChatbot } from "./hooks/useResizableChatbot";
 import ResizeHandle from "./ResizeHandle";
+import CustomTooltip from "./CustomTooltip";
 import MobileWelcomeScreen from "./MobileWelcomeScreen";
+import MobileIntro from "./hud/MobileIntro";
+import IntroAmbience from "./hud/IntroAmbience";
+import IntroLoader from "./hud/IntroLoader";
+import GlassButton from "./hud/GlassButton";
 import AnimatedTooltip from "./AnimatedTooltip";
 import { mainHudPath, useElementSize, HudOutline } from "./hud/hudShapes";
 import { glassPanelSx, glassHudRectSx, spinBorderSx, useSpinOnHover } from "./hud/glass";
 
-// Frame numbers for the 165-frame sequence. (The original export had a
-// duplicate every 5th frame, which made the motion stall; those were removed.)
+// module-level, so it resets only on a full page load (refresh / first visit)
+let chatHintsShown = false;
+
+// Frame numbers for the 169-frame sequence: 163 frames from the intro video
+// (the export repeats every 5th frame, which made the motion stall; those
+// repeats were removed) followed by the empty room the live UI sits on.
 const STOP_FRAME = 8;
 const STOP_FRAME_END = 16;
 const SCROLL_HINT_FRAME = 4;          // "scroll down" hint shows after this
-const LAST_HUD_FRAME = 158;           // last frame with the HUD drawn in
+const LAST_HUD_FRAME = 162;           // last frame with the HUD drawn in
 const UI_SHOW_FRAME = LAST_HUD_FRAME + 1;
-const END_FRAME = 164;
+const END_FRAME = 168;
 // The live UI cross-fades over LAST_HUD_FRAME for this long; the canvas
 // holds on that frame meanwhile so the two HUDs dissolve into each other.
 const UI_FADE_MS = 350;
@@ -128,14 +136,77 @@ function useCoverScale() {
   return scale;
 }
 
-const framePath = (i) => {
-  const n = String(i).padStart(5, "0");
-  return `/assets/images/Updated-Sequence/Comp 1_${n}.webp`;
-};
+// Frames are 1920x1080 WebP (~55 KB each). Every frame after the drawn-in
+// HUD is the same empty room, so they all share one file.
+const SEQ_DIR = "/assets/images/Sequence-v3";
+const framePath = (i) =>
+  i > LAST_HUD_FRAME
+    ? `${SEQ_DIR}/end.webp`
+    : `${SEQ_DIR}/f_${String(i).padStart(3, "0")}.webp`;
+
+// Scroll progress bar shown while flying in. The bright part follows the
+// scroll position; the faint part behind it shows how far the frames have
+// loaded, like a video buffer.
+const stageLabel = (f) =>
+  f < 70 ? "Flying in" : f < 90 ? "Reaching the pod" : f < 125 ? "Opening the pod" : "Entering the lab";
+
+function IntroLoadingBar({ frame, buffered, visible }) {
+  const progress = Math.max(0, Math.min(1, frame / LAST_HUD_FRAME));
+  const pct = `${(progress * 100).toFixed(2)}%`;
+  return (
+    <Box aria-hidden sx={{
+      position: "fixed", left: "50%", bottom: 34, transform: "translateX(-50%)",
+      width: "min(440px, 46vw)", zIndex: 99998, pointerEvents: "none",
+      opacity: visible ? 1 : 0, transition: "opacity 0.4s ease",
+    }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", mb: "10px" }}>
+        <Typography sx={{ fontSize: "10px", letterSpacing: "3px", textTransform: "uppercase", color: "rgba(255,255,255,0.7)" }}>
+          {stageLabel(frame)}
+        </Typography>
+        <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#00CD1F", fontVariantNumeric: "tabular-nums" }}>
+          {Math.round(progress * 100)}%
+        </Typography>
+      </Box>
+      <Box sx={{ position: "relative", height: "2px", borderRadius: "2px", background: "rgba(255,255,255,0.12)" }}>
+        <Box sx={{ position: "absolute", left: 0, top: 0, bottom: 0, borderRadius: "2px",
+          width: `${Math.max(progress, buffered) * 100}%`, background: "rgba(255,255,255,0.2)",
+          transition: "width 0.3s ease" }} />
+        <Box sx={{ position: "absolute", left: 0, top: 0, bottom: 0, borderRadius: "2px", width: pct,
+          background: "linear-gradient(90deg, rgba(0,205,31,0.15), #00CD1F)",
+          boxShadow: "0 0 8px rgba(0,205,31,0.6)", transition: "width 0.15s linear" }} />
+        <Box sx={{ position: "absolute", left: pct, top: "50%", width: 10, height: 10, borderRadius: "50%",
+          transform: "translate(-50%, -50%)", background: "#00CD1F",
+          boxShadow: "0 0 0 4px rgba(0,205,31,0.18), 0 0 12px rgba(0,205,31,0.8)",
+          transition: "left 0.15s linear" }} />
+      </Box>
+    </Box>
+  );
+}
 
 // After the first frames are in, the rest of the sequence is fetched quietly
 // in the background, a few at a time, so scrolling never waits on the network.
-const BG_CONCURRENCY = 4;
+const BG_CONCURRENCY = 8;
+
+// Intro playback: how quickly the scene catches up with the scroll (higher =
+// snappier, lower = longer ease-out) and the top speed in frames per second.
+const GLIDE = 6;
+const MAX_FRAMES_PER_SEC = 75;
+// "Skip the cinematic" speed (frames / s) along the flight: eases in, flies
+// through the city, then slows from the half-open pod door and eases out
+// into the lab, so the visitor still sees where they've arrived (~4 s).
+const SKIP_SPEED = { start: 24, city: 70, door: 30, end: 12 };
+const SKIP_AT = { cruise: 14, doorHalf: 96, doorOpen: 112 };
+const mix = (a, b, t) => a + (b - a) * Math.max(0, Math.min(1, t));
+const skipSpeed = (f) => {
+  if (f < SKIP_AT.cruise) return mix(SKIP_SPEED.start, SKIP_SPEED.city, f / SKIP_AT.cruise);
+  if (f < SKIP_AT.doorHalf) return SKIP_SPEED.city;
+  if (f < SKIP_AT.doorOpen) return mix(SKIP_SPEED.city, SKIP_SPEED.door, (f - SKIP_AT.doorHalf) / (SKIP_AT.doorOpen - SKIP_AT.doorHalf));
+  const t = (f - SKIP_AT.doorOpen) / (LAST_HUD_FRAME - SKIP_AT.doorOpen);
+  return mix(SKIP_SPEED.door, SKIP_SPEED.end, 1 - (1 - t) * (1 - t));   // ease-out
+};
+
+// Scroll distance (px) per intro frame; see onWheel.
+const WHEEL_PX = 28;
 
 const socialIcons = [
   { label: "LinkedIn", icon: "/assets/icons/lindedin.svg",
@@ -143,13 +214,13 @@ const socialIcons = [
   { label: "Behance", icon: "/assets/icons/behance.svg", hoverIcon:"/assets/icons/withhover/behance.png", link: "https://www.behance.net/pardessiaaec66" },
   { label: "Dribbble", icon: "/assets/icons/dribble.svg", hoverIcon:"/assets/icons/withhover/dribble.png", link: "https://dribbble.com/pardessiaakash" },
   {
-    label: "Mobile",
+    label: "Call Akash",
     icon: "/assets/icons/mobile.svg",
     hoverIcon:"/assets/icons/withhover/mobile.png",
     link: "tel:+919011566393",
   },
   {
-    label: "Mail",
+    label: "Email Akash",
     icon: "/assets/icons/email.svg",
     hoverIcon:"/assets/icons/withhover/mail.png",
     link: "mailto:pardessiaakash@gmail.com",
@@ -183,6 +254,8 @@ function SocialIcon({ label, icon, link }) {
         borderRadius: "50%",
         textDecoration: "none",
         outline: "none",
+        // keyboard focus ring (mouse / touch never show it)
+        "&:focus-visible": { outline: "2px solid #00CD1F", outlineOffset: "2px" },
 
         "& img": {
           width: 40,
@@ -220,6 +293,21 @@ function SocialIcon({ label, icon, link }) {
   );
 }
 
+/* "Skip the cinematic": fast-forwards the flight straight into the lab
+   (the site's standard glass button) */
+function SkipButton({ onClick }) {
+  return (
+    <GlassButton onClick={onClick} sx={{ pointerEvents: "auto" }}
+      icon={
+        <svg width="16" height="12" viewBox="0 0 16 12" aria-hidden>
+          <path d="M1 1l5 5-5 5M8 1l5 5-5 5" fill="none" stroke="#00CD1F" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      }>
+      Skip the cinematic
+    </GlassButton>
+  );
+}
+
 /* ── Welcome split screen ── */
 function WelcomeScreen({ opacity }) {
   const { widthPercent, isDragging, handleMouseDown, containerRef } = useResizableChatbot(
@@ -233,8 +321,11 @@ function WelcomeScreen({ opacity }) {
   // one pointing at the chat input. Both self-dismiss (progress bar) or
   // can be closed manually; AnimatedTooltip also no-ops on mobile itself,
   // this state just avoids re-showing them once dismissed.
-  const [showAvatarHint, setShowAvatarHint] = useState(true);
-  const [showInputHint, setShowInputHint] = useState(true);
+  // Shown once per page load: a refresh brings them back, but returning
+  // from a category page (client-side navigation) does not.
+  const [showAvatarHint, setShowAvatarHint] = useState(!chatHintsShown);
+  const [showInputHint, setShowInputHint] = useState(!chatHintsShown);
+  useEffect(() => { chatHintsShown = true; }, []);
 
   if (isMobile) {
     return (
@@ -294,7 +385,9 @@ function WelcomeScreen({ opacity }) {
           position: "absolute",
         }}>
           {socialIcons.map(({ label, icon, link }) => (
-            <SocialIcon key={label} label={label} icon={icon} link={link} />
+            <CustomTooltip key={label} title={label} placement="right">
+              <SocialIcon label={label} icon={icon} link={link} />
+            </CustomTooltip>
           ))}
         </Box>
 
@@ -310,7 +403,7 @@ function WelcomeScreen({ opacity }) {
           width: 0, mr: `${HUD_SHAPE.gap}px`, flexShrink: 0,
           position: "relative", zIndex: 30,
           "& .handle-line": { display: "none" },
-          "& .handle-pill": { transform: `translate(${HUD_SHAPE.pillShift}px, -50%)` },
+          "& .handle-pill": { transform: `translate(calc(-50% + ${HUD_SHAPE.pillShift}px), -50%)` },
         }}>
           <ResizeHandle onMouseDown={handleMouseDown} isDragging={isDragging} />
         </Box>
@@ -331,6 +424,7 @@ function WelcomeScreen({ opacity }) {
             hudShape
             hudChannelGap={HUD_SHAPE.channel}
             fadeTop
+            tallInput
           />
 
           {/* Hint: points up-right at the assistant avatar in the top-right corner.
@@ -369,6 +463,14 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
 
   // On mobile, skip animation entirely — always show UI at full opacity
   const effectiveSkipIntro = skipIntro || isMobile;
+  // Phones get a short video intro instead of the scroll sequence (first
+  // visit only; skipped when the visitor prefers reduced motion).
+  const [mobileIntro, setMobileIntro] = useState(() =>
+    !skipIntro &&
+    typeof window !== "undefined" && !!window.matchMedia &&
+    window.matchMedia("(max-width:1024px)").matches &&
+    !window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
 
   const posRef = useRef(effectiveSkipIntro ? END_FRAME : 0);
   const targetPosRef = useRef(effectiveSkipIntro ? END_FRAME : 0);
@@ -377,6 +479,8 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
   const lastDrawnRef = useRef(-1);
   const exactDrawnRef = useRef(-1);
   const lastIdxRef = useRef(-1);     // playback position last handled
+  const lastTickRef = useRef(0);
+  const skippingRef = useRef(false);   // "Skip the cinematic" fast-forward
   const holdUntilRef = useRef(0);    // canvas holds LAST_HUD_FRAME until then
   const uiShownRef = useRef(effectiveSkipIntro ? true : false);
 
@@ -385,6 +489,25 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
 
   // keep introComplete accessible in wheel handler via ref
   const reversingRef = useRef(false);
+
+  // Desktop first visit: a loader covers everything until the frames are in,
+  // then "Enter the Design Lab"; scrolling only works after entering.
+  const needsLoader = !effectiveSkipIntro;
+  const enteredRef = useRef(!needsLoader);
+  const [loaderState, setLoaderState] = useState(needsLoader ? "loading" : "gone"); // loading → ready → leaving → gone
+  const enterLab = useCallback(() => {
+    enteredRef.current = true;
+    setLoaderState("leaving");
+    setTimeout(() => setLoaderState("gone"), 650);
+  }, []);
+  const skipCinematic = useCallback(() => {
+    if (!enteredRef.current || uiShownRef.current) return;
+    setStoppedSync(false);
+    skippingRef.current = true;
+    targetPosRef.current = END_FRAME;
+    loadAround(END_FRAME, 6);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // frame-derived UI states
   const [currentFrame, setCurrentFrame] = useState(skipIntro ? END_FRAME : 0);
@@ -395,6 +518,38 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
 
   const setStoppedSync = (v) => { stoppedRef.current = v; setStopped(v); };
 
+  // ── Frame requests ───────────────────────────────────────────────────────
+  // Every frame goes through requestFrame, which records loads so the bar can
+  // show how far the sequence is ready (contiguously from the start).
+  const loadedRef = useRef(new Set());
+  const contigRef = useRef(-1);
+  const bufferTimerRef = useRef(null);
+  const [buffered, setBuffered] = useState(0);
+  // loader: every frame request that has finished (loaded or failed)
+  const settledRef = useRef(new Set());
+  const [settled, setSettled] = useState(0);
+  const requestFrame = useCallback((i, onSettled) => {
+    const img = new Image();
+    img.decoding = "async";
+    img.onload = () => {
+      loadedRef.current.add(i);
+      while (loadedRef.current.has(contigRef.current + 1)) contigRef.current++;
+      settledRef.current.add(i);
+      if (!bufferTimerRef.current) {
+        bufferTimerRef.current = setTimeout(() => {
+          bufferTimerRef.current = null;
+          setBuffered(Math.min(1, (contigRef.current + 1) / (LAST_HUD_FRAME + 1)));
+          setSettled(settledRef.current.size);
+        }, 120);
+      }
+      onSettled?.();
+    };
+    img.onerror = () => { settledRef.current.add(i); setSettled(settledRef.current.size); onSettled?.(); };
+    img.src = framePath(i);
+    cacheRef.current[i] = img;
+    return img;
+  }, []);
+
   // ── Load frames around index ──────────────────────────────────────────────
   // Requests go out nearest-first, so the frame we need now arrives before
   // the ones we might need later.
@@ -403,12 +558,10 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     for (let d = 0; d <= radius; d++) {
       for (const i of d === 0 ? [index] : [index + d, index - d]) {
         if (i < 0 || i > END_FRAME || cache[i]) continue;
-        const img = new Image();
-        img.src = framePath(i);
-        cache[i] = img;
+        requestFrame(i);
       }
     }
-  }, []);
+  }, [requestFrame]);
 
   // preload backward from index in small batches so browser isn't overwhelmed
   const preloadBackward = useCallback((from, count = 30) => {
@@ -416,12 +569,10 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     let loaded = 0;
     for (let i = from; i >= 0 && loaded < count; i--) {
       if (cache[i]) continue;
-      const img = new Image();
-      img.src = framePath(i);
-      cache[i] = img;
+      requestFrame(i);
       loaded++;
     }
-  }, []);
+  }, [requestFrame]);
 
   // Background fill: walk forward from `start`, then pick up anything earlier.
   // Frames already requested (by scrolling) are skipped.
@@ -436,15 +587,11 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
       if (cancelled) return;
       while (next < order.length && cache[order[next]]) next++;
       if (next >= order.length) return;
-      const i = order[next++];
-      const img = new Image();
-      img.onload = img.onerror = pump;
-      img.src = framePath(i);
-      cache[i] = img;
+      requestFrame(order[next++], pump);
     };
     for (let k = 0; k < BG_CONCURRENCY; k++) pump();
     return () => { cancelled = true; };
-  }, []);
+  }, [requestFrame]);
 
   // direction ref: +1 forward, -1 backward
   const dirRef = useRef(1);
@@ -473,6 +620,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     const cw = canvas.width, ch = canvas.height;
     const scale = Math.max(cw / img.naturalWidth, ch / img.naturalHeight);
     const dw = img.naturalWidth * scale, dh = img.naturalHeight * scale;
+    ctx.globalAlpha = 1;
     ctx.drawImage(img, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
     lastDrawnRef.current = index;
     // A stand-in frame was drawn; keep redrawing until the real one is in.
@@ -503,12 +651,19 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     if (diff > 0.1) dirRef.current = 1;
     else if (diff < -0.1) dirRef.current = -1;
 
-    // step toward target one frame at a time so every frame gets drawn
+    // Glide toward the target and ease out when scrolling stops: speed is
+    // proportional to the remaining distance (smooth deceleration), capped
+    // so frames aren't skipped during fast scrolls.
+    const now = performance.now();
+    const dt = Math.min(0.05, (now - (lastTickRef.current || now)) / 1000) || 1 / 60;
+    lastTickRef.current = now;
     let next;
-    if (Math.abs(diff) < 0.5) {
+    if (Math.abs(diff) < 0.02) {
       next = target;
     } else {
-      next = current + Math.sign(diff) * Math.min(Math.abs(diff), 1);
+      const glide = skippingRef.current ? diff : diff * (1 - Math.exp(-dt * GLIDE));
+      const cap = (skippingRef.current ? skipSpeed(current) : MAX_FRAMES_PER_SEC) * dt;
+      next = current + Math.sign(diff) * Math.max(Math.min(Math.abs(glide), cap), Math.min(Math.abs(diff), 0.02));
     }
     posRef.current = next;
 
@@ -551,14 +706,20 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
       // forward: crossed UI_SHOW_FRAME → notify parent
       if (!uiShownRef.current && idx >= UI_SHOW_FRAME) {
         uiShownRef.current = true;
+        // after "Skip the cinematic", guide the cursor to Download Resume
+        // while the lab UI fades in
+        if (skippingRef.current) {
+          setTimeout(() => window.dispatchEvent(new CustomEvent("techcursor:goto", {
+            detail: { selector: '[data-autohover="download-resume"]', duration: 1100 },
+          })), UI_FADE_MS + 150);
+        }
+        skippingRef.current = false;
         onComplete?.();
         // preload all frames backward so reverse is smooth
         const cache = cacheRef.current;
         for (let i = END_FRAME; i >= 0; i--) {
           if (cache[i]) continue;
-          const img = new Image();
-          img.src = framePath(i);
-          cache[i] = img;
+          requestFrame(i);
         }
       }
 
@@ -572,7 +733,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
         reversingRef.current = false;
       }
     }
-  }, [drawFrame, loadAround, preloadBackward, onComplete, onFrameChange]);
+  }, [drawFrame, loadAround, preloadBackward, requestFrame, onComplete, onFrameChange]);
 
   // ── Init ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -612,9 +773,12 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     };
   }, [loop, drawFrame, loadAround, preloadAllInBackground, effectiveSkipIntro]);
 
-  // ── Wheel: scrub frames ───────────────────────────────────────────────────
+  // ── Wheel / keys: scrub frames ───────────────────────────────────────────
+  // The arrow keys (also Page Up/Down and Space) play the sequence just like
+  // the wheel, for visitors without a trackpad or mouse wheel.
   useEffect(() => {
-    const onWheel = (e) => {
+    const step = (dir, frames) => {
+      if (!enteredRef.current || skippingRef.current) return;
       if (stoppedRef.current) {
         const frame = Math.round(targetPosRef.current);
         // only dismiss if scrolling out of the stop zone
@@ -624,18 +788,17 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
       }
 
       // if welcome UI is fully shown and user scrolls up — scrub backward
-      if (e.deltaY < 0 && welcomeOpacity >= 1) {
+      if (dir < 0 && welcomeOpacity >= 1) {
         uiShownRef.current = false;
         reversingRef.current = true;
         preloadBackward(Math.round(targetPosRef.current), 40);
       }
 
-      const delta = e.deltaY > 0 ? 1 : -1;
-      const newTarget = Math.max(0, Math.min(END_FRAME, targetPosRef.current + delta));
+      const newTarget = Math.max(0, Math.min(END_FRAME, targetPosRef.current + dir * frames));
       targetPosRef.current = newTarget;
 
       const t = Math.round(newTarget);
-      if (e.deltaY < 0) {
+      if (dir < 0) {
         preloadBackward(t, 30);
       } else {
         loadAround(t, 15);
@@ -650,24 +813,78 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
       }, 180);
     };
 
+    // Trackpads (e.g. MacBook) send many small wheel events per swipe, plus
+    // momentum; a mouse wheel sends a few big ones. So frames follow the
+    // scrolled distance: one frame per WHEEL_PX, at most one per event.
+    // A mouse notch (~100px) still moves exactly one frame.
+    let acc = 0;
+    const onWheel = (e) => {
+      const px = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * window.innerHeight : e.deltaY;
+      if (!px) return;
+      if (Math.sign(px) !== Math.sign(acc)) acc = 0;     // direction changed
+      acc += px;
+      if (Math.abs(acc) < WHEEL_PX) return;
+      const dir = acc > 0 ? 1 : -1;
+      acc -= dir * WHEEL_PX;
+      if (Math.abs(acc) > WHEEL_PX) acc = dir * WHEEL_PX;  // don't bank a backlog
+      step(dir, 1);
+    };
+
+    const FWD = ["ArrowDown", "ArrowRight", "PageDown", " "];
+    const BACK = ["ArrowUp", "ArrowLeft", "PageUp"];
+    const onKey = (e) => {
+      if (isMobile || e.altKey || e.ctrlKey || e.metaKey) return;
+      const fwd = FWD.includes(e.key), back = BACK.includes(e.key);
+      if (!fwd && !back) return;
+      // once the main UI is up the keys belong to it (chat, panels)
+      if (welcomeOpacity >= 1) return;
+      const t = e.target;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON|A)$/.test(t.tagName))) return;
+      e.preventDefault();
+      step(fwd ? 1 : -1, 3);
+    };
+
     window.addEventListener("wheel", onWheel, { passive: true });
+    window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("keydown", onKey);
       clearTimeout(scrollTimerRef.current);
     };
-  }, [loadAround, preloadBackward, welcomeOpacity]);
+  }, [loadAround, preloadBackward, welcomeOpacity, isMobile]);
 
 
 
-  const showScrollEntry = currentFrame < STOP_FRAME && !stopped && !isMobile;
+  const showScrollEntry = currentFrame < STOP_FRAME && !stopped && !isMobile && (loaderState === "gone" || loaderState === "leaving");
+
+  // loader: ready once every frame request has finished (or after 30 s)
+  useEffect(() => {
+    if (loaderState === "loading" && settled >= END_FRAME + 1) setLoaderState("ready");
+  }, [settled, loaderState]);
+  useEffect(() => {
+    if (loaderState !== "loading") return undefined;
+    const t = setTimeout(() => setLoaderState((s) => (s === "loading" ? "ready" : s)), 30000);
+    return () => clearTimeout(t);
+  }, [loaderState]);
 
   return (
     <>
+      {isMobile && mobileIntro && (
+        <MobileIntro onDone={() => { setMobileIntro(false); onComplete?.(); }} />
+      )}
       <Box sx={{ position: "fixed", inset: 0, zIndex: 9999, background: "#000" }}>
         <canvas
           ref={canvasRef}
-          style={{ display: "block", position: "absolute", inset: 0, width: "100vw", height: "100vh" }}
+          role="img"
+          aria-label="Intro animation: flying through a rainy futuristic city into Akash's design lab"
+          style={{ display: "block", position: "absolute", inset: 0, width: "100vw", height: "100vh",
+            willChange: "transform", transformOrigin: "50% 50%" }}
         />
+
+        {/* cursor parallax + falling rain while the visitor pauses mid-flight */}
+        {!isMobile && (
+          <IntroAmbience canvasRef={canvasRef} frame={currentFrame} active={welcomeOpacity === 0} />
+        )}
 
         {/* Room dimmer: once the main UI is up, darken the room (most at the
             edges, where the ceiling lights, floor strips and screens are) so
@@ -709,7 +926,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
       {showScrollEntry && (
         <Box sx={{
           position: "fixed", inset: 0, zIndex: 99997,
-          display: "flex", alignItems: "center", justifyContent: "center",
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "18px",
           pointerEvents: "none",
         }}>
           <Box sx={{
@@ -733,18 +950,31 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
             {/* Text */}
             <Box>
               <Typography sx={{ color: "rgba(255,255,255,0.75)", fontSize: "15px", fontWeight: 400, lineHeight: 1.5 }}>
-                Scroll to enter in the
+                Scroll or press ↓ to enter the
               </Typography>
               <Typography sx={{ color: "#fff", fontSize: "14px", fontWeight: 700, lineHeight: 1.3 }}>
                 Design lab
               </Typography>
             </Box>
           </Box>
+          <SkipButton onClick={skipCinematic} />
         </Box>
       )}
 
+      {/* skip stays available (bottom right) for the rest of the flight */}
+      {!isMobile && !showScrollEntry && welcomeOpacity === 0 && loaderState === "gone" && (
+        <Box sx={{ position: "fixed", right: 28, bottom: 26, zIndex: 99998 }}>
+          <SkipButton onClick={skipCinematic} />
+        </Box>
+      )}
+
+      {/* loader: first thing on a desktop visit, until the frames are in */}
+      {loaderState !== "gone" && (
+        <IntroLoader progress={settled / (END_FRAME + 1)} ready={loaderState !== "loading"}
+          leaving={loaderState === "leaving"} onEnter={enterLab} />
+      )}
+
       {/* ON/OFF mute button — bottom right */}
-      <AudioButton />
 
       {/* Scroll gif — bottom left, frame 1–5 (gif only) */}
 
@@ -766,6 +996,11 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
           />
 
         </Box>
+      )}
+
+      {!isMobile && (
+        <IntroLoadingBar frame={currentFrame} buffered={buffered}
+          visible={currentFrame > 0 && welcomeOpacity === 0} />
       )}
 
       {/* No scroll hint on the final UI screen: the visitor is inside the

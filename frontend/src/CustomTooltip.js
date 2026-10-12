@@ -42,6 +42,10 @@ export default function CustomTooltip({
   title,
   children,
   placement = "top",
+  // Style for the hover box around the child. Pass the child's absolute
+  // position here when the child is absolutely positioned, so the tooltip
+  // measures from the right place (otherwise it anchors to the empty box).
+  wrapperSx,
 }) {
   const [open, setOpen] = useState(false);
 
@@ -88,7 +92,7 @@ export default function CustomTooltip({
       <Box
         onMouseEnter={handleOpen}
         onMouseLeave={handleClose}
-        sx={{ display: "inline-flex" }}
+        sx={{ display: "inline-flex", ...wrapperSx }}
       >
         {children}
       </Box>

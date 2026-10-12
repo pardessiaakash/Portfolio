@@ -1,8 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Box, IconButton,useMediaQuery } from "@mui/material";
-import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
-import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import ChatbotPanel from "./ChatbotPanel";
 import { useChatContext } from "./ChatContext";
 import { useResizableChatbot } from "./hooks/useResizableChatbot";
@@ -10,6 +8,12 @@ import ResizeHandle from "./ResizeHandle";
 import { fetchCategories, fetchProjects } from "./api/chatApi";
 import CustomTooltip from "./CustomTooltip";
 import { Tab } from "./AboutMe";
+import InnerStage from "./hud/InnerStage";
+import SlideDots from "./hud/SlideDots";
+import FullScreenView from "./hud/FullScreenView";
+import MobileChatDrawer from "./hud/MobileChatDrawer";
+import { glassHudRectSx, spinBorderSx } from "./hud/glass";
+import { pressable } from "./a11y";
 
 const PRIMARY = "#00CD1F";
 
@@ -17,8 +21,37 @@ const PORTFOLIO_TABS = [
   { label: "UI/UX", aliases: ["UI/UX"] },
   { label: "Social Media", aliases: ["Social Media"] },
   { label: "Videos", aliases: ["Videos", "Video"] },
-  { label: "XR", aliases: ["XR"] },
+  // formerly "Print Media"; the old names still open this tab and find its projects
+  { label: "Immersive", aliases: ["Print Media", "Print", "XR", "Immersive", "Immersive/VR/XR"] },
 ];
+
+// UI/UX case studies, exported from the Figma slide decks (1676 × 961).
+// They always fill the first two UI/UX project tabs; other categories use
+// the projects API, or placeholders while it is unavailable.
+const deck = (folder, n) => Array.from({ length: n }, (_, i) =>
+  `/assets/images/projects/${folder}/${String(i + 1).padStart(2, "0")}.webp`);
+const SC_TOPICS = ["Cover", "Project Scope", "Root Cause", "Competitor Analysis", "Gap Analysis",
+  "User Research", "Survey Insights", "Stakeholder Interviews", "Affinity Mapping", "Empathy Map",
+  "Problem Statement", "Ideation & Dot Voting", "Prioritisation", "Personas", "Journey Map",
+  "Information Architecture & Flow", "Phase 1 Hi-fi Iteration", "Usability Testing", "Iteration",
+  "Design System", "Final Solution: AI Briefing", "Final Solution: Supporting Context",
+  "Secondary Capabilities", "AI Safeguards", "Traceability", "Outcomes & Next Steps", "Let's Talk"];
+const FA_TOPICS = ["Cover", "The Ask", "Framework", "Research Goals", "User Interviews", "Synthesis",
+  "Empathy Map", "Problem Statement", "Personas", "Research to Design", "IA & Wireframes",
+  "Visual Design", "Proposed Product Page", "Final UI: Discover", "Final UI: Evaluate & Buy",
+  "Validation & Next Steps", "Let's Talk"];
+const CASE_STUDIES = [
+  { title: "SwiftConnect", slides: deck("swiftconnect", SC_TOPICS.length), topics: SC_TOPICS },
+  { title: "Chicora", slides: deck("chicora", FA_TOPICS.length), topics: FA_TOPICS },
+];
+const isCaseStudy = (p) => /swift|chicora|fashion/i.test(p?.title || "");
+const placeholderProjects = (label, from = 1) =>
+  [1, 2, 3, 4].slice(from - 1).map((n) => ({ title: `Project -${n}`, slides: [] }));
+const withCaseStudies = (label, list) => {
+  if (label !== "UI/UX") return list.length > 0 ? list : placeholderProjects(label);
+  const rest = list.filter((p) => !isCaseStudy(p));
+  return [...CASE_STUDIES, ...(rest.length > 0 ? rest : placeholderProjects(label, 3))];
+};
 
 const orbVideos = [
   "/assets/orb/Idle State.mp4",
@@ -27,30 +60,26 @@ const orbVideos = [
   "/assets/orb/Speaking State.mp4",
 ];
 
-const SLIDE_PROMPTS = [
-  `Project Scope & Requirements\nNova: "I can explain the project scope, summarize the key requirements, or walk you through the goals and constraints."`,
-  `Competitor SWOT Analysis\nNova: "I can explain the competitor SWOT analysis, summarize the key market insights, or walk you through the opportunities identified for SwiftConnect."`,
-  `The "SwiftConnect" Opportunity\nNova: "I can explain the SwiftConnect opportunity, summarize the user and business gaps, or walk you through the opportunity behind the solution."`,
-  `User Research & Synthesis\nNova: "I can explain the user research, summarize the key insights, or walk you through how the findings shaped the design direction."`,
-  `Survey Questions (Quantitative) – Report\nNova: "I can explain the survey results, summarize the key data-driven insights, or walk you through how the findings influenced the design."`,
-  `Stakeholder & Admin Interviews – Qualitative\nNova: "I can explain the interview findings, summarize the key qualitative insights, or walk you through how stakeholder needs shaped the product direction."`,
-  `Top Pain Points (Ranking)\nNova: "I can explain the top pain points, summarize their impact, or walk you through how they were prioritized."`,
-  `Actionable Observations\nNova: "I can explain the key observations, summarize the most important findings, or walk you through how they became design opportunities."`,
-  `Sample Demographics & Behavior\nNova: "I can explain the user demographics, summarize the key behavioral patterns, or walk you through what these insights mean for the product."`,
-  `Problem Statement\nNova: "I can explain the core problem, summarize who it affects, or walk you through why solving it matters."`,
-  `Affinity Mapping\nNova: "I can explain the affinity mapping process, summarize the key themes, or walk you through how research data was grouped into insights."`,
-  `Empathy Map: The Support Agent (Peak Season)\nNova: "I can explain the Support Agent empathy map, summarize their key needs and frustrations, or walk you through their peak-season experience."`,
-  `User Personas\nNova: "I can introduce the user personas, summarize their goals and frustrations, or walk you through how they influenced the design."`,
-  `Support Agent Journey Map\nNova: "I can explain the Support Agent journey, summarize the key pain points, or walk you through the opportunities identified at each stage."`,
-  `Information Architecture\nNova: "I can explain the Information Architecture, summarize the content structure, or walk you through how it helps users find information."`,
-  `User Task Flow\nNova: "I can explain the user task flow, summarize the key steps, or walk you through how users complete their primary task."`,
-  `Phase 1: Initial High-Fidelity Iteration (Pre-Usability Testing)\nNova: "I can explain the initial high-fidelity design, summarize the key UX decisions, or walk you through the thinking behind this iteration."`,
-  `Usability Testing Data Report\nNova: "I can explain the usability testing results, summarize the key findings, or walk you through what was improved based on user feedback."`,
-  `Colours\nNova: "I can explain the colour system, summarize the visual decisions, or walk you through how colour supports hierarchy and accessibility."`,
-  `Typography\nNova: "I can explain the typography system, summarize the type choices, or walk you through how typography supports readability and hierarchy."`,
-  `Space & Radius\nNova: "I can explain the spacing and radius system, summarize the visual rules, or walk you through how they create consistency across the interface."`,
-  `Final High-Fidelity Solution (Validated & Optimized)\nNova: "I can explain the final solution, summarize the key improvements, or walk you through how research and testing shaped the final experience."`
-];
+
+// Fade a horizontally scrolling row only on the side(s) with more to scroll to.
+function useEdgeFade(ref, deps) {
+  const [edges, setEdges] = useState({ l: false, r: false });
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return undefined;
+    const update = () => setEdges({
+      l: el.scrollLeft > 2,
+      r: el.scrollLeft + el.clientWidth < el.scrollWidth - 2,
+    });
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => { el.removeEventListener("scroll", update); window.removeEventListener("resize", update); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
+  const m = `linear-gradient(to right, ${edges.l ? "transparent" : "#000"}, #000 28px, #000 calc(100% - 28px), ${edges.r ? "transparent" : "#000"})`;
+  return { maskImage: m, WebkitMaskImage: m };
+}
 
 export default function ProjectDetailPage() {
   const navigate = useNavigate();
@@ -60,7 +89,6 @@ export default function ProjectDetailPage() {
   const { widthPercent, isDragging, handleMouseDown, containerRef } = useResizableChatbot(30, "project_chatbot_width_percentage_v2", 30, 50, [30, 50]);
 
   const [mobileChatOpen, setMobileChatOpen] = useState(false);
-  const [chatTooltipDismissed, setChatTooltipDismissed] = useState(false);
 
   const [mainTabs, setMainTabs] = useState(() => PORTFOLIO_TABS.map((tab) => ({
     ...tab,
@@ -105,14 +133,16 @@ export default function ProjectDetailPage() {
       setLoading(true);
       fetchProjects(mainTabs[mainTab].category)
         .then(data => {
-          setProjects(data);
+          setProjects(withCaseStudies(mainTabs[mainTab].label, Array.isArray(data) ? data : []));
           setSubTab(0);
           setSlideIndex(0);
           setLoading(false);
         })
         .catch((err) => {
           console.error(err);
-          setProjects([]);
+          setProjects(withCaseStudies(mainTabs[mainTab].label, []));
+          setSubTab(0);
+          setSlideIndex(0);
           setLoading(false);
         });
     }
@@ -121,7 +151,23 @@ export default function ProjectDetailPage() {
   const activeProject = projects[subTab] || null;
   const slides = activeProject && activeProject.slides && activeProject.slides.length > 0
     ? activeProject.slides
-    : ["/assets/images/projects/swift/1.jpg"]; // fallback
+    : [];
+  const hasSlides = slides.length > 0;
+
+  // mobile: keep the selected category / project tab in view
+  const mainTabsRef = useRef(null);
+  const subTabsRef = useRef(null);
+  useEffect(() => {
+    [mainTabsRef, subTabsRef].forEach((r) => {
+      const row = r.current;
+      const tab = row?.querySelector('[aria-selected="true"]');
+      if (!row || !tab) return;
+      const left = tab.offsetLeft - (row.clientWidth - tab.offsetWidth) / 2;
+      row.scrollTo({ left: Math.max(0, left), behavior: "smooth" });
+    });
+  }, [mainTab, subTab, projects.length, isMobile]);
+  const mainFade = useEdgeFade(mainTabsRef, [isMobile, mainTabs.length]);
+  const subFade = useEdgeFade(subTabsRef, [isMobile, projects.length]);
 
   const { setMode, setProjectId } = useChatContext();
 
@@ -142,29 +188,142 @@ export default function ProjectDetailPage() {
 
   const orb = orbVideos[mainTab % orbVideos.length];
 
-  const next = () => setSlideIndex((p) => (p + 1) % slides.length);
-  const prev = () => setSlideIndex((p) => (p === 0 ? slides.length - 1 : p - 1));
+  const next = () => hasSlides && setSlideIndex((p) => (p + 1) % slides.length);
+  const prev = () => hasSlides && setSlideIndex((p) => (p === 0 ? slides.length - 1 : p - 1));
   const lbNext = () => setLightboxIndex((p) => (p + 1) % slides.length);
   const lbPrev = () => setLightboxIndex((p) => (p === 0 ? slides.length - 1 : p - 1));
   const openLightbox = () => { setLightboxIndex(slideIndex); setLightboxOpen(true); };
 
   const handleAskAI = (index = slideIndex) => {
-    if (index >= 0 && index < SLIDE_PROMPTS.length) {
-      const rawPrompt = SLIDE_PROMPTS[index];
-      // Extract only the topic title (the part before the newline/Nova: description)
-      // and form a clean question so the intent classifier routes it correctly.
-      const topicTitle = rawPrompt.split('\n')[0].trim();
-      const cleanQuestion = `Tell me about the ${topicTitle} for this project.`;
-      setRequestedAIInput({ text: cleanQuestion, timestamp: Date.now() });
-      if (isMobile) {
-        setMobileChatOpen(true);
-      }
-    }
+    const topics = activeProject?.topics || [];
+    const topic = topics[index] && index > 0 ? topics[index] : null;
+    const name = activeProject?.title || "this project";
+    const cleanQuestion = topic
+      ? `Tell me about the ${topic} of the ${name} case study.`
+      : `Give me an overview of the ${name} case study.`;
+    setRequestedAIInput({ text: cleanQuestion, timestamp: Date.now() });
+    if (isMobile) setMobileChatOpen(true);
   };
+
+
+  // mobile / tablet expanded slide: Esc closes it
+  useEffect(() => {
+    if (!lightboxOpen || !isMobile) return undefined;
+    const n = slides.length || 1;
+    const onKey = (e) => {
+      if (e.key === "Escape") setLightboxOpen(false);
+      else if (e.key === "ArrowLeft") setLightboxIndex((p) => (p === 0 ? n - 1 : p - 1));
+      else if (e.key === "ArrowRight") setLightboxIndex((p) => (p + 1) % n);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightboxOpen, isMobile, slides.length]);
+
+  const lightbox = (
+    <>
+      {/* LIGHTBOX */}
+      {lightboxOpen && (
+        <Box role="dialog" aria-modal="true" aria-label="Expanded slide" sx={{
+          position: "fixed", inset: 0, zIndex: 999,
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          px: { xs: 2, md: 0 },
+          // dim and blur everything behind, so only the expanded slide is in focus
+          background: "rgba(0,0,0,0.72)",
+          backdropFilter: "blur(14px)",
+          WebkitBackdropFilter: "blur(14px)",
+          animation: "lbIn 0.25s ease-out",
+          "@keyframes lbIn": { from: { opacity: 0 }, to: { opacity: 1 } },
+        }} onClick={(e) => { if (e.target === e.currentTarget) setLightboxOpen(false); }}>
+          <Box sx={{
+            position: "relative",
+            maxWidth: "90vw", maxHeight: "90vh",
+            borderRadius: "10px",
+            border: "1px solid transparent",
+            background: `
+              linear-gradient(50deg, #0A0A0A 0%, #1B1B1B 100%) padding-box,
+              linear-gradient(11deg, #00CD1F 0%, #8C8C8C 6%, #8C8C8C 95%, #00CD1F 100%) border-box
+            `,
+            boxShadow: "0 0 2px rgba(0,255,133,.25), inset 0 0 1px rgba(255,255,255,.05)",
+          }}>
+            <IconButton onClick={lbPrev} sx={{ position: "absolute", top: "50%", left: "0px", transform: "translateY(-50%)", zIndex: 2, p: 0 }}>
+              <img src="/assets/icons/right.svg" alt="prev" style={{ width: isMobile ? 50 : undefined }} />
+            </IconButton>
+            <Box sx={{ borderRadius: "12px", overflow: "hidden", boxShadow: "0 0 60px rgba(0,0,0,0.8)" }}>
+              <img src={slides[lightboxIndex]} alt={`slide ${lightboxIndex + 1}`}
+                style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+            </Box>
+            <IconButton onClick={lbNext} sx={{ position: "absolute", top: "50%", right: "0px", transform: "translateY(-50%)", zIndex: 2, p: 0 }}>
+              <img src="/assets/icons/left.svg" alt="next" style={{ width: isMobile ? 50 : undefined }} />
+            </IconButton>
+            <CustomTooltip title="Minimize" placement="top">
+              <Box
+                component="img"
+                src="/assets/icons/minimize.png"
+                alt="minimize"
+                onClick={() => setLightboxOpen(false)}
+                sx={{ position: "absolute", bottom: 10, right: 10, zIndex: 2, cursor: "pointer" }}
+              />
+            </CustomTooltip>
+          </Box>
+          {/* same sliding dots as the desktop carousel */}
+          <SlideDots count={slides.length} current={lightboxIndex} onSelect={setLightboxIndex}
+            view={270} sx={{ position: "relative", mt: 2, flexShrink: 0 }} />
+        </Box>
+      )}
+    </>
+  );
+
+  const pageBg = {
+    width: "100vw", height: "100vh", overflow: "hidden", position: "relative",
+    backgroundImage: "linear-gradient(rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.12)), url('/assets/images/bg-images/bg.jpg')",
+    backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat",
+    color: "#fff",
+  };
+
+  // Desktop: the Figma frame "Inner_Page_For Claude"
+  if (!isMobile) {
+    return (
+      <Box sx={pageBg}>
+        <InnerStage
+          tabs={mainTabs.map((t) => t.label)}
+          activeTab={mainTab}
+          onSelectTab={(i) => navigate(`/portfolio/${encodeURIComponent(mainTabs[i].label)}`)}
+          projects={projects}
+          activeProject={activeProject}
+          subTab={subTab}
+          onSelectProject={(i) => { setSubTab(i); setSlideIndex(0); }}
+          loading={loading}
+          slides={slides}
+          slideIndex={slideIndex}
+          onSlide={setSlideIndex}
+          onPrev={prev}
+          onNext={next}
+          onAskAI={handleAskAI}
+          onExpand={openLightbox}
+          onBack={() => navigate("/")}
+          orb={orb}
+          requestedInput={requestedAIInput}
+          keysDisabled={lightboxOpen}
+        />
+        {/* expand → Figma "Full Scree Mode_For Claude"; closing keeps the slide */}
+        {lightboxOpen && hasSlides && (
+          <FullScreenView
+            slides={slides}
+            index={lightboxIndex}
+            onIndex={setLightboxIndex}
+            onClose={() => { setSlideIndex(lightboxIndex); setLightboxOpen(false); }}
+            title={activeProject?.title}
+          />
+        )}
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{
       width: "100vw", height: "100vh", overflow: "hidden",
+      // phones: the visible height (browser toolbars excluded) where supported
+      "@supports (height: 100dvh)": { height: "100dvh" },
       backgroundImage: "linear-gradient(rgba(0, 0, 0, 0.12), rgba(0, 0, 0, 0.12)), url('/assets/images/bg-images/bg.jpg')",
       backgroundSize: "cover",
       backgroundPosition: "center",
@@ -172,6 +331,10 @@ export default function ProjectDetailPage() {
       display: "flex", flexDirection: "column",
       boxSizing: "border-box",
       p: { xs: "20px 16px", md: "12.5vh 10.5vw" },
+      // keep clear of the notch / status bar and the home indicator
+      // extra breathing room above the tabs on phones / tablets
+      pt: { xs: "max(32px, calc(env(safe-area-inset-top) + 16px))" },
+      pb: { xs: "max(16px, env(safe-area-inset-bottom))" },
       color: "#fff",
       position: "relative",
     }}>
@@ -180,37 +343,49 @@ export default function ProjectDetailPage() {
         display: "flex",
         width: "100%",
         pr: { xs: 0, md: `${widthPercent}%` },
-        alignItems: "center",
+        // phones / tablets: the tabs reserve space below for their tail, so
+        // line the back button up with the tab bodies, not the whole row
+        alignItems: isMobile ? "flex-start" : "center",
         justifyContent: "flex-start",
         gap: "12px",
-        mb: { xs: "-2px", md: "0px" },
+        mb: isMobile ? "8px" : "0px",
         flexShrink: 0,
         position: "relative",
         zIndex: 2,
       }}>
         {/* Back Button */}
         <CustomTooltip title="Back to Home" placement="top">
-          <Box onClick={() => navigate("/")} sx={{
+          {/* back: the same glass arrow button as the desktop category page */}
+          <Box component="button" onClick={() => navigate("/")} aria-label="Back to home" sx={{
             display: "flex", alignItems: "center", justifyContent: "center",
-            width: 32, height: 32,
+            width: 44, height: 44, p: 0, boxSizing: "border-box",
             cursor: "pointer",
-            borderRadius: "8px",
-            background: "rgba(255,255,255,0.02)",
-            color: "rgba(255,255,255,0.6)",
-            transition: "all 0.2s ease-in-out",
-            padding: "25px",
+            borderRadius: "10px",
+            border: "1px solid #8F8F8F",
+            // darker glass so it reads over the bright ceiling lights too
+            background: "rgba(12,14,13,0.62)",
+            backdropFilter: "blur(13.55px)", WebkitBackdropFilter: "blur(13.55px)",
+            boxShadow: "-1px 3px 13px rgba(0,0,0,0.35), inset 0 1px 2px rgba(0,0,0,0.25)",
+            color: "#fff",
+            transition: "border-color 0.25s ease, background 0.25s ease",
+            "&:hover": { borderColor: "rgba(255,255,255,0.85)", background: "rgba(30,34,32,0.7)" },
             flexShrink: 0,
           }}>
-            <img src="/assets/icons/home.png" alt="Home" />
+            <svg width="16" height="13" viewBox="0 0 16 13" aria-hidden>
+              <path d="M15 6.5H1.5M6.5 1 1 6.5 6.5 12" fill="none" stroke="#fff" strokeWidth="1.4"
+                strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
           </Box>
         </CustomTooltip>
 
-        <Box sx={{
+        {isMobile && <Box ref={mainTabsRef} role="tablist" aria-label="Categories" sx={{
           display: "flex",
           gap: { xs: "10px", md: "0px" },
           overflowX: { xs: "auto", md: "visible" },
           "&::-webkit-scrollbar": { display: "none" },
           scrollbarWidth: "none",
+          // soft fade on the side(s) with more tabs to swipe to
+          ...mainFade,
         }}>
           {mainTabs.map((tab, i) => {
             const isActive = mainTab === i;
@@ -221,6 +396,8 @@ export default function ProjectDetailPage() {
                 <Box
                   key={i}
                   onClick={() => navigate(`/portfolio/${encodeURIComponent(tab.label)}`)}
+                  {...pressable(() => navigate(`/portfolio/${encodeURIComponent(tab.label)}`), undefined, "tab")}
+                  aria-selected={isActive}
                   sx={{
                     position: "relative",
                     cursor: "pointer",
@@ -238,8 +415,9 @@ export default function ProjectDetailPage() {
                         ? "0 6px 10px rgba(0,205,31,0.45)"
                         : "0 2px 4px rgba(0,0,0,0.35)",
                       px: "18px",
-                      pt: "10px",
-                      pb: "10px",
+                      // same 44px height as the back button beside it
+                      height: "44px", boxSizing: "border-box",
+                      display: "flex", alignItems: "center",
                       transition: "all 0.2s",
                     }}
                   >
@@ -324,7 +502,7 @@ export default function ProjectDetailPage() {
               </Box>
             );
           })}
-        </Box>
+        </Box>}
       </Box>
 
       {/* CONTENT ROW */}
@@ -342,21 +520,16 @@ export default function ProjectDetailPage() {
           flex: 1,
           minWidth: 0,
           display: "flex", flexDirection: "column",
-          backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)",
-          border: "0.5px solid transparent",
-          background: `
-            linear-gradient(50deg, #0A0A0A 0%, #1B1B1B 100%) padding-box,
-            linear-gradient(11deg, #00CD1F 0%, #8C8C8C 6%, #8C8C8C 95%, #00CD1F 100%) border-box
-          `,
+          // same dark liquid glass and grey→green edge as the home HUDs
+          ...glassHudRectSx,
+          ...spinBorderSx(1),
           borderRadius: "20px",
           overflow: "hidden",
           minHeight: 0,
-          opacity: 0.95
         }}>
 
           {/* SUB TABS */}
-          <Box sx={{
+          <Box ref={subTabsRef} role="tablist" aria-label="Projects" sx={{
             display: "flex",
             alignItems: "center",
             gap: 1,
@@ -365,6 +538,7 @@ export default function ProjectDetailPage() {
             overflowX: { xs: "auto", md: "visible" },
             "&::-webkit-scrollbar": { display: "none" },
             scrollbarWidth: "none",
+            ...(isMobile ? subFade : {}),
           }}>
             {!loading && projects.length === 0 && (
               <Box sx={{ color: "rgba(255,255,255,0.5)", fontSize: "14px", p: 1 }}>No projects found for this category.</Box>
@@ -385,32 +559,41 @@ export default function ProjectDetailPage() {
                 );
               }
 
-              // Desktop: keep original style
+              // Desktop: the home page's Work / About Me tab, as in the Figma template
               return (
-                <Box key={i} sx={{ position: "relative", flexShrink: 0 }}>
-                  <Box onClick={() => { setSubTab(i); setSlideIndex(0); }} sx={{
-                    borderRadius: "8px", cursor: "pointer",
-                    padding: "10px 30px",
-                    fontSize: "13px", fontWeight: 500,
-                    flexShrink: 0,
-                    whiteSpace: "nowrap",
-                    color: isActive ? PRIMARY : "rgba(255,255,255,0.4)",
-                    border: isActive ? "1px solid transparent" : "1px solid rgba(255,255,255,0.08)",
-                    background: isActive
-                      ? `linear-gradient(50deg, #0A0A0A 0%, #1B1B1B 100%) padding-box,
-                         linear-gradient(11deg, #00CD1F 0%, #8C8C8C 16%, #8C8C8C 85%, #00CD1F 100%) border-box`
-                      : "rgba(255,255,255,0.02)",
-                    transition: "all 0.2s",
-                  }}>{proj.title}</Box>
-                </Box>
+                <Tab
+                  key={i}
+                  active={isActive ? 1 : 0}
+                  w={132}
+                  h={36}
+                  fontSize={13}
+                  onClick={() => { setSubTab(i); setSlideIndex(0); }}
+                >
+                  {proj.title}
+                </Tab>
               );
             })}
           </Box>
 
           {/* SLIDER */}
           <Box sx={{ position: "relative", flex: 1, display: "flex", alignItems: "center", px: { xs: 0.5, md: 1 }, minHeight: 0 }}>
+            {/* Project without slides yet */}
+            {!loading && activeProject && !hasSlides && (
+              <Box sx={{
+                flex: 1, height: "100%", minHeight: 200, m: { xs: 1, md: 2 },
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 1,
+                borderRadius: "12px",
+                border: "1px dashed rgba(255,255,255,0.14)",
+                background: "rgba(255,255,255,0.02)",
+                textAlign: "center",
+              }}>
+                <Box sx={{ fontSize: { xs: "16px", md: "20px" }, color: "#fff" }}>{activeProject.title}</Box>
+                <Box sx={{ fontSize: "13px", color: "rgba(255,255,255,0.55)" }}>Case study coming soon</Box>
+              </Box>
+            )}
+
             {/* Desktop: Show slider with navigation */}
-            {!isMobile && (
+            {!isMobile && hasSlides && (
               <>
                 <IconButton onClick={prev} sx={{ position: "absolute", left: 8, zIndex: 2, p: 0 }}>
                   <img src="/assets/icons/right.svg" alt="prev" />
@@ -445,7 +628,7 @@ export default function ProjectDetailPage() {
             )}
 
             {/* Mobile: Show all images stacked vertically */}
-            {isMobile && (
+            {isMobile && hasSlides && (
               <Box sx={{
                 width: "100%",
                 height: "100%",
@@ -470,7 +653,16 @@ export default function ProjectDetailPage() {
                       </CustomTooltip>
 
                       <CustomTooltip title="Maximize" placement="top">
-                        <Box onClick={() => { setLightboxIndex(index); setLightboxOpen(true); }} component="img" src="/assets/images/extend.svg" alt="Maximize" sx={{ cursor: "pointer", width: "40px" }} />
+                        {/* extend.svg is a 44px button inside a 70px canvas (room for its
+                            shadow), so scale and offset it to the same 36px as the AI button */}
+                        <Box onClick={() => { setLightboxIndex(index); setLightboxOpen(true); }}
+                          {...pressable(() => { setLightboxIndex(index); setLightboxOpen(true); }, "Maximize")}
+                          sx={{ position: "relative", width: "36px", height: "36px", cursor: "pointer" }}>
+                          <Box component="img" src="/assets/images/extend.svg" alt="" aria-hidden sx={{
+                            position: "absolute", width: `${36 * 70 / 44}px`, maxWidth: "none",
+                            left: `${-36 * 14 / 44}px`, top: `${-36 * 10 / 44}px`, pointerEvents: "none",
+                          }} />
+                        </Box>
                       </CustomTooltip>
                     </Box>
                   </Box>
@@ -480,7 +672,7 @@ export default function ProjectDetailPage() {
           </Box>
 
           {/* DOTS - Desktop only */}
-          {!isMobile && (
+          {!isMobile && hasSlides && (
             <Box sx={{ display: "flex", gap: 1, py: 4, justifyContent: "center", flexShrink: 0 }}>
               {slides.map((_, i) => (
                 <Box key={i} onClick={() => setSlideIndex(i)} sx={{
@@ -503,138 +695,24 @@ export default function ProjectDetailPage() {
               chips={["View Case Study", "About Akash"]}
               wrapperSx={{ width: `${widthPercent}%`, flexShrink: 0, minWidth: 0, height: "100%" }}
               requestedInput={requestedAIInput}
+              hud
+              fadeTop
             />
           </>
         )}
 
-        {/* MOBILE: slide-in chatbot */}
+        {/* MOBILE: green edge tab, short hint and full-screen chat drawer */}
         {isMobile && (
-          <>
-            <Box
-              onClick={() => setMobileChatOpen(false)}
-              sx={{
-                position: "fixed", inset: 0,
-                background: "rgba(0,0,0,0.55)",
-                opacity: mobileChatOpen ? 1 : 0,
-                pointerEvents: mobileChatOpen ? "auto" : "none",
-                transition: "opacity 0.3s ease",
-                zIndex: 40,
-              }}
-            />
-            <Box sx={{
-              position: "fixed", top: 0, left: 0,
-              width: "100vw", height: "100vh",
-              zIndex: 50, p: "12px",
-              boxSizing: "border-box",
-              transform: mobileChatOpen ? "translateX(0)" : "translateX(100%)",
-              transition: "transform 0.90s cubic-bezier(0.4, 0, 0.2, 1)",
-            }}>
-              <ChatbotPanel
-                orb={orb}
-                chips={["View Case Study", "About Akash"]}
-                wrapperSx={{ width: "100%", height: "100%" }}
-                requestedInput={requestedAIInput}
-              />
-            </Box>
-            <Box
-              onClick={() => setMobileChatOpen((p) => !p)}
-              sx={{
-                position: "fixed", right: 0, bottom: "150px",
-                width: 34, height: 96,
-                background: PRIMARY,
-                borderRadius: "14px 0 0 14px",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                cursor: "pointer", zIndex: 55,
-                boxShadow: "0 0 18px rgba(0,205,31,0.5)",
-                transition: "right 0.6s cubic-bezier(0.4, 0, 0.2, 1)",
-              }}
-            >
-              {mobileChatOpen
-                ? <ChevronRightIcon sx={{ color: "#08120a" }} />
-                : <ChevronLeftIcon sx={{ color: "#08120a" }} />}
-            </Box>
-
-            {/* "Click to talk with AI" tooltip bubble */}
-            {!mobileChatOpen && !chatTooltipDismissed && (
-              <Box sx={{
-                position: "fixed", right: 44, bottom: "168px",
-                zIndex: 56,
-                background: "rgba(20,24,20,0.95)",
-                border: "1px solid rgba(255,255,255,0.15)",
-                borderRadius: "10px",
-                px: "12px", py: "8px",
-                display: "flex", alignItems: "center", gap: "8px",
-                boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
-                whiteSpace: "nowrap",
-              }}>
-                <Box sx={{ fontSize: "12px", color: "#fff", lineHeight: 1.4 }}>
-                  Click to<br />talk with AI
-                </Box>
-                <Box
-                  onClick={(e) => { e.stopPropagation(); setChatTooltipDismissed(true); }}
-                  sx={{
-                    width: 18, height: 18, borderRadius: "50%",
-                    background: "rgba(255,255,255,0.12)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    cursor: "pointer", flexShrink: 0,
-                    fontSize: "11px", color: "rgba(255,255,255,0.7)",
-                    "&:active": { background: "rgba(255,255,255,0.2)" },
-                  }}
-                >✕</Box>
-              </Box>
-            )}          </>
+          <MobileChatDrawer
+            chips={["View Case Study", "About Akash"]}
+            requestedInput={requestedAIInput}
+            open={mobileChatOpen}
+            onOpenChange={setMobileChatOpen}
+          />
         )}
       </Box>
 
-      {/* LIGHTBOX */}
-      {lightboxOpen && (
-        <Box sx={{
-          position: "fixed", inset: 0, zIndex: 999,
-          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-          px: { xs: 2, md: 0 },
-        }} onClick={(e) => { if (e.target === e.currentTarget) setLightboxOpen(false); }}>
-          <Box sx={{
-            position: "relative",
-            maxWidth: "90vw", maxHeight: "90vh",
-            borderRadius: "10px",
-            border: "1px solid transparent",
-            background: `
-              linear-gradient(50deg, #0A0A0A 0%, #1B1B1B 100%) padding-box,
-              linear-gradient(11deg, #00CD1F 0%, #8C8C8C 6%, #8C8C8C 95%, #00CD1F 100%) border-box
-            `,
-            boxShadow: "0 0 2px rgba(0,255,133,.25), inset 0 0 1px rgba(255,255,255,.05)",
-          }}>
-            <IconButton onClick={lbPrev} sx={{ position: "absolute", top: "50%", left: "0px", transform: "translateY(-50%)", zIndex: 2, p: 0 }}>
-              <img src="/assets/icons/right.svg" alt="prev" style={{ width: isMobile ? 50 : undefined }} />
-            </IconButton>
-            <Box sx={{ borderRadius: "12px", overflow: "hidden", boxShadow: "0 0 60px rgba(0,0,0,0.8)" }}>
-              <img src={slides[lightboxIndex]} alt={`slide ${lightboxIndex + 1}`}
-                style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
-            </Box>
-            <IconButton onClick={lbNext} sx={{ position: "absolute", top: "50%", right: "0px", transform: "translateY(-50%)", zIndex: 2, p: 0 }}>
-              <img src="/assets/icons/left.svg" alt="next" style={{ width: isMobile ? 50 : undefined }} />
-            </IconButton>
-            <CustomTooltip title="Minimize" placement="top">
-              <Box
-                component="img"
-                src="/assets/icons/minimize.png"
-                alt="minimize"
-                onClick={() => setLightboxOpen(false)}
-                sx={{ position: "absolute", bottom: 10, right: 10, zIndex: 2, cursor: "pointer" }}
-              />
-            </CustomTooltip>
-          </Box>
-          <Box sx={{ display: "flex", gap: 1, mt: 2 }}>
-            {slides.map((_, i) => (
-              <Box key={i} onClick={() => setLightboxIndex(i)} sx={{
-                width: 10, height: 10, borderRadius: "50%", cursor: "pointer",
-                background: i === lightboxIndex ? PRIMARY : "transparent",
-                border: i === lightboxIndex ? `2px solid ${PRIMARY}` : "2px solid #555",
-              }} />
-            ))}
-          </Box>
-        </Box>
-      )}
+      {lightbox}
     </Box>
   );
 }

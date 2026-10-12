@@ -5,7 +5,6 @@ import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import MicIcon from "@mui/icons-material/Mic";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import AudioButton from "./AudioButton";
 import { useChat } from "./hooks/useChat";
 import { useSpeech } from "./hooks/useSpeech";
 import { transcribeAudio, fetchCategories } from "./api/chatApi";
@@ -95,7 +94,7 @@ const DEFAULT_CATEGORIES = [
   { label: "UI/UX", route: "UI/UX" },
   { label: "Social Media", route: "Social Media" },
   { label: "Videos", route: "Video" },
-  { label: "Print Media", route: "Print-Designs" },
+  { label: "Immersive", route: "Immersive" },
 ];
 
 const DEFAULT_DESKTOP_CATEGORIES = [
@@ -257,7 +256,6 @@ const PortfolioPage = () => {
 
   return (
     <PageWrapper>
-      <AudioButton />
 
       {/* ══════════════ DESKTOP ══════════════ */}
       <Box sx={{ display: { xs: "none", md: "flex" }, flexDirection: "column", height: "100%", p: "16px", position: "relative", zIndex: 1 }}>

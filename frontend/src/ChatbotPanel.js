@@ -6,7 +6,8 @@ import { useChatContext } from "./ChatContext";
 import { useSpeech } from "./hooks/useSpeech";
 import { transcribeAudio } from "./api/chatApi";
 import { chatHudPath, hudChannel, useElementSize, HudOutline } from "./hud/hudShapes";
-import { glassSx, glassPanelSx, spinBorderSx, useSpinOnHover } from "./hud/glass";
+import { glassSx, glassPanelSx, glassHudRectSx, spinBorderSx, useSpinOnHover } from "./hud/glass";
+import CustomTooltip from "./CustomTooltip";
 
 const PRIMARY = "#00CD1F";
 const CHIP_BG = "#8F8F8F";
@@ -44,7 +45,7 @@ const CHAT_BORDER = "rgba(255,255,255,0.22)";
 const CHAT_BORDER_ACTIVE = "rgba(255,255,255,0.40)";
 
 /** Glass suggestion chip for the home-screen HUD: gray border, minimal hover. */
-function GlassChip({ label, onClick }) {
+function GlassChip({ label, onClick, large = false }) {
   return (
     <Box
       component="button"
@@ -52,13 +53,13 @@ function GlassChip({ label, onClick }) {
       onClick={onClick}
       sx={{
         ...glassSx({ shadow: false }),
-        px: "21px", py: "6px",
+        px: large ? "16px" : "21px", py: large ? "8px" : "6px",
         whiteSpace: "nowrap", flexShrink: 0,
         borderRadius: "20px",
         border: `1px solid ${CHAT_BORDER}`,
         color: "rgba(255,255,255,0.86)",
         font: "inherit",
-        fontSize: "11px", fontWeight: 600,
+        fontSize: large ? "13px" : "11px", fontWeight: 600,
         cursor: "pointer",
         transition: "color 0.25s ease, border-color 0.25s ease, background-color 0.25s ease",
         // minimal hover: border and text brighten a touch, faint fill
@@ -104,8 +105,18 @@ export default function ChatbotPanel({
   // Width of the gap to the main HUD; the left edge then runs parallel to
   // the main HUD's right edge (equal gap along the diagonal too).
   hudChannelGap = null,
+  // Exact left-edge geometry ({ inset, stepY, step, rUpper, rLower }) for a
+  // page whose HUD layout differs from the home screen (the category page).
+  hudChannelShape = null,
+  // Taller input box with the mic / send buttons nearer its right edge
+  // (category page); the home screen keeps the default.
+  tallInput = false,
   // Fade messages out toward the top of the chat (home screen).
   fadeTop = false,
+  // Phones / tablets (chat drawer): the desktop HUD look on a rounded
+  // rectangle: liquid-glass panel, gradient rim, glass chips, input and
+  // buttons (no orb).
+  glass = false,
 }) {
   // Centre of the orb, measured from the panel's top-right corner. The panel
   // mask cuts a circle at this point so the frame hugs the orb.
@@ -115,11 +126,13 @@ export default function ChatbotPanel({
 
   const [shapeRef, shapeSize] = useElementSize();
   const useShape = hudShape && !isMobile;
+  const glassMobile = glass && isMobile;
+  const glassUi = useShape || glassMobile;   // glass chips / input / buttons
   const shapePath = useShape && shapeSize.w && shapeSize.h
     ? chatHudPath(shapeSize.w, shapeSize.h, {
         // orb centre and radius in this panel's coordinates
         cx: shapeSize.w - orbCenter, cy: orbCenter, r: orbSize / 2,
-      }, undefined, hudChannelGap != null ? hudChannel(shapeSize.h, hudChannelGap) : null)
+      }, undefined, hudChannelShape || (hudChannelGap != null ? hudChannel(shapeSize.h, hudChannelGap) : null))
     : null;
   const { messages, isLoading, sendMessage, messagesEndRef } = useChatContext();
   const [inputValue, setInputValue] = useState("");
@@ -152,7 +165,7 @@ export default function ChatbotPanel({
       {/* Orb — top-right, overflows the frame (Desktop only). No hover
           tooltip: the timed guide popup already points here. */}
       {!isMobile && (
-          <Box sx={{
+          <Box aria-hidden sx={{
             position: "absolute",
             top: orbOffset, right: orbOffset,
             width: orbSize, height: orbSize,
@@ -195,6 +208,14 @@ export default function ChatbotPanel({
           // dark liquid glass (edge, rim light and glow come from HudOutline)
           ...glassPanelSx,
           opacity: 1,
+        } : glassMobile ? {
+          // same liquid glass as the desktop HUD, gradient rim (grey → green → grey)
+          ...glassHudRectSx,
+          ...spinBorderSx(1),
+          border: "none",
+          borderRadius: "20px",
+          opacity: 1,
+          overflow: "hidden",
         } : {
         clipPath: isMobile ? "none" : "polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px)",
 
@@ -215,12 +236,15 @@ export default function ChatbotPanel({
         }),
       }}>
         {useShape && <HudOutline d={shapePath} w={shapeSize.w} h={shapeSize.h} border={1} />}
-        {/* Messages area */}
+        {/* Messages area (announced to screen readers as Nova replies) */}
         <Box
+          role="log"
+          aria-live="polite"
+          aria-label="Conversation with Nova"
           onWheel={(e) => e.stopPropagation()}
           sx={{
             flex: 1, overflowY: "auto",
-            pt: isMobile ? "20px" : "75px", // Adjusted pt for mobile (no orb) vs desktop (orb present)
+            pt: glassMobile ? "68px" : isMobile ? "20px" : "75px", // Adjusted pt for mobile (no orb) vs desktop (orb present)
             pl: hud ? "14px" : "20px", pr: hud ? "28px" : "20px", pb: hud ? "16px" : "8px",
             // home screen: the greeting sits just above the chips (also in the split view)
             ...((hud || fadeTop) && messages.length === 0 ? { display: "flex", flexDirection: "column", justifyContent: "flex-end" } : {}),
@@ -242,10 +266,9 @@ export default function ChatbotPanel({
               mb: hud ? 0 : 1.5,
             }}>
               <Typography sx={{ fontSize: "13px", lineHeight: hud ? 1.35 : 1.75, color: "rgba(255,255,255,0.85)" }}>
-                Hi!<br />
-                I'm <span style={{ color: '#fff', fontWeight: 700 }}>Nova</span>, Akash's AI Assistant.<br />
-                I can walk you through projects, thinking, and decisions.<br />
-                Where should we start?
+                Hi, I'm <span style={{ color: '#fff', fontWeight: 700 }}>Nova</span>, Akash's AI assistant.<br />
+                Ask me about his projects, his design process, or the decisions behind them.<br />
+                Pick a topic below or type your question.
               </Typography>
             </Box>
           ) : (
@@ -272,8 +295,8 @@ export default function ChatbotPanel({
             flexWrap: hud ? "nowrap" : "wrap",
             ...(hud ? { overflowX: "auto", scrollbarWidth: "none", "&::-webkit-scrollbar": { display: "none" } } : {}),
           }}>
-            {chips.map((s) => useShape ? (
-              <GlassChip key={s} label={s} onClick={() => sendMessage(s)} />
+            {chips.map((s) => glassUi ? (
+              <GlassChip key={s} label={s} large={glassMobile} onClick={() => sendMessage(s)} />
             ) : (
               <Box key={s} onClick={() => sendMessage(s)} sx={{
                 px: hud ? "21px" : "14px", py: hud ? "6px" : "7px",
@@ -294,18 +317,19 @@ export default function ChatbotPanel({
         <Box sx={{ px: hud ? "14px" : "15px", pb: hud ? "15px" : "20px", pt: "10px" }}>
           <Box sx={{
             display: "flex", alignItems: "flex-end", gap: "9px",
-            minHeight: hud ? "48px" : "54px",
+            minHeight: tallInput ? "60px" : hud ? "48px" : "54px",
             boxSizing: "border-box",
             background: "rgba(61, 76, 75, 0.92)",
             border: "1px solid rgba(255,255,255,0.16)",
             borderRadius: "7px",
             boxShadow: "0 10px 24px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.04)",
             px: "12px",
+            ...(tallInput ? { pl: "16px", pr: "7px" } : {}),
             py: hud ? "5.5px" : "8px",
             ...(hud ? { alignItems: "center" } : {}),
             // HUD glass, matching the panels: blurred backdrop, lit top edge,
             // quiet gray border and 10px corners (lighter while typing)
-            ...(useShape ? {
+            ...(glassUi ? {
               ...glassSx(),
               border: `1px solid ${CHAT_BORDER}`,
               borderRadius: "10px",
@@ -316,6 +340,7 @@ export default function ChatbotPanel({
             <InputBase
               multiline
               maxRows={6}
+              inputProps={{ "aria-label": "Ask Nova anything" }}
               placeholder={isListening ? "Listening..." + (interimText ? ` ${interimText}` : "") : "Ask anything"}
               fullWidth value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
@@ -336,17 +361,21 @@ export default function ChatbotPanel({
                 "& textarea::-webkit-scrollbar-thumb": { background: "rgba(255,255,255,0.2)", borderRadius: "2px" },
               }}
             />
-            {useShape ? (
+            {glassUi ? (
               <>
+                <CustomTooltip title={isListening ? "Stop listening" : "Voice input"} placement="top">
                 <GlassIconButton onClick={toggleListening} active={isListening}
                   aria-label={isListening ? "Stop listening" : "Start voice input"}>
                   <MicIcon sx={{ fontSize: 20 }} />
                 </GlassIconButton>
+                </CustomTooltip>
+                <CustomTooltip title="Send" placement="top">
                 <GlassIconButton onClick={handleSend} disabled={isLoading || isProcessing} aria-label="Send message">
                   {isLoading || isProcessing
                     ? <CircularProgress size={15} sx={{ color: "#fff" }} />
                     : <ArrowUpwardIcon sx={{ fontSize: 21 }} />}
                 </GlassIconButton>
+                </CustomTooltip>
               </>
             ) : (<>
             <IconButton onClick={toggleListening} size="small"

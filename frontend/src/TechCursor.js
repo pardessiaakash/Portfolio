@@ -15,7 +15,7 @@ const TRAIL_MS = 70;      // ring's trailing time constant; time-based, so the
                           // feel is the same at any frame rate (~0.2s to settle)
 
 const INTERACTIVE =
-  'a, button, [role="button"], [role="tab"], label, select, summary, ' +
+  'a, button, [role="button"], [role="tab"], [role="link"], [role="menuitem"], [role="option"], [role="switch"], [role="checkbox"], label, select, summary, ' +
   '.MuiButtonBase-root, [data-cursor="pointer"], [onclick]';
 const TEXT = 'input:not([type="button"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"]), textarea, [contenteditable="true"]';
 const RESIZE = '.handle-pill, [data-cursor="resize"]';
@@ -57,16 +57,35 @@ export default function TechCursor() {
     };
 
     // The cursor the site itself sets for an element (pointer on cards,
-    // col-resize on the handle…). Our `cursor: none` rule masks it, so lift
-    // the rule for one synchronous style read; nothing is painted meanwhile.
+    // col-resize on the handle…). Our `cursor: none` rule masks it, so read
+    // it from a bare copy of the element inside an off-screen probe box the
+    // rule doesn't cover. (Lifting the rule page-wide instead made the
+    // system arrow flash on macOS.)
     const nativeCursor = new WeakMap();
-    const siteCursor = (el) => {
+    const probe = document.createElement("div");
+    probe.className = "tc-probe";
+    probe.setAttribute("aria-hidden", "true");
+    document.body.appendChild(probe);
+    const ownCursor = (el) => {
       if (nativeCursor.has(el)) return nativeCursor.get(el);
-      root.classList.remove("tech-cursor");
-      const c = getComputedStyle(el).cursor;
-      root.classList.add("tech-cursor");
+      let c = "auto";
+      if (el.cloneNode && !/^(VIDEO|AUDIO|IFRAME|SOURCE)$/i.test(el.tagName)) {
+        const copy = el.cloneNode(false);
+        if (copy.removeAttribute) copy.removeAttribute("id");
+        probe.appendChild(copy);
+        c = getComputedStyle(copy).cursor;
+        probe.removeChild(copy);
+      }
       nativeCursor.set(el, c);
       return c;
+    };
+    // cursor is inherited, so the nearest ancestor that sets one decides
+    const siteCursor = (el) => {
+      for (let n = el, i = 0; n && n.nodeType === 1 && n !== document.body && i < 8; n = n.parentElement, i++) {
+        const c = ownCursor(n);
+        if (c && c !== "auto") return c;
+      }
+      return "auto";
     };
 
     const classify = (el) => {
@@ -87,11 +106,61 @@ export default function TechCursor() {
       dot.style.opacity = ring.style.opacity = v ? "" : "0";
     };
 
+    // Guided moves ("techcursor:goto"): the cursor glides to an element and
+    // rests on it (hover state + the element's own hover effect). When the
+    // visitor moves the mouse, the cursor carries on from the element (the
+    // gap to the real pointer is closed gradually as the mouse travels), so
+    // it never snaps back to where the real pointer was.
+    let mx = -100, my = -100;          // real pointer
+    let glide = null;                  // { fx, fy, tx, ty, t0, dur, el }
+    let parked = null;                 // element the cursor rests on
+    let ox = 0, oy = 0;                // shown cursor = real pointer + offset
+    const OFFSET_DECAY_PX = 260;       // mouse travel that closes ~63% of the gap
+    const ease = (t) => 1 - Math.pow(1 - t, 3);
+    const hover = (el, on) => {
+      try {
+        el.dispatchEvent(new MouseEvent(on ? "mouseover" : "mouseout", { bubbles: true, relatedTarget: null }));
+      } catch { /* old browsers */ }
+    };
+    const offsetActive = () => Math.abs(ox) > 0.5 || Math.abs(oy) > 0.5;
+    const onGoto = (e) => {
+      const sel = e.detail && e.detail.selector;
+      const el = sel && [...document.querySelectorAll(sel)].find((n) => n.offsetParent !== null);
+      if (!el || still) return;
+      const r = el.getBoundingClientRect();
+      if (!visible) { x = rx = mx > -100 ? mx : window.innerWidth / 2; y = ry = my > -100 ? my : window.innerHeight / 2; show(true); }
+      glide = { fx: x, fy: y, tx: r.left + r.width / 2, ty: r.top + r.height / 2,
+        t0: performance.now(), dur: e.detail.duration || 1100, el };
+    };
+
     const onMove = (e) => {
-      x = e.clientX; y = e.clientY;
+      const dx = e.clientX - mx, dy = e.clientY - my;
+      const first = mx === -100 && my === -100;
+      // pointer position was unknown when the guided move ended
+      if (first && (parked || offsetActive())) { ox = x - e.clientX; oy = y - e.clientY; }
+      mx = e.clientX; my = e.clientY;
+      if (glide) return;                               // let the guided move finish
+      if (!first && offsetActive()) {
+        const k = Math.exp(-Math.hypot(dx, dy) / OFFSET_DECAY_PX);
+        ox *= k; oy *= k;
+        if (!offsetActive()) { ox = 0; oy = 0; }
+      }
+      x = mx + ox; y = my + oy;
       if (!visible) { rx = x; ry = y; }
       show(true);
-      setState(classify(e.target));
+      // while offset, judge hover by what's under the shown cursor
+      const under = offsetActive() ? document.elementFromPoint(x, y) : e.target;
+      if (parked && (!under || !parked.contains(under))) { hover(parked, false); parked = null; }
+      setState(classify(under));
+    };
+
+    // A click while the shown cursor is offset goes to what it points at.
+    const onClickCapture = (e) => {
+      if (!offsetActive() || !e.isTrusted) return;
+      const el = document.elementFromPoint(x, y);
+      if (!el || el === e.target) return;
+      e.preventDefault(); e.stopPropagation();
+      el.click();
     };
     const onDown = () => { ring.dataset.pressed = "1"; };
     const onUp = () => { delete ring.dataset.pressed; };
@@ -101,6 +170,19 @@ export default function TechCursor() {
     const tick = (t) => {
       const dt = last ? Math.min(100, t - last) : 16;
       last = t;
+      if (glide) {
+        const p = Math.min(1, (t - glide.t0) / glide.dur);
+        const e = ease(p);
+        x = glide.fx + (glide.tx - glide.fx) * e;
+        y = glide.fy + (glide.ty - glide.fy) * e;
+        if (p >= 1) {
+          parked = glide.el;
+          ox = x - mx; oy = y - my;                    // carry on from here
+          setState("link");
+          hover(parked, true);
+          glide = null;
+        }
+      }
       const k = still ? 1 : 1 - Math.exp(-dt / TRAIL_MS);
       rx += (x - rx) * k;
       ry += (y - ry) * k;
@@ -110,6 +192,8 @@ export default function TechCursor() {
     };
 
     window.addEventListener("mousemove", onMove, { passive: true });
+    window.addEventListener("techcursor:goto", onGoto);
+    window.addEventListener("click", onClickCapture, true);
     window.addEventListener("mousedown", onDown);
     window.addEventListener("mouseup", onUp);
     document.addEventListener("mouseout", onLeave);
@@ -119,10 +203,13 @@ export default function TechCursor() {
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("techcursor:goto", onGoto);
+      window.removeEventListener("click", onClickCapture, true);
       window.removeEventListener("mousedown", onDown);
       window.removeEventListener("mouseup", onUp);
       document.removeEventListener("mouseout", onLeave);
       root.classList.remove("tech-cursor");
+      probe.remove();
     };
   }, []);
 
@@ -130,10 +217,12 @@ export default function TechCursor() {
     <>
       <style>{`
         @media (pointer: fine) {
-          html.tech-cursor, html.tech-cursor * { cursor: none !important; }
+          html.tech-cursor, html.tech-cursor *:not(.tc-probe):not(.tc-probe *) { cursor: none !important; }
           html.tech-cursor input:not([type="button"]):not([type="submit"]):not([type="checkbox"]):not([type="radio"]),
           html.tech-cursor textarea, html.tech-cursor [contenteditable="true"] { cursor: text !important; }
         }
+        .tc-probe { position: fixed; left: -9999px; top: -9999px; width: 0; height: 0;
+          overflow: hidden; visibility: hidden; pointer-events: none; }
         .tc-dot, .tc-ring {
           position: fixed; left: 0; top: 0; z-index: 2147483647;
           pointer-events: none; will-change: transform;

@@ -19,21 +19,22 @@ def seed_projects():
         return
 
     # Seed data
-    swift_slides = [f"/assets/images/projects/swift/{i}.jpg" for i in range(1, 10)]
-    default_slide = ["/assets/images/projects/swift/1.jpg"]
+    swift_slides = [f"/assets/images/projects/swiftconnect/{i:02d}.webp" for i in range(1, 28)]
+    chicora_slides = [f"/assets/images/projects/chicora/{i:02d}.webp" for i in range(1, 18)]
+    default_slide = ["/assets/images/projects/swiftconnect/01.webp"]
 
     # Sample Data mapping
     sample_data = {
         "UI/UX": [
             {
-                "title": "SwiftConnect Dashboard",
-                "short_description": "SwiftConnect empowers your team with AI-driven insights to eliminate response delays.",
+                "title": "SwiftConnect",
+                "short_description": "An AI-assisted workspace that removes context loss at AI-to-human support handovers.",
                 "slides": swift_slides
             },
             {
-                "title": "Foodie Delivery App Redesign",
-                "short_description": "A modern, intuitive redesign for a popular local food delivery service.",
-                "slides": default_slide
+                "title": "Chicora",
+                "short_description": "A fashion shopping app that helps shoppers judge fit and quality before they buy.",
+                "slides": chicora_slides
             },
             {
                 "title": "HealthTrack Mobile Experience",
