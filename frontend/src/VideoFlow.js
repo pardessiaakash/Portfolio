@@ -848,7 +848,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
 
 
 
-  const showScrollEntry = currentFrame < STOP_FRAME && !stopped && !isMobile;
+  const showScrollEntry = currentFrame < STOP_FRAME && !stopped && !isMobile && (loaderState === "gone" || loaderState === "leaving");
 
   // loader: ready once every frame request has finished (or after 30 s)
   useEffect(() => {

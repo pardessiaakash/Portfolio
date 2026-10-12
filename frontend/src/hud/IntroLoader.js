@@ -24,18 +24,13 @@ export default function IntroLoader({ progress, ready, leaving, onEnter }) {
 
   return (
     <Box role="dialog" aria-modal="true" aria-label="Loading the portfolio" sx={{
-      position: "fixed", inset: 0, zIndex: 100000, background: "#030504",
+      position: "fixed", inset: 0, zIndex: 100000,
+      // solid black at 90%: the opening frame of the flight shows through faintly
+      background: "rgba(0,0,0,0.9)",
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
       opacity: leaving ? 0 : 1, transition: "opacity 0.6s ease",
       pointerEvents: leaving ? "none" : "auto",
     }}>
-      {/* soft green glow behind the loader */}
-      <Box aria-hidden sx={{
-        position: "absolute", width: 520, height: 520, borderRadius: "50%",
-        background: "radial-gradient(circle, rgba(0,205,31,0.10) 0%, rgba(0,205,31,0) 65%)",
-        filter: "blur(10px)",
-      }} />
-
       <Typography sx={{ fontSize: "11px", letterSpacing: "4px", textTransform: "uppercase",
         color: "rgba(255,255,255,0.55)", mb: "14px", position: "relative" }}>
         Akash P · Design Lab
