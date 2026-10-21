@@ -89,15 +89,18 @@ export function useChat() {
                 setMessages((prev) => [...prev, aiMessage]);
                 scrollToBottom();
             } catch (err) {
-                console.error('Chat error:', err);
-                setError(err.message || 'Failed to get a response. Check the backend.');
-                // Add error message in the chat
+                if (!err?.offline) console.error('Chat error:', err);
+                setError(err?.offline ? 'offline' : 'failed');
+                // A friendly reply instead of a raw error ("Failed to fetch")
                 setMessages((prev) => [
                     ...prev,
                     {
                         id: genId(),
                         role: 'error',
-                        content: err.message || 'Something went wrong.',
+                        offline: !!err?.offline,
+                        content: err?.offline
+                            ? "I'm offline right now, so I can't answer that. You can still browse Akash's case studies under Work, or reach him directly:"
+                            : "Sorry, something went wrong on my side. Please try again in a moment, or reach Akash directly:",
                         timestamp: formatTime(),
                     },
                 ]);

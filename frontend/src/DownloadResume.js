@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Box, Button } from "@mui/material";
 import CustomTooltip from "./CustomTooltip";
 import { glassSx, spinBorderSx, useSpinOnHover } from "./hud/glass";
+import { useResume } from "./useResume";
 
 const buttonStyles = {
   px: "18px",
@@ -68,15 +69,18 @@ function DownloadResume({ sx, glass = false }) {
   const on = (h) => (e) => { setActive(true); h?.(e); };
   const off = (h) => (e) => { setActive(false); h?.(e); };
   const hp = glass ? spin.hoverProps : {};
+  // The resume PDF is configured in siteConfig; until it's uploaded the
+  // button asks for it by email instead of serving a missing file.
+  const resume = useResume();
   return (
     <CustomTooltip
-      title={<>Click to Download</>}
+      title={resume.available ? <>Download PDF</> : <>Email Akash for the latest resume</>}
       placement="top"
     >
       <Button
         component="a"
-        href="/Round-1_Corrections.pdf"
-        download
+        href={resume.href}
+        {...(resume.available ? { download: resume.fileName } : {})}
         data-autohover="download-resume"
         variant="contained"
         ref={glass ? spin.ref : undefined}
@@ -92,7 +96,7 @@ function DownloadResume({ sx, glass = false }) {
           ...sx,
         }}
       >
-        Download Resume
+        {resume.available ? "Download Resume" : "Request Resume"}
       </Button>
     </CustomTooltip>
   );

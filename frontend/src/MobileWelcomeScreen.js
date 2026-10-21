@@ -13,6 +13,7 @@ import {
 } from "./AboutMe";
 import { fetchCategories } from "./api/chatApi";
 import DownloadResume from "./DownloadResume";
+import { externalLinkProps } from "./siteConfig";
 import MobileChatDrawer from "./hud/MobileChatDrawer";
 
 /* ── Short copy + Download Resume, at the end of both tabs (as on desktop) ── */
@@ -243,9 +244,7 @@ export default function MobileWelcomeScreen({ opacity, socialIcons }) {
             key={label}
             component="a"
             href={link}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={label}
+            {...externalLinkProps(link, label)}
             sx={{
               width: 44,
               height: 44,

@@ -118,7 +118,7 @@ export default function ProjectDetailPage() {
       );
       setMainTab(index === -1 ? 0 : index);
     }).catch((error) => {
-      console.error(error);
+      if (!error?.offline) console.error(error);
       const urlCatDecoded = decodeURIComponent(urlCategory || "");
       const index = PORTFOLIO_TABS.findIndex((tab) =>
         tab.label === urlCatDecoded || tab.aliases.includes(urlCatDecoded)
@@ -139,7 +139,7 @@ export default function ProjectDetailPage() {
           setLoading(false);
         })
         .catch((err) => {
-          console.error(err);
+          if (!err?.offline) console.error(err);
           setProjects(withCaseStudies(mainTabs[mainTab].label, []));
           setSubTab(0);
           setSlideIndex(0);

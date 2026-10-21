@@ -5,7 +5,35 @@
  * All fetch calls go through here to keep components clean.
  */
 
-const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+const RAW_URL = (process.env.REACT_APP_API_URL || '').trim().replace(/\/+$/, '');
+
+// The backend address comes from the host's environment. A localhost address
+// only works on the developer's own machine, so on the live site it counts as
+// "no backend": requests fail fast with a friendly error instead of waiting
+// on a connection that can never succeed.
+const isLocalUrl = (u) => /^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/i.test(u);
+const onLocalPage = typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
+const BASE_URL = RAW_URL && (!isLocalUrl(RAW_URL) || onLocalPage) ? RAW_URL : null;
+
+export const backendAvailable = () => !!BASE_URL;
+
+export class OfflineError extends Error {
+  constructor() { super('offline'); this.name = 'OfflineError'; this.offline = true; }
+}
+
+// fetch with a timeout; network failures become OfflineError
+async function request(path, options = {}, timeoutMs = 20000) {
+  if (!BASE_URL) throw new OfflineError();
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    return await fetch(`${BASE_URL}${path}`, { ...options, signal: ctrl.signal });
+  } catch (e) {
+    throw new OfflineError();
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 /**
  * POST /api/v1/chat/
@@ -22,7 +50,7 @@ export async function sendChatMessage(query, mode = 'ai', projectId = null) {
     ...(projectId ? { project_id: projectId } : {}),
   };
 
-  const response = await fetch(`${BASE_URL}/api/v1/chat/`, {
+  const response = await request(`/api/v1/chat/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -49,7 +77,7 @@ export async function transcribeAudio(audioBlob, filename = 'recording.webm') {
   const formData = new FormData();
   formData.append('audio', audioBlob, filename);
 
-  const response = await fetch(`${BASE_URL}/api/v1/speech-to-text/`, {
+  const response = await request(`/api/v1/speech-to-text/`, {
     method: 'POST',
     body: formData,
     // Don't set Content-Type — browser sets it automatically with boundary
@@ -69,7 +97,7 @@ export async function transcribeAudio(audioBlob, filename = 'recording.webm') {
  * @returns {Promise<{status: string, llm_provider: string, message: string}>}
  */
 export async function checkHealth() {
-  const response = await fetch(`${BASE_URL}/api/v1/health/`);
+  const response = await request(`/api/v1/health/`, {}, 8000);
   if (!response.ok) throw new Error('Health check failed');
   return response.json();
 }
@@ -81,7 +109,7 @@ export async function checkHealth() {
  * @param {Array} documents - Array of {project_id, content, title, image_url}
  */
 export async function ingestDocuments(documents) {
-  const response = await fetch(`${BASE_URL}/api/v1/ingest/`, {
+  const response = await request(`/api/v1/ingest/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ documents }),
@@ -102,7 +130,7 @@ export async function ingestDocuments(documents) {
  * @returns {Promise<Array<string>>}
  */
 export async function fetchCategories() {
-  const response = await fetch(`${BASE_URL}/api/categories/`);
+  const response = await request(`/api/categories/`, {}, 8000);
   
   if (!response.ok) {
     throw new Error(`Failed to fetch categories (${response.status})`);
@@ -117,7 +145,7 @@ export async function fetchCategories() {
  * @returns {Promise<Array<object>>}
  */
 export async function fetchProjects(category) {
-  const response = await fetch(`${BASE_URL}/api/projects/?category=${encodeURIComponent(category)}`);
+  const response = await request(`/api/projects/?category=${encodeURIComponent(category)}`, {}, 8000);
   
   if (!response.ok) {
     throw new Error(`Failed to fetch projects (${response.status})`);

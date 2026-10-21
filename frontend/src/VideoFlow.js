@@ -13,6 +13,7 @@ import GlassButton from "./hud/GlassButton";
 import AnimatedTooltip from "./AnimatedTooltip";
 import { mainHudPath, useElementSize, HudOutline } from "./hud/hudShapes";
 import { glassPanelSx, glassHudRectSx, spinBorderSx, useSpinOnHover } from "./hud/glass";
+import { SITE, externalLinkProps } from "./siteConfig";
 
 // module-level, so it resets only on a full page load (refresh / first visit)
 let chatHintsShown = false;
@@ -210,20 +211,22 @@ const WHEEL_PX = 28;
 
 const socialIcons = [
   { label: "LinkedIn", icon: "/assets/icons/lindedin.svg",
-    hoverIcon:"/assets/icons/withhover/linkedIn.png", link: "https://www.linkedin.com" },
-  { label: "Behance", icon: "/assets/icons/behance.svg", hoverIcon:"/assets/icons/withhover/behance.png", link: "https://www.behance.net/pardessiaaec66" },
-  { label: "Dribbble", icon: "/assets/icons/dribble.svg", hoverIcon:"/assets/icons/withhover/dribble.png", link: "https://dribbble.com/pardessiaakash" },
+    hoverIcon:"/assets/icons/withhover/linkedIn.png",
+    // until the profile URL is set (REACT_APP_LINKEDIN_URL), search for Akash
+    link: SITE.linkedin || "https://www.linkedin.com/search/results/people/?keywords=Akash%20Pardessi" },
+  { label: "Behance", icon: "/assets/icons/behance.svg", hoverIcon:"/assets/icons/withhover/behance.png", link: SITE.behance },
+  { label: "Dribbble", icon: "/assets/icons/dribble.svg", hoverIcon:"/assets/icons/withhover/dribble.png", link: SITE.dribbble },
   {
     label: "Call Akash",
     icon: "/assets/icons/mobile.svg",
     hoverIcon:"/assets/icons/withhover/mobile.png",
-    link: "tel:+919011566393",
+    link: `tel:${SITE.phone}`,
   },
   {
     label: "Email Akash",
     icon: "/assets/icons/email.svg",
     hoverIcon:"/assets/icons/withhover/mail.png",
-    link: "mailto:pardessiaakash@gmail.com",
+    link: `mailto:${SITE.email}`,
   },
 ];
 
@@ -241,9 +244,7 @@ function SocialIcon({ label, icon, link }) {
       {...spin.hoverProps}
       component="a"
       href={link}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label={label}
+      {...externalLinkProps(link, label)}
       sx={{
         position: "relative",
         display: "flex",
