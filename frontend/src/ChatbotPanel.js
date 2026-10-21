@@ -6,7 +6,7 @@ import MicIcon from "@mui/icons-material/Mic";
 import { useChatContext } from "./ChatContext";
 import { useSpeech } from "./hooks/useSpeech";
 import { transcribeAudio } from "./api/chatApi";
-import { chatHudPath, hudChannel, useElementSize, HudOutline } from "./hud/hudShapes";
+import { chatHudPath, hudChannel, hudScale, useElementSize, HudOutline } from "./hud/hudShapes";
 import { glassSx, glassPanelSx, glassHudRectSx, spinBorderSx, useSpinOnHover } from "./hud/glass";
 import CustomTooltip from "./CustomTooltip";
 import { COMPACT_QUERY } from "./breakpoints";
@@ -89,10 +89,10 @@ function ContactLinks() {
   );
 }
 
-// Fade for the top of the home-screen chat (fixed to the visible area, not
-// the scrolled content): 10% under the orb, ~35% just below, then 100%.
+// Fade for the top of the chat list (fixed to the visible area, not the
+// scrolled content), which starts just below the orb: older messages fade out.
 const CHAT_TOP_FADE =
-  "linear-gradient(to bottom, rgba(0,0,0,0.10) 0px, rgba(0,0,0,0.10) 70px, rgba(0,0,0,0.35) 115px, rgba(0,0,0,0.35) 135px, #000 185px)";
+  "linear-gradient(to bottom, rgba(0,0,0,0) 0px, rgba(0,0,0,0.35) 14px, #000 44px)";
 
 
 /**
@@ -143,12 +143,20 @@ export default function ChatbotPanel({
   const useShape = hudShape && !isMobile;
   const glassMobile = glass && isMobile;
   const glassUi = useShape || glassMobile;   // glass chips / input / buttons
+  const channel = useShape && shapeSize.h
+    ? (hudChannelShape || (hudChannelGap != null ? hudChannel(shapeSize.h, hudChannelGap) : null))
+    : null;
   const shapePath = useShape && shapeSize.w && shapeSize.h
     ? chatHudPath(shapeSize.w, shapeSize.h, {
         // orb centre and radius in this panel's coordinates
         cx: shapeSize.w - orbCenter, cy: orbCenter, r: orbSize / 2,
-      }, undefined, hudChannelShape || (hudChannelGap != null ? hudChannel(shapeSize.h, hudChannelGap) : null))
+      }, undefined, channel)
     : null;
+  // The panel's upper-left edge steps in (it follows the main HUD), so keep
+  // messages clear of it: otherwise a long reply is cut off along that edge.
+  const stepInset = useShape && shapeSize.h
+    ? (channel ? channel.inset : 23 * hudScale(shapeSize.h))
+    : 0;
   const { messages, isLoading, sendMessage, messagesEndRef } = useChatContext();
   const [inputValue, setInputValue] = useState("");
 
@@ -260,7 +268,8 @@ export default function ChatbotPanel({
           sx={{
             flex: 1, overflowY: "auto",
             pt: glassMobile ? "68px" : isMobile ? "20px" : "75px", // Adjusted pt for mobile (no orb) vs desktop (orb present)
-            pl: hud ? "14px" : "20px", pr: hud ? "28px" : "20px", pb: hud ? "16px" : "8px",
+            pl: stepInset ? `${Math.round(stepInset + 14)}px` : hud ? "14px" : "20px",
+            pr: hud ? "28px" : "20px", pb: hud ? "16px" : "8px",
             // home screen: the greeting sits just above the chips (also in the split view)
             // short conversations sit just above the chips (clear of the orb),
             // longer ones scroll as usual
@@ -269,7 +278,12 @@ export default function ChatbotPanel({
             // Messages scrolling up under the orb fade out instead of being
             // cut off: top band 10%, next band ~35%, the rest fully visible.
             // (only once there are messages, so the greeting is never faded)
-            ...(fadeTop && !isMobile && messages.length > 0 ? { maskImage: CHAT_TOP_FADE, WebkitMaskImage: CHAT_TOP_FADE } : {}),
+            // Once there are messages, the list starts just below the orb, so
+            // no message ever sits under it; older ones fade out at the top.
+            ...(fadeTop && !isMobile && messages.length > 0 ? {
+              mt: `${Math.max(0, orbOffset + orbSize) + 6}px`, pt: "8px",
+              maskImage: CHAT_TOP_FADE, WebkitMaskImage: CHAT_TOP_FADE,
+            } : {}),
             "&::-webkit-scrollbar": { width: "3px" },
             "&::-webkit-scrollbar-thumb": { background: "rgba(255,255,255,0.1)", borderRadius: "2px" },
             textAlign: "left"

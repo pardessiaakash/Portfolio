@@ -19,8 +19,10 @@ const about = () => {
     "He completed UI/UX Design with Generative AI at IIIT Bangalore, and turns complex problems into clear, human-centred experiences.";
 };
 const caseStudies = () =>
-  `There are two UI/UX case studies under Work → UI/UX:\n\n` +
-  `• SwiftConnect: ${SC_TEXT[0][1]}\n\n• Chicora: ${FA_TEXT[0][1]}`;
+  "Two UI/UX case studies are ready under Work → UI/UX:\n\n" +
+  "• SwiftConnect: an AI-assisted support desk that removes handover delays for support agents.\n" +
+  "• Chicora: a personalised, trustworthy fashion shopping app.\n\n" +
+  "Open one, and use Ask AI on any slide to learn more about it.";
 const process = () =>
   "Both case studies follow the same path: understand the problem (brief, research, interviews), " +
   "synthesise it (affinity mapping, empathy maps, a clear problem statement), choose one primary solution " +
