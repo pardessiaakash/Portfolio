@@ -21,9 +21,13 @@ import SlideFigure from "./SlideFigure";
 import ChapterMenu from "./ChapterMenu";
 import EmptyCategory from "./EmptyCategory";
 import { srOnly } from "../a11y";
+import { useLabLeaving, useLabArrival, LEAVE_MS } from "./labRoom";
 
 const PRIMARY = "#00CD1F";
 const STAGE_W = 1920, STAGE_H = 1087;
+// The HUDs sit further back in the room, like the home screen's (VideoFlow
+// HUD_SCALE): 81% of the size that fills the window.
+const HUD_K = 0.81;
 
 /* ── Figma geometry (stage pixels) ─────────────────────────────────────── */
 
@@ -131,7 +135,7 @@ function useStageScale() {
     const vw = window.innerWidth, vh = window.innerHeight;
     // cover like the home screen, but never so large that the HUDs leave the
     // window (content spans roughly x 116–1810, y 97–1000)
-    return Math.min(Math.max(vw / STAGE_W, vh / STAGE_H), vw / 1760, vh / 1000);
+    return HUD_K * Math.min(Math.max(vw / STAGE_W, vh / STAGE_H), vw / 1760, vh / 1000);
   };
   const [s, setS] = useState(calc);
   useEffect(() => {
@@ -153,6 +157,10 @@ export default function InnerStage({
   category, onSeeUiux, isCtaSlide = () => false,
 }) {
   const s = useStageScale();
+  // through the room: arriving, the HUDs come toward the viewer as the eye
+  // dives in; leaving for home, they fall back as it pulls out
+  const leaving = useLabLeaving();
+  const arrived = useLabArrival("inner");
   const stageRef = useRef(null);
   const [split, setSplit] = useState(SPLIT.normal);
   const [dragging, setDragging] = useState(false);
@@ -234,6 +242,21 @@ export default function InnerStage({
         transform: `translate(-50%, -50%) scale(${s})`,
         transformOrigin: "50% 50%",
         fontFamily: FONT_STACK,
+      }}>
+      <Box sx={{
+        position: "absolute", inset: 0,
+        transformOrigin: "50% 50%",
+        ...(leaving ? {
+          opacity: 0, transform: "scale(0.9)", pointerEvents: "none",
+          transition: `opacity ${LEAVE_MS}ms ease-in, transform ${LEAVE_MS}ms cubic-bezier(0.55, 0, 0.8, 0.3)`,
+        } : arrived ? {
+          animation: "labHudIn 1.2s cubic-bezier(0.2, 0.7, 0.2, 1) 0.15s both",
+          "@keyframes labHudIn": {
+            from: { opacity: 0, transform: "scale(0.86)" },
+            "45%": { opacity: 1 },
+            to: { opacity: 1, transform: "scale(1)" },
+          },
+        } : {}),
       }}>
         {/* inactive category tabs, behind the panel */}
         <Box component="svg" role="tablist" aria-label="Categories" aria-owns="inner-tab-active"
@@ -447,6 +470,7 @@ export default function InnerStage({
             requestedInput={requestedInput}
           />
         </Box>
+      </Box>
       </Box>
     </Box>
   );

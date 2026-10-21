@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Box, Typography, Modal, useMediaQuery, useTheme} from "@mui/material";
 import { styled } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
+import { travel } from "./hud/labRoom";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import { PRIMARY, primaryAlpha } from "./theme";
 import { fetchCategories } from "./api/chatApi";
@@ -380,7 +381,8 @@ function WorkTab({ onClose, inline, compact, hud }) {
 
   const handleCategoryClick = (label) => {
     if (onClose) onClose();
-    navigate(`/portfolio/${encodeURIComponent(label)}`);
+    // through the room: the eye dives in toward the category's screens
+    travel(navigate, `/portfolio/${encodeURIComponent(label)}`, "inner");
   };
 
   return (

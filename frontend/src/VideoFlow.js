@@ -19,10 +19,15 @@ import SoundToggle from "./hud/SoundToggle";
 
 import { setPageMeta } from "./pageMeta";
 import { COMPACT_QUERY } from "./breakpoints";
+import { lab, setLabDepth, useLabLeaving, useLabArrival, LEAVE_MS } from "./hud/labRoom";
 
 // the 3D "window" room behind the HUDs (three.js), loaded only once needed
 const LabWindow = lazy(() => import("./hud/LabWindow"));
 const prefersReducedMotion = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+// "Skip the cinematic" through the room: the room fades in from far behind
+// the glass and settles where the flight would have ended; the HUDs appear
+// part-way through the move.
+const SKIP_DIVE = { fadeMs: 700, uiAtMs: 1000 };
 
 // module-level, so it resets only on a full page load (refresh / first visit)
 let chatHintsShown = false;
@@ -328,6 +333,10 @@ function SkipButton({ onClick }) {
 
 /* ── Welcome split screen ── */
 function WelcomeScreen({ opacity }) {
+  // through the room to a category page: the HUDs fly past the viewer;
+  // back from one: they settle into place as the eye pulls back
+  const leaving = useLabLeaving();
+  const arrived = useLabArrival("home");
   const { widthPercent, isDragging, handleMouseDown, containerRef } = useResizableChatbot(
     HUD.chatPercent, "home_chatbot_width_percentage_v3", HUD.chatPercent, 50, [HUD.chatPercent, 50]
   );
@@ -357,10 +366,22 @@ function WelcomeScreen({ opacity }) {
       // clip (not hidden): a clipped box can't be scrolled, so nothing can
       // shift the cover-scaled stage that overflows it on wide windows
       overflow: "clip",
-      opacity, visibility: opacity > 0 ? "visible" : "hidden",
+      opacity: leaving ? 0 : opacity, visibility: opacity > 0 ? "visible" : "hidden",
       // fade in/out over the held HUD frame; hide only after fading out
-      transition: `opacity ${UI_FADE_MS}ms ease-out, visibility 0s linear ${opacity > 0 ? 0 : UI_FADE_MS}ms`,
-      pointerEvents: opacity > 0.5 ? "auto" : "none",
+      transition: leaving
+        ? `opacity ${LEAVE_MS}ms ease-in, transform ${LEAVE_MS}ms cubic-bezier(0.55, 0, 0.8, 0.3)`
+        : `opacity ${UI_FADE_MS}ms ease-out, visibility 0s linear ${opacity > 0 ? 0 : UI_FADE_MS}ms`,
+      transform: leaving ? "scale(1.16)" : "none",
+      transformOrigin: "50% 48%",
+      pointerEvents: opacity > 0.5 && !leaving ? "auto" : "none",
+      ...(arrived ? {
+        animation: "labHudBack 1.1s cubic-bezier(0.2, 0.7, 0.2, 1) both",
+        "@keyframes labHudBack": {
+          from: { opacity: 0, transform: "scale(1.14)" },
+          "35%": { opacity: 1 },
+          to: { opacity: 1, transform: "scale(1)" },
+        },
+      } : {}),
     }}>
       {/* Stage: 1920x1080 design space, cover-scaled like the canvas frames */}
       <Box sx={{
@@ -535,13 +556,37 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     setPlaying(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  const [skipDive, setSkipDive] = useState(false);
+  const skipDiveRef = useRef(false);
   const skipCinematic = useCallback(() => {
-    if (!enteredRef.current || uiShownRef.current) return;
+    if (!enteredRef.current || uiShownRef.current || skipDiveRef.current) return;
     playingRef.current = false;
+    setPlaying(false);
     setStoppedSync(false);
-    skippingRef.current = true;
-    targetPosRef.current = END_FRAME;
     loadAround(END_FRAME, 6);
+    const t0 = performance.now();
+    const go = () => {
+      if (uiShownRef.current) return;
+      if (lab.ready && !prefersReducedMotion) {
+        // through the room: it fades in from far behind the glass and
+        // settles where the flight ends; the HUDs arrive part-way
+        skipDiveRef.current = true;
+        setSkipDive(true);
+        setLabDepth("home", { from: "far" });
+        setTimeout(() => {
+          skippingRef.current = true;          // cursor guide to Download Resume
+          posRef.current = END_FRAME;
+          targetPosRef.current = END_FRAME;
+        }, SKIP_DIVE.uiAtMs);
+      } else if (performance.now() - t0 < 1200 && !prefersReducedMotion && !isMobile) {
+        setTimeout(go, 100);                   // the room is still loading
+      } else {
+        // no 3D room: fast-forward the flight
+        skippingRef.current = true;
+        targetPosRef.current = END_FRAME;
+      }
+    };
+    go();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -929,12 +974,19 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
   // touch screens (iPad in landscape) get "swipe" instead of "scroll"
   const coarsePointer = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
   // mount the 3D room the first time the main UI is reached (desktop only)
-  const [labMounted, setLabMounted] = useState(false);
+  // (early, once the loader is done, so "Skip" can travel through it)
+  const [labMounted, setLabMounted] = useState(() => effectiveSkipIntro && !prefersReducedMotion);
   useEffect(() => {
-    if (!labMounted && !isMobile && !prefersReducedMotion && welcomeOpacity >= 1) setLabMounted(true);
-  }, [labMounted, isMobile, welcomeOpacity]);
+    if (!labMounted && !isMobile && !prefersReducedMotion && (welcomeOpacity >= 1 || loaderState !== "loading")) setLabMounted(true);
+  }, [labMounted, isMobile, welcomeOpacity, loaderState]);
+  // the room's eye rests at the end of the flight on this page
+  useState(() => setLabDepth("home"));
+  // once the HUDs are up, the skip is over (scrolling back up shows the flight again)
+  useEffect(() => {
+    if (skipDive && welcomeOpacity >= 1) { skipDiveRef.current = false; setSkipDive(false); }
+  }, [skipDive, welcomeOpacity]);
 
-  const showScrollEntry = currentFrame < STOP_FRAME && !stopped && !playing && !isMobile && (loaderState === "gone" || loaderState === "leaving");
+  const showScrollEntry = currentFrame < STOP_FRAME && !stopped && !playing && !skipDive && !isMobile && (loaderState === "gone" || loaderState === "leaving");
 
   // loader: ready once every frame request has finished (or after 30 s)
   useEffect(() => {
@@ -964,13 +1016,14 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
         {/* end of the sequence: the room becomes 3D behind the still HUDs */}
         {labMounted && (
           <Suspense fallback={null}>
-            <LabWindow active={!isMobile && welcomeOpacity >= 1} />
+            <LabWindow active={!isMobile && (welcomeOpacity >= 1 || skipDive)}
+              fadeMs={skipDive && welcomeOpacity < 1 ? SKIP_DIVE.fadeMs : 350} />
           </Suspense>
         )}
 
         {/* cursor parallax + falling rain while the visitor pauses mid-flight */}
         {!isMobile && (
-          <IntroAmbience canvasRef={canvasRef} frame={currentFrame} active={welcomeOpacity === 0} />
+          <IntroAmbience canvasRef={canvasRef} frame={currentFrame} active={welcomeOpacity === 0 && !skipDive} />
         )}
 
         {/* Room dimmer: once the main UI is up, darken the room (most at the
@@ -984,9 +1037,9 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
               rgba(0,0,0,${ROOM_DIM.center}) 0%,
               rgba(0,0,0,${ROOM_DIM.mid}) 60%,
               rgba(0,0,0,${ROOM_DIM.edge}) 100%)`,
-            opacity: roomDimLevel(currentFrame, welcomeOpacity >= 1),
+            opacity: roomDimLevel(currentFrame, welcomeOpacity >= 1 || skipDive),
             // quick while scrubbing, slower for the step up when the UI appears
-            transition: `opacity ${welcomeOpacity >= 1 ? ROOM_DIM.fadeMs : 250}ms ease-out`,
+            transition: `opacity ${welcomeOpacity >= 1 || skipDive ? ROOM_DIM.fadeMs : 250}ms ease-out`,
           }} />
         )}
 
@@ -1073,7 +1126,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
 
       {/* Skip: quietly bottom right from the start (fades in after a moment),
           and for the rest of the flight */}
-      {!isMobile && welcomeOpacity === 0 && loaderState === "gone" && (
+      {!isMobile && welcomeOpacity === 0 && !skipDive && loaderState === "gone" && (
         <Box sx={{ position: "fixed", right: 28, bottom: 26, zIndex: 99998,
           animation: showScrollEntry ? "skipIn 0.6s ease-out 1.8s both" : "none",
           "@keyframes skipIn": { from: { opacity: 0 }, to: { opacity: 1 } } }}>
@@ -1093,7 +1146,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
       {/* Scroll gif — bottom left, frame 1–5 (gif only) */}
 
       {/* Scroll gif + text — bottom left, after frame 6 until welcome UI */}
-      {currentFrame > SCROLL_HINT_FRAME && welcomeOpacity === 0 && !isMobile && (
+      {currentFrame > SCROLL_HINT_FRAME && welcomeOpacity === 0 && !skipDive && !isMobile && (
         <Box sx={{
           position: "fixed", bottom: 28, left: 28, zIndex: 99998,
           display: "flex", flexDirection: "column", alignItems: "center", gap: "6px",
@@ -1114,7 +1167,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
 
       {!isMobile && (
         <IntroLoadingBar frame={currentFrame} buffered={buffered}
-          visible={currentFrame > 0 && welcomeOpacity === 0} />
+          visible={currentFrame > 0 && welcomeOpacity === 0 && !skipDive} />
       )}
 
       {/* No scroll hint on the final UI screen: the visitor is inside the

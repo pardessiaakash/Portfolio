@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Box, useMediaQuery } from "@mui/material";
 import ChatbotPanel from "./ChatbotPanel";
@@ -20,6 +20,10 @@ import { SC_TEXT, FA_TEXT, SC_TOPICS, FA_TOPICS } from "./caseStudyText";
 import { SITE } from "./siteConfig";
 import { setPageMeta } from "./pageMeta";
 import { COMPACT_QUERY } from "./breakpoints";
+import { setLabDepth, travel, prefersReducedMotion } from "./hud/labRoom";
+
+// the lab room behind the HUDs, seen from further in than the home screen
+const LabWindow = lazy(() => import("./hud/LabWindow"));
 
 const PRIMARY = "#00CD1F";
 
@@ -89,6 +93,8 @@ export default function ProjectDetailPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const wanted = useRef({ project: searchParams.get("project"), slide: parseInt(searchParams.get("slide"), 10) });
   const isMobile = useMediaQuery(COMPACT_QUERY);
+  // the room's eye rests further in on the category pages
+  useState(() => setLabDepth("inner"));
 
   const { widthPercent, isDragging, handleMouseDown, containerRef } = useResizableChatbot(30, "project_chatbot_width_percentage_v2", 30, 50, [30, 50]);
 
@@ -423,6 +429,11 @@ export default function ProjectDetailPage() {
     return (
       <Box component="main" sx={pageBg}>
         <Box component="h1" sx={srOnly}>{category} work by {SITE.name}, {SITE.role}</Box>
+        {!prefersReducedMotion && (
+          <Suspense fallback={null}>
+            <LabWindow active zIndex={0} />
+          </Suspense>
+        )}
         <InnerStage
           tabs={mainTabs.map((t) => t.label)}
           activeTab={mainTab}
@@ -439,7 +450,7 @@ export default function ProjectDetailPage() {
           onNext={next}
           onAskAI={handleAskAI}
           onExpand={openLightbox}
-          onBack={() => navigate("/")}
+          onBack={() => travel(navigate, "/", "home")}
           orb={orb}
           requestedInput={requestedAIInput}
           keysDisabled={lightboxOpen}
