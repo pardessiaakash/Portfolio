@@ -99,13 +99,11 @@ const CHAT_TOP_FADE =
  * Shared chatbot panel — homepage right col & project detail right panel.
  * Props:
  *   orb       — orb video src
- *   hudBg     — HUD frame SVG (default: portfolio-chantbot.svg matches design)
  *   chips     — suggestion chip labels
  *   wrapperSx — extra sx on outer wrapper
  */
 export default function ChatbotPanel({
   orb = "/assets/orb/Idle State.mp4",
-  hudBg = "/assets/images/hud/portfolio-chantbot.svg",
   chips = ["View Case Study", "How I Design", "Start Chat"],
   wrapperSx = {},
   requestedInput = null,
