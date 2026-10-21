@@ -218,9 +218,9 @@ export function HudOutline({ d, w, h, border = 0 }) {
             separate from the dark room behind it */}
         <linearGradient id={`${id}-under`} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2={h}>
           <stop offset="0" stopColor="#fff" stopOpacity="0" />
-          <stop offset="0.55" stopColor="#fff" stopOpacity="0" />
-          <stop offset="0.88" stopColor="#C9D6CE" stopOpacity="0.42" />
-          <stop offset="1" stopColor="#7CE08A" stopOpacity="0.65" />
+          <stop offset="0.5" stopColor="#fff" stopOpacity="0" />
+          <stop offset="0.86" stopColor="#B4C7BB" stopOpacity="0.55" />
+          <stop offset="1" stopColor="#3BE05A" stopOpacity="0.9" />
         </linearGradient>
         <filter id={`${id}-glow`} x="-5%" y="-5%" width="110%" height="110%">
           <feGaussianBlur stdDeviation="7" />
@@ -230,9 +230,11 @@ export function HudOutline({ d, w, h, border = 0 }) {
       <path d={d} fill="none" stroke="#fff" strokeOpacity="0.05" strokeWidth="18" filter={`url(#${id}-glow)`} />
       {/* thin inner bevel just inside the edge */}
       <path d={d} fill="none" stroke="#fff" strokeOpacity="0.06" strokeWidth="5" />
-      <path d={d} fill="none" stroke={`url(#${id}-stroke)`} strokeWidth="2.4" />
-      <path d={d} fill="none" stroke={`url(#${id}-under)`} strokeWidth="2.4" />
-      <path d={d} fill="none" stroke={`url(#${id}-spec)`} strokeWidth="1.5"
+      {/* The panel's clip-path keeps only the inner half of each stroke, so
+          widths are doubled: ~2px of edge stays visible at the HUDs' size */}
+      <path d={d} fill="none" stroke={`url(#${id}-stroke)`} strokeWidth="4" />
+      <path d={d} fill="none" stroke={`url(#${id}-under)`} strokeWidth="4" />
+      <path d={d} fill="none" stroke={`url(#${id}-spec)`} strokeWidth="2.5"
         transform={`translate(${0.6} ${0.8})`} />
     </svg>
   );
