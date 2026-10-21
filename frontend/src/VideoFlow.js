@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, lazy, Suspense } from "react";
 import { Box, Typography, useMediaQuery } from "@mui/material";
 import { AboutMeContent } from "./AboutMe";
 import ChatbotPanel from "./ChatbotPanel";
@@ -16,8 +16,13 @@ import { glassPanelSx, glassHudRectSx, spinBorderSx, useSpinOnHover } from "./hu
 import { SITE, externalLinkProps } from "./siteConfig";
 import { srOnly } from "./a11y";
 import SoundToggle from "./hud/SoundToggle";
+
 import { setPageMeta } from "./pageMeta";
 import { COMPACT_QUERY } from "./breakpoints";
+
+// the 3D "window" room behind the HUDs (three.js), loaded only once needed
+const LabWindow = lazy(() => import("./hud/LabWindow"));
+const prefersReducedMotion = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
 // module-level, so it resets only on a full page load (refresh / first visit)
 let chatHintsShown = false;
@@ -916,6 +921,12 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
 
   // touch screens (iPad in landscape) get "swipe" instead of "scroll"
   const coarsePointer = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
+  // mount the 3D room the first time the main UI is reached (desktop only)
+  const [labMounted, setLabMounted] = useState(false);
+  useEffect(() => {
+    if (!labMounted && !isMobile && !prefersReducedMotion && welcomeOpacity >= 1) setLabMounted(true);
+  }, [labMounted, isMobile, welcomeOpacity]);
+
   const showScrollEntry = currentFrame < STOP_FRAME && !stopped && !playing && !isMobile && (loaderState === "gone" || loaderState === "leaving");
 
   // loader: ready once every frame request has finished (or after 30 s)
@@ -942,6 +953,13 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
           style={{ display: "block", position: "absolute", inset: 0, width: "100vw", height: "100vh",
             willChange: "transform", transformOrigin: "50% 50%" }}
         />
+
+        {/* end of the sequence: the room becomes 3D behind the still HUDs */}
+        {labMounted && (
+          <Suspense fallback={null}>
+            <LabWindow active={!isMobile && welcomeOpacity >= 1} />
+          </Suspense>
+        )}
 
         {/* cursor parallax + falling rain while the visitor pauses mid-flight */}
         {!isMobile && (
