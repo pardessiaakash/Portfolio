@@ -159,6 +159,14 @@ export default function ChatbotPanel({
     : 0;
   const { messages, isLoading, sendMessage, messagesEndRef } = useChatContext();
   const [inputValue, setInputValue] = useState("");
+  // Coming back to a page with an existing conversation: show its latest
+  // messages (the list starts scrolled to the top otherwise).
+  const logRef = React.useRef(null);
+  useEffect(() => {
+    const el = logRef.current;
+    if (el && messages.length) el.scrollTop = el.scrollHeight;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (requestedInput?.text) {
@@ -207,7 +215,7 @@ export default function ChatbotPanel({
 
       {/* HUD frame + content */}
       <Box ref={shapeRef} sx={{
-        flex: 1,
+        flex: 1, minHeight: 0,   // never taller than the panel, however long the chat
         display: "flex", flexDirection: "column",
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",
@@ -261,12 +269,15 @@ export default function ChatbotPanel({
         {useShape && <HudOutline d={shapePath} w={shapeSize.w} h={shapeSize.h} border={1} />}
         {/* Messages area (announced to screen readers as Nova replies) */}
         <Box
+          ref={logRef}
           role="log"
           aria-live="polite"
           aria-label="Conversation with Nova"
           onWheel={(e) => e.stopPropagation()}
           sx={{
-            flex: 1, overflowY: "auto",
+            // minHeight 0: a long conversation scrolls inside the panel instead
+            // of stretching the panel (and the HUD outline) to fit it
+            flex: 1, minHeight: 0, overflowY: "auto",
             pt: glassMobile ? "68px" : isMobile ? "20px" : "75px", // Adjusted pt for mobile (no orb) vs desktop (orb present)
             pl: stepInset ? `${Math.round(stepInset + 14)}px` : hud ? "14px" : "20px",
             pr: hud ? "28px" : "20px", pb: hud ? "16px" : "8px",
