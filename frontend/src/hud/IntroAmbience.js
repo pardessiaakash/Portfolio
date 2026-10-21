@@ -41,16 +41,28 @@ export default function IntroAmbience({ canvasRef, frame, active }) {
 
     // Natural rain: three depths of thin, fast streaks. Far rain is short,
     // faint and dense; near rain is long, brighter and sparse. Each layer is
-    // one batched path (cheap to draw), with a gentle gusting wind.
+    // one batched path (cheap to draw).
+    // Cross rain: every drop falls on its own slight slant. About half lean
+    // from upper-left to lower-right, half from upper-right to lower-left,
+    // a few fall nearly straight; each family sways with its own gusts, so
+    // together they read as a soft criss-cross rather than straight lines.
+    const slantOf = () => {
+      const r = Math.random();
+      const fam = r < 0.45 ? 1 : r < 0.9 ? -1 : 0;
+      const mag = fam ? 0.12 + Math.random() * 0.26 : (Math.random() - 0.5) * 0.08;
+      return { fam, s: fam ? fam * mag : mag };
+    };
     const make = (n, len, v) => Array.from({ length: n }, () => ({
-      x: Math.random(), y: Math.random(),
+      x: Math.random() * 1.5 - 0.25, y: Math.random(),
       len: len[0] + Math.random() * (len[1] - len[0]),
       v: v[0] + Math.random() * (v[1] - v[0]),            // screen heights / s
+      ...slantOf(),
     }));
+    // 10% more drops than the straight rain had (170 / 90 / 28)
     const layers = [
-      { drops: make(170, [9, 16], [1.9, 2.4]), alpha: 0.10, width: 0.6, depth: 6 },
-      { drops: make(90, [18, 30], [2.6, 3.2]), alpha: 0.15, width: 0.9, depth: 14 },
-      { drops: make(28, [34, 56], [3.6, 4.4]), alpha: 0.22, width: 1.3, depth: 26 },
+      { drops: make(187, [9, 16], [1.9, 2.4]), alpha: 0.10, width: 0.6, depth: 6 },
+      { drops: make(99, [18, 30], [2.6, 3.2]), alpha: 0.15, width: 0.9, depth: 14 },
+      { drops: make(31, [34, 56], [3.6, 4.4]), alpha: 0.22, width: 1.3, depth: 26 },
     ];
 
     // cursor, normalised to -1..1 from the centre, smoothed
@@ -93,7 +105,13 @@ export default function IntroAmbience({ canvasRef, frame, active }) {
       rainA += (wantRain - rainA) * Math.min(1, dt * 3);
       ctx.clearRect(0, 0, w, h);
       if (rainA < 0.01) return;
-      const wind = 0.10 + Math.sin(t / 2300) * 0.03 + Math.sin(t / 700) * 0.01;
+      // each slant family gusts on its own rhythm (and the straight ones barely)
+      const gust = {
+        1: Math.sin(t / 2300) * 0.05 + Math.sin(t / 700) * 0.015,
+        "-1": Math.sin(t / 2900 + 1.7) * 0.05 + Math.sin(t / 830 + 0.6) * 0.015,
+        0: Math.sin(t / 3700) * 0.02,
+      };
+      const aspect = h / w;
       ctx.lineCap = "round";
       for (const { drops, alpha, width, depth } of layers) {
         const ox = -px * depth, oy = -py * depth * 0.5;
@@ -101,11 +119,18 @@ export default function IntroAmbience({ canvasRef, frame, active }) {
         ctx.lineWidth = width;
         ctx.beginPath();
         for (const d of drops) {
+          const sl = d.s + gust[d.fam] * (d.fam || 1);
           d.y += d.v * dt;
-          if (d.y > 1.08) { d.y = -0.08 - Math.random() * 0.1; d.x = Math.random() * 1.2 - 0.1; }
+          d.x += d.v * dt * sl * aspect;            // drift sideways along the slant
+          if (d.y > 1.08 || d.x < -0.3 || d.x > 1.3) {
+            Object.assign(d, slantOf());
+            d.y = -0.08 - Math.random() * 0.1;
+            // start further upwind, so slanted drops still cover the screen
+            d.x = Math.random() * 1.2 - 0.1 - d.s * 0.5;
+          }
           const x = d.x * w + ox, y = d.y * h + oy;
           ctx.moveTo(x, y);
-          ctx.lineTo(x - d.len * wind, y + d.len);
+          ctx.lineTo(x + d.len * sl, y + d.len);     // short streak along its own path
         }
         ctx.stroke();
       }
