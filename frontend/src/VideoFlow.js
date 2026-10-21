@@ -422,6 +422,9 @@ function WelcomeScreen({ opacity }) {
           // border, specular rim and shadows
           ...spinBorderSx(1),
           ...glassHudRectSx,
+          // it sits over the main HUD's left edge: nearly opaque, so that
+          // outline doesn't show through the bar
+          backgroundColor: "rgba(14,16,15,0.97)",
           position: "absolute",
         }}>
           {socialIcons.map(({ label, icon, link }) => (
