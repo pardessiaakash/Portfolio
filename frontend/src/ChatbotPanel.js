@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { SITE, contactMailto, externalLinkProps } from "./siteConfig";
 import { Box, Typography, InputBase, IconButton, CircularProgress, useMediaQuery } from "@mui/material";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import MicIcon from "@mui/icons-material/Mic";
@@ -8,6 +9,7 @@ import { transcribeAudio } from "./api/chatApi";
 import { chatHudPath, hudChannel, useElementSize, HudOutline } from "./hud/hudShapes";
 import { glassSx, glassPanelSx, glassHudRectSx, spinBorderSx, useSpinOnHover } from "./hud/glass";
 import CustomTooltip from "./CustomTooltip";
+import { COMPACT_QUERY } from "./breakpoints";
 
 const PRIMARY = "#00CD1F";
 const CHIP_BG = "#8F8F8F";
@@ -59,7 +61,7 @@ function GlassChip({ label, onClick, large = false }) {
         border: `1px solid ${CHAT_BORDER}`,
         color: "rgba(255,255,255,0.86)",
         font: "inherit",
-        fontSize: large ? "13px" : "11px", fontWeight: 600,
+        fontSize: large ? "13px" : "12px", fontWeight: 600,
         cursor: "pointer",
         transition: "color 0.25s ease, border-color 0.25s ease, background-color 0.25s ease",
         // minimal hover: border and text brighten a touch, faint fill
@@ -68,6 +70,21 @@ function GlassChip({ label, onClick, large = false }) {
       }}
     >
       {label}
+    </Box>
+  );
+}
+
+// Shown under an error reply, so a visitor always has a way to reach Akash.
+function ContactLinks() {
+  const link = {
+    color: PRIMARY, fontWeight: 600, textDecoration: "underline", textUnderlineOffset: "3px",
+    "&:hover, &:focus-visible": { color: "#fff" },
+  };
+  return (
+    <Box component="span" sx={{ display: "flex", flexWrap: "wrap", gap: "6px 14px", mt: "6px" }}>
+      <Box component="a" href={contactMailto("your work")} sx={link}>Email Akash</Box>
+      {SITE.linkedin && <Box component="a" href={SITE.linkedin} {...externalLinkProps(SITE.linkedin, "LinkedIn")} sx={link}>LinkedIn</Box>}
+      <Box component="a" href={SITE.behance} {...externalLinkProps(SITE.behance, "Behance")} sx={link}>Behance</Box>
     </Box>
   );
 }
@@ -122,7 +139,7 @@ export default function ChatbotPanel({
   // mask cuts a circle at this point so the frame hugs the orb.
   const orbCenter = orbOffset + orbSize / 2;
   const orbCut = orbSize / 2 + 6;
-  const isMobile = useMediaQuery("(max-width:1024px)")
+  const isMobile = useMediaQuery(COMPACT_QUERY)
 
   const [shapeRef, shapeSize] = useElementSize();
   const useShape = hudShape && !isMobile;
@@ -247,7 +264,10 @@ export default function ChatbotPanel({
             pt: glassMobile ? "68px" : isMobile ? "20px" : "75px", // Adjusted pt for mobile (no orb) vs desktop (orb present)
             pl: hud ? "14px" : "20px", pr: hud ? "28px" : "20px", pb: hud ? "16px" : "8px",
             // home screen: the greeting sits just above the chips (also in the split view)
-            ...((hud || fadeTop) && messages.length === 0 ? { display: "flex", flexDirection: "column", justifyContent: "flex-end" } : {}),
+            // short conversations sit just above the chips (clear of the orb),
+            // longer ones scroll as usual
+            ...((hud || fadeTop) ? { display: "flex", flexDirection: "column" } : {}),
+            ...((hud || fadeTop) && messages.length === 0 ? { justifyContent: "flex-end" } : {}),
             // Messages scrolling up under the orb fade out instead of being
             // cut off: top band 10%, next band ~35%, the rest fully visible.
             // (only once there are messages, so the greeting is never faded)
@@ -272,15 +292,18 @@ export default function ChatbotPanel({
               </Typography>
             </Box>
           ) : (
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, mt: (hud || fadeTop) ? "auto" : 0 }}>
               {messages.map((msg) => (
                 <Box key={msg.id} sx={{
                   alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
                   background: msg.role === "user" ? "rgba(0,255,150,0.08)" : "rgba(20,26,20,0.85)",
                   border: msg.role === "user" ? "1px solid rgba(0,255,150,0.2)" : "1px solid rgba(255,255,255,0.08)",
                   borderRadius: "10px", px: "14px", py: "10px",
-                  maxWidth: "88%", color: "#fff", fontSize: "13px", lineHeight: 1.6,
-                }}>{msg.content}</Box>
+                  maxWidth: "88%", color: "#fff", fontSize: "13px", lineHeight: 1.6, whiteSpace: "pre-line",
+                }}>
+                  {msg.content}
+                  {msg.role === "error" && <ContactLinks />}
+                </Box>
               ))}
               {isLoading && <CircularProgress size={16} sx={{ color: PRIMARY, alignSelf: "flex-start", mt: 0.5 }} />}
               <div ref={messagesEndRef} />
@@ -305,7 +328,7 @@ export default function ChatbotPanel({
                 background: CHIP_BG,
                 border: "1px solid rgba(255,255,255,0.12)",
                 color: "#000000",
-                fontSize: hud ? "11px" : "12px", fontWeight: 600,
+                fontSize: "12px", fontWeight: 600,
                 cursor: "pointer",
                 transition: "border-color 0.2s, color 0.2s"
               }}>{s}</Box>

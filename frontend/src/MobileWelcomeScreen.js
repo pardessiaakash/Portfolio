@@ -14,6 +14,7 @@ import {
 import { fetchCategories } from "./api/chatApi";
 import DownloadResume from "./DownloadResume";
 import { externalLinkProps } from "./siteConfig";
+import { srOnly } from "./a11y";
 import MobileChatDrawer from "./hud/MobileChatDrawer";
 
 /* ── Short copy + Download Resume, at the end of both tabs (as on desktop) ── */
@@ -54,13 +55,13 @@ function MobileWorkTab() {
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: "1fr 1fr",
+          gridTemplateColumns: { xs: "1fr 1fr", md: "repeat(4, 1fr)" },
           gap: "12px",
           mt: "4px",
           // the card outline is drawn 15/216 in from each side of its box, so
           // pull the grid out by that much: the visible cards then line up
           // with the "Welcome / Akash P" heading and the bio text
-          mx: "calc((100% - 12px) * -15 / 402)",
+          mx: { xs: "calc((100% - 12px) * -15 / 402)", md: "calc((100% - 36px) * -15 / 804)" },
         }}
       >
         {workCategories.map((cat) => (
@@ -100,7 +101,7 @@ function MobileAboutTab() {
       <Box
         sx={{
           display: "grid",
-          gridTemplateColumns: "1fr 1fr",
+          gridTemplateColumns: { xs: "1fr 1fr", sm: "repeat(3, 1fr)" },
           gap: "10px",
           mb: 2.5,
         }}
@@ -113,11 +114,11 @@ function MobileAboutTab() {
               {exp.company}
             </Typography>
             <Typography
-              sx={{ fontSize: "11px", fontWeight: 600, color: "#fff", mt: 0.2, lineHeight: 1.3 }}
+              sx={{ fontSize: "12px", fontWeight: 600, color: "#fff", mt: 0.2, lineHeight: 1.3 }}
             >
               {exp.role}
             </Typography>
-            <Typography sx={{ fontSize: "10px", mt: 0.3, color: "rgba(255,255,255,0.5)" }}>
+            <Typography sx={{ fontSize: "12px", mt: 0.3, color: "rgba(255,255,255,0.6)" }}>
               {exp.period}
             </Typography>
           </ExpCard>
@@ -138,7 +139,7 @@ function MobileAboutTab() {
         <Box
           component="img"
           src="/assets/icons/UX-Certification.svg"
-          alt="cert"
+          alt=""
           sx={{ width: 38, height: 38, flexShrink: 0 }}
         />
         <Box sx={{ textAlign: "left" }}>
@@ -171,6 +172,9 @@ export default function MobileWelcomeScreen({ opacity, socialIcons }) {
         visibility: opacity > 0 ? "visible" : "hidden",
         pointerEvents: opacity > 0.5 ? "auto" : "none",
         px: "16px",
+        // tablets: a centred card instead of one stretched across the screen
+        alignItems: { sm: "center" },
+        justifyContent: { sm: "center" },
         // keep clear of the notch / status bar and the home indicator
         pt: "max(20px, env(safe-area-inset-top))",
         pb: "max(12px, env(safe-area-inset-bottom))",
@@ -187,8 +191,11 @@ export default function MobileWelcomeScreen({ opacity, socialIcons }) {
             linear-gradient(50deg, #0A0A0A 0%, #1B1B1B 100%) padding-box,
             linear-gradient(11deg, #00CD1F 0%, #8C8C8C 6%, #8C8C8C 95%, #00CD1F 100%) border-box
           `,
-          p: "20px 16px 24px",
-          flex: 1,
+          p: { xs: "20px 16px 24px", sm: "32px 32px 36px" },
+          flex: { xs: 1, sm: "0 1 auto" },
+          width: { sm: "100%" },
+          maxWidth: { sm: 720, md: 860, lg: 960 },
+          boxSizing: "border-box",
           display: "flex",
           flexDirection: "column",
           minHeight: 0,
@@ -196,11 +203,15 @@ export default function MobileWelcomeScreen({ opacity, socialIcons }) {
       >
         {/* Header */}
         <Box sx={{ mb: 2, textAlign: "left" }}>
-          <Typography sx={{ fontSize: "14px", color: "#fff", mb: "2px" }}>
-            Welcome !
+          <Typography sx={{ fontSize: { xs: "14px", sm: "16px" }, color: "#fff", mb: "2px" }}>
+            Welcome to the Portfolio!
           </Typography>
-          <Typography sx={{ fontSize: "30px", fontWeight: 800, color: PRIMARY, lineHeight: 1.1 }}>
+          <Typography component="h1" sx={{ fontSize: { xs: "30px", sm: "38px" }, fontWeight: 800, color: PRIMARY, lineHeight: 1.1 }}>
             Akash P
+            <Box component="span" sx={srOnly}>, UI/UX Designer and Art Director</Box>
+          </Typography>
+          <Typography aria-hidden sx={{ fontSize: { xs: "13px", sm: "15px" }, color: "rgba(255,255,255,0.7)", mt: "4px" }}>
+            UI/UX Designer &amp; Art Director
           </Typography>
         </Box>
 
@@ -221,6 +232,7 @@ export default function MobileWelcomeScreen({ opacity, socialIcons }) {
       </Box>
 
       <Box
+        component="nav" aria-label="Contact and social links"
         sx={{
           display: "flex",
           justifyContent: "center",

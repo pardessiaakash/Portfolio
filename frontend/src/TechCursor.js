@@ -160,7 +160,10 @@ export default function TechCursor() {
       const el = document.elementFromPoint(x, y);
       if (!el || el === e.target) return;
       e.preventDefault(); e.stopPropagation();
-      el.click();
+      // SVG elements have no .click(); a synthetic click works for everything
+      el.dispatchEvent(new MouseEvent("click", {
+        bubbles: true, cancelable: true, view: window, clientX: x, clientY: y,
+      }));
     };
     const onDown = () => { ring.dataset.pressed = "1"; };
     const onUp = () => { delete ring.dataset.pressed; };

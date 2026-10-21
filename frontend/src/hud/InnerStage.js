@@ -17,6 +17,10 @@ import { glassPanelSx } from "./glass";
 import ChatbotPanel from "../ChatbotPanel";
 import CustomTooltip from "../CustomTooltip";
 import { HandleGrip, handleGripHoverSx } from "../ResizeHandle";
+import SlideFigure from "./SlideFigure";
+import ChapterMenu from "./ChapterMenu";
+import EmptyCategory from "./EmptyCategory";
+import { srOnly } from "../a11y";
 
 const PRIMARY = "#00CD1F";
 const STAGE_W = 1920, STAGE_H = 1087;
@@ -146,6 +150,7 @@ export default function InnerStage({
   slides, slideIndex, onSlide, onPrev, onNext,
   onAskAI, onExpand, onBack,
   orb, requestedInput, keysDisabled = false,
+  category, onSeeUiux, isCtaSlide = () => false,
 }) {
   const s = useStageScale();
   const stageRef = useRef(null);
@@ -156,16 +161,9 @@ export default function InnerStage({
   const viewerW = W - 81;                         // 1148 at the Figma split
   const d = mainPath(activeTab, W);
   const hasSlides = slides.length > 0;
-  // projects without slides yet keep Figma's full row of 12 dots, and the
-  // arrows / dots move through them like a real carousel
-  const PLACEHOLDER_DOTS = 12;
-  const [phIndex, setPhIndex] = useState(0);
-  useEffect(() => { setPhIndex(0); }, [activeTab, subTab]);
-  const dotCount = hasSlides ? slides.length : PLACEHOLDER_DOTS;
-  const current = hasSlides ? slideIndex : phIndex;
-  const goPrev = () => hasSlides ? onPrev() : setPhIndex((i) => (i + dotCount - 1) % dotCount);
-  const goNext = () => hasSlides ? onNext() : setPhIndex((i) => (i + 1) % dotCount);
-  const goTo = (i) => hasSlides ? onSlide(i) : setPhIndex(i);
+  // carousel controls only when there's something to page through
+  const goPrev = () => hasSlides && onPrev();
+  const goNext = () => hasSlides && onNext();
 
   // ← / → change slides, like the arrow buttons (not while typing, while
   // the resize handle has focus, or while full screen is open)
@@ -238,7 +236,7 @@ export default function InnerStage({
         fontFamily: FONT_STACK,
       }}>
         {/* inactive category tabs, behind the panel */}
-        <Box component="svg" role="tablist" aria-label="Categories"
+        <Box component="svg" role="tablist" aria-label="Categories" aria-owns="inner-tab-active"
           width={STAGE_W} height={MAIN.y + TAB.h + 2}
           sx={{
             position: "absolute", left: 0, top: 0, overflow: "visible",
@@ -277,7 +275,7 @@ export default function InnerStage({
           <HudOutline d={d} w={W} h={MAIN_H} />
 
           {/* selected tab label */}
-          <Box role="tab" aria-selected="true" sx={{
+          <Box role="tab" id="inner-tab-active" aria-selected="true" tabIndex={-1} sx={{
             position: "absolute",
             left: TAB.x0 + TAB.offsets[activeTab], top: 0, width: TAB.w, height: TAB.h,
             display: "flex", alignItems: "center", justifyContent: "center",
@@ -333,22 +331,30 @@ export default function InnerStage({
             boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.04)",
           }}>
             {hasSlides ? (
-              <Box component="img" src={slides[slideIndex]} alt={`${activeProject?.title ?? "Project"} slide ${slideIndex + 1}`}
-                sx={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+              <>
+                <Box component="h2" sx={srOnly}>{activeProject?.title} case study</Box>
+                <SlideFigure src={slides[slideIndex]} index={slideIndex} count={slides.length}
+                  title={activeProject?.title} text={activeProject?.text?.[slideIndex]}
+                  isCta={isCtaSlide(slideIndex)} />
+                {/* preload the next slide so paging feels instant */}
+                <link rel="prefetch" as="image" href={slides[(slideIndex + 1) % slides.length]} />
+              </>
             ) : !loading && (
-              <Box sx={{
-                height: "100%", display: "flex", flexDirection: "column",
-                alignItems: "center", justifyContent: "center", gap: 1,
-                background: "rgba(255,255,255,0.02)",
-              }}>
-                <Box sx={{ fontSize: 22, fontWeight: 500, color: "#fff" }}>{activeProject?.title ?? ""}</Box>
-                <Box sx={{ fontSize: 14, color: "rgba(255,255,255,0.55)" }}>Case study coming soon</Box>
+              <Box sx={{ height: "100%", background: "rgba(255,255,255,0.02)" }}>
+                <EmptyCategory category={category} onSeeUiux={onSeeUiux} fontFamily={FONT_STACK} />
               </Box>
             )}
           </Box>
 
-          {/* controls stay in place for every project */}
-          {(
+          {/* chapter list, top right, in line with the project pills */}
+          {hasSlides && activeProject?.topics && (
+            <Box sx={{ position: "absolute", right: 54.1, top: 72 }}>
+              <ChapterMenu topics={activeProject.topics} current={slideIndex} onSelect={onSlide} fontFamily={FONT_STACK} />
+            </Box>
+          )}
+
+          {/* carousel controls, when the project has slides */}
+          {hasSlides && (
             <>
               {/* prev / next sit across the viewer's edges */}
               <CustomTooltip title="Previous" placement="top"
@@ -369,7 +375,7 @@ export default function InnerStage({
               {/* ask AI + expand: straddle the viewer's right edge like the Next arrow, so they stay clear of the slide content */}
               <CustomTooltip title="Ask To AI" placement="left"
                 wrapperSx={{ position: "absolute", left: W - 76.1, top: 646 }}>
-                <Box component="button" aria-label="Ask AI about this slide" onClick={() => hasSlides && onAskAI(slideIndex)}
+                <Box component="button" aria-label="Ask AI about this slide" onClick={() => onAskAI(slideIndex)}
                   sx={{ position: "relative", width: 44, height: 44, p: 0,
                     border: 0, background: "none", cursor: "pointer", transition: "filter 0.25s ease",
                     "&:hover": { filter: "brightness(1.25)" } }}>
@@ -379,7 +385,7 @@ export default function InnerStage({
               </CustomTooltip>
               <CustomTooltip title="Full screen" placement="left"
                 wrapperSx={{ position: "absolute", left: W - 76.1, top: 704 }}>
-                <Box component="button" aria-label="Show full screen" onClick={() => hasSlides && onExpand()}
+                <Box component="button" aria-label="Show full screen" onClick={() => onExpand()}
                   sx={{ ...glassBtn(44), position: "relative", p: 0, background: "rgba(10,14,12,0.55)" }}>
                   <svg width="21" height="21" viewBox="0 0 21 21" aria-hidden>
                     <path d="M1 7V1h6M14 1h6v6M20 14v6h-6M7 20H1v-6M1 1l6.5 6.5M20 1l-6.5 6.5M20 20l-6.5-6.5M1 20l6.5-6.5"
@@ -389,7 +395,7 @@ export default function InnerStage({
               </CustomTooltip>
 
               {/* dots: sliding window centred on the active slide (shared) */}
-              <SlideDots count={dotCount} current={current} onSelect={goTo}
+              <SlideDots count={slides.length} current={slideIndex} onSelect={onSlide}
                 sx={{ top: 814, left: 367.9 - DOTS.view / 2 }} />
             </>
           )}
@@ -398,6 +404,9 @@ export default function InnerStage({
         {/* drag handle, centred in the lower channel */}
         <Box
           role="separator" data-cursor="resize" aria-orientation="vertical"
+          aria-valuemin={0} aria-valuemax={100}
+          aria-valuenow={Math.round(((SPLIT.normal - split) / (SPLIT.normal - SPLIT.wide)) * 100)}
+          aria-valuetext={split < (SPLIT.normal + SPLIT.wide) / 2 ? "Wide chat" : "Normal chat"}
           aria-label="Resize chat panel (left / right arrow keys)" tabIndex={0}
           onKeyDown={(e) => {
             if (e.key === "ArrowLeft") { e.preventDefault(); glideTo(SPLIT.wide); }

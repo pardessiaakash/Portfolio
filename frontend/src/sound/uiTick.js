@@ -18,6 +18,19 @@ let buffer = null;
 let loading = null;
 let lastPlay = 0;
 
+// Mute switch, remembered in this browser
+const MUTE_KEY = "portfolio-sound-muted";
+let muted = false;
+try { muted = localStorage.getItem(MUTE_KEY) === "1"; } catch (e) { /* storage blocked */ }
+const listeners = new Set();
+export const isMuted = () => muted;
+export function setMuted(v) {
+  muted = !!v;
+  try { localStorage.setItem(MUTE_KEY, muted ? "1" : "0"); } catch (e) { /* storage blocked */ }
+  listeners.forEach((fn) => fn(muted));
+}
+export function onMuteChange(fn) { listeners.add(fn); return () => listeners.delete(fn); }
+
 function setup() {
   if (ctx) return ctx;
   const AC = window.AudioContext || window.webkitAudioContext;
@@ -53,7 +66,7 @@ if (typeof window !== "undefined") {
 
 /** Play the hover sound (no-op until the page has been interacted with). */
 export function playHoverTick() {
-  if (!ctx || ctx.state !== "running") return;
+  if (muted || !ctx || ctx.state !== "running") return;
   if (!buffer) { load(); return; }
   const now = performance.now();
   if (now - lastPlay < MIN_GAP_MS) return;

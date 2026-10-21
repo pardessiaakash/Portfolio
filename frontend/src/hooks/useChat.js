@@ -10,6 +10,7 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { sendChatMessage } from '../api/chatApi';
+import { offlineAnswer } from '../chat/offlineAnswers';
 
 // Unique ID generator
 let messageIdCounter = 0;
@@ -89,6 +90,14 @@ export function useChat() {
                 setMessages((prev) => [...prev, aiMessage]);
                 scrollToBottom();
             } catch (err) {
+                // the AI server can't be reached: answer from the site's own
+                // content when the question is one we know
+                const local = offlineAnswer(trimmed);
+                if (local) {
+                    setMessages((prev) => [...prev, { id: genId(), role: 'ai', content: local, timestamp: formatTime(), offline: true }]);
+                    scrollToBottom();
+                    return;
+                }
                 if (!err?.offline) console.error('Chat error:', err);
                 setError(err?.offline ? 'offline' : 'failed');
                 // A friendly reply instead of a raw error ("Failed to fetch")
@@ -99,7 +108,7 @@ export function useChat() {
                         role: 'error',
                         offline: !!err?.offline,
                         content: err?.offline
-                            ? "I'm offline right now, so I can't answer that. You can still browse Akash's case studies under Work, or reach him directly:"
+                            ? "I can't reach my AI server right now, so I can only answer the suggested topics. You can still browse the case studies under Work, or reach Akash directly:"
                             : "Sorry, something went wrong on my side. Please try again in a moment, or reach Akash directly:",
                         timestamp: formatTime(),
                     },

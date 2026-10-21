@@ -18,6 +18,9 @@ export const SITE = {
   // hosted copy (e.g. a Google Drive download link).
   resumeUrl: env("REACT_APP_RESUME_URL") || "/Akash-P-Resume.pdf",
   resumeFileName: "Akash-P-Resume.pdf",
+  // Optional booking link for "Let's talk" (e.g. a Calendly page); without
+  // it, "Let's talk" opens a pre-filled email.
+  contactUrl: env("REACT_APP_CONTACT_URL"),
 };
 
 // Pre-filled email for the "Let's talk" call to action.
@@ -26,6 +29,8 @@ export const contactMailto = (topic) => {
   const body = "Hi Akash,\n\nI saw your portfolio and would like to talk about ";
   return `mailto:${SITE.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 };
+
+export const letsTalkHref = (topic) => SITE.contactUrl || contactMailto(topic);
 
 export const resumeRequestMailto = () =>
   `mailto:${SITE.email}?subject=${encodeURIComponent("Resume request")}&body=${encodeURIComponent("Hi Akash,\n\nCould you send me your latest resume?\n\nThanks,")}`;

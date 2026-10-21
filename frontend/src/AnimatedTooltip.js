@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Box, IconButton, Typography, useMediaQuery } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
+import { COMPACT_QUERY } from "./breakpoints";
 /**
  * AnimatedTooltip
  * ----------------
@@ -32,7 +33,7 @@ export default function AnimatedTooltip({
   curve = "down-right",
   width = 220,
 }) {
-  const isMobile = useMediaQuery("(max-width:1024px)");
+  const isMobile = useMediaQuery(COMPACT_QUERY);
   const [closing, setClosing] = useState(false);
   const timerRef = useRef(null);
   const uid = useId().replace(/:/g, "");

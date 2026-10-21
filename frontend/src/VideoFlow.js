@@ -14,6 +14,10 @@ import AnimatedTooltip from "./AnimatedTooltip";
 import { mainHudPath, useElementSize, HudOutline } from "./hud/hudShapes";
 import { glassPanelSx, glassHudRectSx, spinBorderSx, useSpinOnHover } from "./hud/glass";
 import { SITE, externalLinkProps } from "./siteConfig";
+import { srOnly } from "./a11y";
+import SoundToggle from "./hud/SoundToggle";
+import { setPageMeta } from "./pageMeta";
+import { COMPACT_QUERY } from "./breakpoints";
 
 // module-level, so it resets only on a full page load (refresh / first visit)
 let chatHintsShown = false;
@@ -161,7 +165,7 @@ function IntroLoadingBar({ frame, buffered, visible }) {
       opacity: visible ? 1 : 0, transition: "opacity 0.4s ease",
     }}>
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", mb: "10px" }}>
-        <Typography sx={{ fontSize: "10px", letterSpacing: "3px", textTransform: "uppercase", color: "rgba(255,255,255,0.7)" }}>
+        <Typography sx={{ fontSize: "12px", letterSpacing: "2.5px", textTransform: "uppercase", color: "rgba(255,255,255,0.75)" }}>
           {stageLabel(frame)}
         </Typography>
         <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#00CD1F", fontVariantNumeric: "tabular-nums" }}>
@@ -315,7 +319,7 @@ function WelcomeScreen({ opacity }) {
     HUD.chatPercent, "home_chatbot_width_percentage_v3", HUD.chatPercent, 50, [HUD.chatPercent, 50]
   );
   const isHalfSplit = widthPercent === 50;
-  const isMobile = useMediaQuery("(max-width:1024px)");
+  const isMobile = useMediaQuery(COMPACT_QUERY);
   const scale = useCoverScale();
 
   // Desktop-only onboarding hints — one pointing at the assistant avatar,
@@ -365,7 +369,7 @@ function WelcomeScreen({ opacity }) {
       >
 
         {/* Social icons pill */}
-        <Box sx={{
+        <Box component="nav" aria-label="Contact and social links" sx={{
           display: { xs: "none", md: "flex" },
           flexDirection: "column",
           alignItems: "center",
@@ -459,8 +463,12 @@ function WelcomeScreen({ opacity }) {
 }
 
 export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpenChatbot, introComplete }) {
+  useEffect(() => {
+    setPageMeta(`${SITE.name} · ${SITE.role}`,
+      `Portfolio of ${SITE.name}, ${SITE.role}. Case studies: SwiftConnect, an AI-assisted support desk, and Chicora, a fashion shopping app.`);
+  }, []);
   const canvasRef = useRef(null);
-  const isMobile = useMediaQuery("(max-width:1024px)");
+  const isMobile = useMediaQuery(COMPACT_QUERY);
 
   // On mobile, skip animation entirely — always show UI at full opacity
   const effectiveSkipIntro = skipIntro || isMobile;
@@ -469,7 +477,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
   const [mobileIntro, setMobileIntro] = useState(() =>
     !skipIntro &&
     typeof window !== "undefined" && !!window.matchMedia &&
-    window.matchMedia("(max-width:1024px)").matches &&
+    window.matchMedia(COMPACT_QUERY).matches &&
     !window.matchMedia("(prefers-reduced-motion: reduce)").matches
   );
 
@@ -831,6 +839,20 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
       step(dir, 1);
     };
 
+    // Touch screens wide enough for this layout (iPad in landscape): a swipe
+    // up plays the flight forward, like scrolling. Once the main UI is up,
+    // touches belong to it.
+    let touchY = null;
+    const onTouchStart = (e) => { touchY = e.touches.length === 1 ? e.touches[0].clientY : null; };
+    const onTouchMove = (e) => {
+      if (touchY == null || welcomeOpacity >= 1) return;
+      const y = e.touches[0].clientY;
+      const dy = (touchY - y) * 1.5;
+      touchY = y;
+      onWheel({ deltaMode: 0, deltaY: dy });
+    };
+    const onTouchEnd = () => { touchY = null; };
+
     const FWD = ["ArrowDown", "ArrowRight", "PageDown", " "];
     const BACK = ["ArrowUp", "ArrowLeft", "PageUp"];
     const onKey = (e) => {
@@ -847,7 +869,15 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
 
     window.addEventListener("wheel", onWheel, { passive: true });
     window.addEventListener("keydown", onKey);
+    if (!isMobile) {
+      window.addEventListener("touchstart", onTouchStart, { passive: true });
+      window.addEventListener("touchmove", onTouchMove, { passive: true });
+      window.addEventListener("touchend", onTouchEnd, { passive: true });
+    }
     return () => {
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("touchend", onTouchEnd);
       window.removeEventListener("wheel", onWheel);
       window.removeEventListener("keydown", onKey);
       clearTimeout(scrollTimerRef.current);
@@ -856,6 +886,8 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
 
 
 
+  // touch screens (iPad in landscape) get "swipe" instead of "scroll"
+  const coarsePointer = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
   const showScrollEntry = currentFrame < STOP_FRAME && !stopped && !isMobile && (loaderState === "gone" || loaderState === "leaving");
 
   // loader: ready once every frame request has finished (or after 30 s)
@@ -873,7 +905,8 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
       {isMobile && mobileIntro && (
         <MobileIntro onDone={() => { setMobileIntro(false); onComplete?.(); }} />
       )}
-      <Box sx={{ position: "fixed", inset: 0, zIndex: 9999, background: "#000" }}>
+      <Box component="main" sx={{ position: "fixed", inset: 0, zIndex: 9999, background: "#000" }}>
+        {!isMobile && <Box component="h1" sx={srOnly}>{SITE.name}, {SITE.role}: portfolio and UI/UX case studies</Box>}
         <canvas
           ref={canvasRef}
           role="img"
@@ -906,6 +939,10 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
 
         {/* Welcome split screen — fades in with animation */}
         <WelcomeScreen opacity={welcomeOpacity} />
+        {!isMobile && welcomeOpacity >= 1 && (
+          <SoundToggle sx={{ position: "fixed", right: 20, bottom: 20, zIndex: 20,
+            animation: "fadeInUp 0.6s ease-out" }} />
+        )}
 
         <style>{`
           @keyframes fadeInUp {
@@ -951,7 +988,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
             {/* Text */}
             <Box>
               <Typography sx={{ color: "rgba(255,255,255,0.75)", fontSize: "15px", fontWeight: 400, lineHeight: 1.5 }}>
-                Scroll or press ↓ to enter the
+                {coarsePointer ? "Swipe up to enter the" : "Scroll or press ↓ to enter the"}
               </Typography>
               <Typography sx={{ color: "#fff", fontSize: "14px", fontWeight: 700, lineHeight: 1.3 }}>
                 Design lab
@@ -972,7 +1009,8 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
       {/* loader: first thing on a desktop visit, until the frames are in */}
       {loaderState !== "gone" && (
         <IntroLoader progress={settled / (END_FRAME + 1)} ready={loaderState !== "loading"}
-          leaving={loaderState === "leaving"} onEnter={enterLab} />
+          leaving={loaderState === "leaving"} onEnter={enterLab}
+          onSkipIntro={() => { enterLab(); skipCinematic(); }} />
       )}
 
       {/* ON/OFF mute button — bottom right */}
@@ -986,13 +1024,13 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
           display: "flex", flexDirection: "column", alignItems: "center", gap: "6px",
           pointerEvents: "none",
         }}>
-          <Typography sx={{ fontSize: "10px", letterSpacing: "3px", textTransform: "capitalize" }}>
+          <Typography sx={{ fontSize: "12px", letterSpacing: "2.5px", textTransform: "capitalize" }}>
             scroll <br />down
           </Typography>
           <Box
             component="img"
             src="/assets/gif/scroll.gif"
-            alt="scroll"
+            alt=""
             sx={{ width: 20, opacity: 0.85 }}
           />
 

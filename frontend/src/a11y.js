@@ -16,3 +16,9 @@ export const pressable = (onActivate, label, role = "button") => ({
     }
   },
 });
+
+/** Visually hidden but read by screen readers and search engines. */
+export const srOnly = {
+  position: "absolute", width: "1px", height: "1px", p: 0, m: "-1px",
+  overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap", border: 0,
+};

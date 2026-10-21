@@ -11,6 +11,7 @@ import { Box } from "@mui/material";
 import { spinBorderSx } from "./glass";
 import CustomTooltip from "../CustomTooltip";
 import SlideDots, { DOTS } from "./SlideDots";
+import SlideFigure from "./SlideFigure";
 
 const PRIMARY = "#00CD1F";
 const STAGE_W = 1920, STAGE_H = 1087;
@@ -59,7 +60,7 @@ const Chevron = ({ dir }) => (
   </svg>
 );
 
-export default function FullScreenView({ slides, index, onIndex, onClose, title }) {
+export default function FullScreenView({ slides, index, onIndex, onClose, title, project, isCtaSlide = () => false }) {
   const s = useFitScale();
   const closeRef = useRef(null);
   const n = slides.length;
@@ -108,8 +109,8 @@ export default function FullScreenView({ slides, index, onIndex, onClose, title 
           background: "#0B141C",
         }}>
           <Box sx={{ position: "absolute", inset: "1px", borderRadius: "19px", overflow: "hidden" }}>
-            <Box component="img" src={slides[index]} alt={`${title ?? "Project"} slide ${index + 1}`}
-              sx={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }} />
+            <SlideFigure src={slides[index]} index={index} count={n} title={title}
+              text={project?.text?.[index]} isCta={isCtaSlide(index)} />
           </Box>
         </Box>
 

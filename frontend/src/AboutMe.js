@@ -4,7 +4,6 @@ import { styled } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import { PRIMARY, primaryAlpha } from "./theme";
-import CustomTooltip from "./CustomTooltip";
 import { fetchCategories } from "./api/chatApi";
 import DownloadResume from "./DownloadResume";
 import { pressable } from "./a11y";
@@ -195,7 +194,7 @@ export const ICON_MAP = {
 
 // The fourth category used to be "Print Media"; the work now shown there is
 // immersive / VR / XR. Older names from the projects API map to the new one.
-const CATEGORY_RENAMES = { "Print Media": "Immersive", "Print-Designs": "Immersive", "Print": "Immersive", "XR": "Immersive", "Immersive/VR/XR": "Immersive" };
+const CATEGORY_RENAMES = { "Video": "Videos", "Print Media": "Immersive", "Print-Designs": "Immersive", "Print": "Immersive", "XR": "Immersive", "Immersive/VR/XR": "Immersive" };
 export const toCategoryCard = (name) => {
   const label = CATEGORY_RENAMES[name] || name;
   return { label, icon: ICON_MAP[label] || "/assets/icons/UX.svg" };
@@ -204,7 +203,7 @@ export const toCategoryCard = (name) => {
 export const DEFAULT_WORK_CATEGORIES = [
   { label: "UI/UX", icon: "/assets/icons/UX.svg" },
   { label: "Social Media", icon: "/assets/icons/social-media.svg" },
-  { label: "Video", icon: "/assets/icons/Video.svg" },
+  { label: "Videos", icon: "/assets/icons/Video.svg" },
   { label: "Immersive", icon: "/assets/icons/XR.svg" },
 ];
 
@@ -335,7 +334,7 @@ export function CategoryCard({ cat, onClick, compact, hud = false, glass = false
         <Box
           component="img"
           src={cat.icon}
-          alt={cat.label}
+          alt=""
           sx={{
             width: hud ? HUD_CARD.icon : 40, height: hud ? HUD_CARD.icon : 40, objectFit: "contain",
             filter: hovered ? "brightness(0) invert(1)" : `brightness(0) invert(${hud ? HUD_CARD.idle : 0.5})`,
@@ -444,7 +443,7 @@ function AboutMeTab({ mobile, inline }) {
             <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#fff", mt: 0.2, whiteSpace: "nowrap" }}>
               {exp.role}
             </Typography>
-            <Typography sx={{ fontSize: "11px", mt: 0.3, whiteSpace: "nowrap" }}>
+            <Typography sx={{ fontSize: "12px", mt: 0.3, whiteSpace: "nowrap" }}>
               {exp.period}
             </Typography>
           </ExpCard>
@@ -466,12 +465,12 @@ function AboutMeTab({ mobile, inline }) {
       ) border-box
     `,
       }}>
-        <Box component="img" src="/assets/icons/UX-Certification.svg" alt="cert" sx={{ width: 40, height: 40, flexShrink: 0 }} />
+        <Box component="img" src="/assets/icons/UX-Certification.svg" alt="" sx={{ width: 40, height: 40, flexShrink: 0 }} />
         <Box sx={{ textAlign: "left" }}>
           <Typography sx={{ fontSize: "14px", fontWeight: 600, color: "#fff" }}>
             UI/UX Design with Generative AI
           </Typography>
-          <Typography sx={{ fontSize: "11px", mt: 0.3 }}>
+          <Typography sx={{ fontSize: "12px", mt: 0.3 }}>
             International Institute of Information Technology Bangalore (IIIT-B)
           </Typography>
         </Box>
@@ -515,17 +514,14 @@ function AboutMeContent({ onClose, mobile, inline, compact = false, hud = false 
         </Box>
 
         <Box role="tablist" aria-label="Sections" sx={{ display: "flex", alignItems: "center", gap: hud ? "13px" : 1, mt: "4px" }}>
-          <CustomTooltip title="View My Work" placement="top">
-             <Tab active={activeTab === "work" ? 1 : 0} onClick={() => setActiveTab("work")} {...tabSize}>
+          {/* no tooltips here: the labels say it all, and a tooltip wrapper
+              inside the tab list breaks it for screen readers */}
+          <Tab active={activeTab === "work" ? 1 : 0} onClick={() => setActiveTab("work")} {...tabSize}>
             Work
           </Tab>
-          </CustomTooltip>
-
-          <CustomTooltip title="View About Me" placement="top">
-            <Tab active={activeTab === "about" ? 1 : 0} onClick={() => setActiveTab("about")} {...tabSize}>
-              About Me
-            </Tab>
-          </CustomTooltip>
+          <Tab active={activeTab === "about" ? 1 : 0} onClick={() => setActiveTab("about")} {...tabSize}>
+            About Me
+          </Tab>
         </Box>
       </Box>
 

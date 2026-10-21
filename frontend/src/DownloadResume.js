@@ -3,6 +3,7 @@ import { Box, Button } from "@mui/material";
 import CustomTooltip from "./CustomTooltip";
 import { glassSx, spinBorderSx, useSpinOnHover } from "./hud/glass";
 import { useResume } from "./useResume";
+import { track } from "./analytics";
 
 const buttonStyles = {
   px: "18px",
@@ -81,6 +82,7 @@ function DownloadResume({ sx, glass = false }) {
         component="a"
         href={resume.href}
         {...(resume.available ? { download: resume.fileName } : {})}
+        onClickCapture={() => track(resume.available ? "Resume download" : "Resume request")}
         data-autohover="download-resume"
         variant="contained"
         ref={glass ? spin.ref : undefined}

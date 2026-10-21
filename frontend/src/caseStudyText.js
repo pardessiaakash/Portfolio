@@ -54,3 +54,15 @@ export const FA_TEXT = [
   ["What was tested, and what still needs proof", "Tested: wireframe usability on navigation clarity, button hierarchy and expectations (per project notes). Proposed validation plan: find a suitable product, compare two products, select a size with confidence, find the return conditions, complete the purchase, recover from a validation error; measure completion, time, errors and confidence against a baseline. Limitations: ten interviews give directional insights, fit guidance and return terms are untested, results are not documented, checkout exists only as wireframes, and there is no conversion or return-rate data yet."],
   ["Let’s talk: want the full story?", "There’s more behind this case study than fits on slides: the trade-offs, what I’d test next, and how the design evolved. In the conversation: the trade-offs behind the product page, how I’d validate the fit guidance, how I work with product and engineering, and what I would do differently. Open to full-time roles, interviews and freelance projects."],
 ];
+
+// Short chapter names, one per slide (the chapter list and Ask AI use these)
+export const SC_TOPICS = ["Cover", "Project Scope", "Root Cause", "Competitor Analysis", "Gap Analysis",
+  "User Research", "Survey Insights", "Stakeholder Interviews", "Affinity Mapping", "Empathy Map",
+  "Problem Statement", "Ideation & Dot Voting", "Prioritisation", "Personas", "Journey Map",
+  "Information Architecture & Flow", "Phase 1 Hi-fi Iteration", "Usability Testing", "Iteration",
+  "Design System", "Final Solution: AI Briefing", "Final Solution: Supporting Context",
+  "Secondary Capabilities", "AI Safeguards", "Traceability", "Outcomes & Next Steps", "Let's Talk"];
+export const FA_TOPICS = ["Cover", "The Ask", "Framework", "Research Goals", "User Interviews", "Synthesis",
+  "Empathy Map", "Problem Statement", "Personas", "Research to Design", "IA & Wireframes",
+  "Visual Design", "Proposed Product Page", "Final UI: Discover", "Final UI: Evaluate & Buy",
+  "Validation & Next Steps", "Let's Talk"];
