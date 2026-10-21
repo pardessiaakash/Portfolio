@@ -8,7 +8,7 @@
 import { useEffect, useRef } from "react";
 
 const RAIN = { from: 6, full: 12, fadeAt: 96, to: 114 };   // frames
-const PARALLAX_OFF = { at: 128, to: 150 };                  // ease to 0 here
+const PARALLAX_OFF = { at: 122, to: 146 };                  // ease to 0 here (before the last HUD frame, 148)
 // strength of the cursor "look around": degrees, pixels, overscan to hide
 // the edges, and how quickly the scene follows the cursor (higher = snappier)
 const MOVE = { rotY: 1.6, rotX: 1.1, shiftX: 14, shiftY: 9, overscan: 0.06, follow: 3 };

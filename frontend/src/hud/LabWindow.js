@@ -2,7 +2,7 @@
 // becomes 3D and its perspective follows the mouse, as if the screen were a
 // pane of glass and you were looking into the room. The HUDs stay still.
 //
-// How: the last frame of the intro (end.webp) is a one-point-perspective
+// How: the room behind the last frame (end-148.webp) is a one-point-perspective
 // render. Its back wall spans x 480–1440, y 265–722 of the 1920×1080 image.
 // We rebuild the room as a box whose walls, floor and ceiling project onto
 // exactly those lines, and colour every surface by projecting back through
@@ -15,8 +15,10 @@
 import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 
-const SRC = "/assets/images/Sequence-v3/end.webp";
-const IMG = { w: 1920, h: 1080, back: { x0: 480, x1: 1440, y0: 265, y1: 722 } };
+const SRC = "/assets/images/Sequence-v3/end-148.webp";
+// back wall of the clean plate for frame 148: the frame-162 measurements
+// (x 480–1440, y 265–722) scaled by 0.905 about the centre
+const IMG = { w: 1920, h: 1080, back: { x0: 525.6, x1: 1394.4, y0: 291.1, y1: 704.7 } };
 // how far the eye travels, as a share of the visible glass (the effect's strength)
 const RANGE = { x: 0.3, y: 0.22 };
 const FOLLOW = 5;          // how quickly the view catches up with the mouse (higher = snappier)

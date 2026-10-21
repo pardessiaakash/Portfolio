@@ -33,9 +33,11 @@ let chatHintsShown = false;
 const STOP_FRAME = 8;
 const STOP_FRAME_END = 16;
 const SCROLL_HINT_FRAME = 4;          // "scroll down" hint shows after this
-const LAST_HUD_FRAME = 162;           // last frame with the HUD drawn in
+// The flight now stops at frame 148 (the later frames brought the HUD too
+// close to the viewer); the room continues as a clean plate, end-148.webp.
+const LAST_HUD_FRAME = 148;           // last frame with the HUD drawn in
 const UI_SHOW_FRAME = LAST_HUD_FRAME + 1;
-const END_FRAME = 168;
+const END_FRAME = 154;
 // The live UI cross-fades over LAST_HUD_FRAME for this long; the canvas
 // holds on that frame meanwhile so the two HUDs dissolve into each other.
 const UI_FADE_MS = 350;
@@ -62,7 +64,11 @@ const roomDimLevel = (frame, uiShown) => {
 // LAST_HUD_FRAME and the hand-off at UI_SHOW_FRAME has no jump.
 const STAGE_W = 1920;
 const STAGE_H = 1080;
-// HUD geometry measured from LAST_HUD_FRAME, in stage pixels.
+// HUD geometry measured from frame 162, in stage pixels. At the new last
+// frame (148) the baked HUD is the same HUD at 81% size, scaled about stage
+// point (960, 520); the stage applies that scale (HUD_SCALE) so the live UI
+// still lands exactly on it, further back in the room.
+const HUD_SCALE = { k: 0.81, cy: 520 };
 const HUD = {
   row: { left: 302, top: 247, width: 1324, height: 508 }, // main + gap + chat
   chatPercent: (371 / 1324) * 100,                          // chat panel 371px
@@ -151,7 +157,7 @@ function useCoverScale() {
 const SEQ_DIR = "/assets/images/Sequence-v3";
 const framePath = (i) =>
   i > LAST_HUD_FRAME
-    ? `${SEQ_DIR}/end.webp`
+    ? `${SEQ_DIR}/end-148.webp`
     : `${SEQ_DIR}/f_${String(i).padStart(3, "0")}.webp`;
 
 // Scroll progress bar shown while flying in. The bright part follows the
@@ -360,7 +366,8 @@ function WelcomeScreen({ opacity }) {
       <Box sx={{
         position: "absolute", left: "50%", top: "50%",
         width: STAGE_W, height: STAGE_H,
-        transform: `translate(-50%, -50%) scale(${scale})`,
+        // cover-scale, then the HUD's place in the room (see HUD_SCALE)
+        transform: `translate(-50%, -50%) scale(${scale}) translate(0px, ${HUD_SCALE.cy - STAGE_H / 2}px) scale(${HUD_SCALE.k}) translate(0px, ${STAGE_H / 2 - HUD_SCALE.cy}px)`,
         transformOrigin: "center",
       }}>
       {/* Root row: [social pill] [left panel col-9] [right panel col-3] */}
