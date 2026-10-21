@@ -200,6 +200,8 @@ const MAX_FRAMES_PER_SEC = 75;
 // through the city, then slows from the half-open pod door and eases out
 // into the lab, so the visitor still sees where they've arrived (~4 s).
 const SKIP_SPEED = { start: 24, city: 70, door: 30, end: 12 };
+// "Play the flight" follows the same speed profile at a watching pace (~11 s of flight)
+const PLAY_PACE = 0.5;
 const SKIP_AT = { cruise: 14, doorHalf: 96, doorOpen: 112 };
 const mix = (a, b, t) => a + (b - a) * Math.max(0, Math.min(1, t));
 const skipSpeed = (f) => {
@@ -490,6 +492,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
   const lastIdxRef = useRef(-1);     // playback position last handled
   const lastTickRef = useRef(0);
   const skippingRef = useRef(false);   // "Skip the cinematic" fast-forward
+  const playTickRef = useRef(0);
   const holdUntilRef = useRef(0);    // canvas holds LAST_HUD_FRAME until then
   const uiShownRef = useRef(effectiveSkipIntro ? true : false);
 
@@ -509,8 +512,20 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     setLoaderState("leaving");
     setTimeout(() => setLoaderState("gone"), 650);
   }, []);
+  // "Play the flight": clicking the entry card plays the cinematic on its own
+  // at a watching pace (scrolling or a key takes over again at any time)
+  const playingRef = useRef(false);
+  const [playing, setPlaying] = useState(false);
+  const playCinematic = useCallback(() => {
+    if (!enteredRef.current || uiShownRef.current) return;
+    setStoppedSync(false);
+    playingRef.current = true;
+    setPlaying(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const skipCinematic = useCallback(() => {
     if (!enteredRef.current || uiShownRef.current) return;
+    playingRef.current = false;
     setStoppedSync(false);
     skippingRef.current = true;
     targetPosRef.current = END_FRAME;
@@ -652,6 +667,16 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
       return;
     }
 
+    if (playingRef.current && !skippingRef.current) {
+      const t = performance.now();
+      const pdt = Math.min(0.05, (t - (playTickRef.current || t)) / 1000);
+      playTickRef.current = t;
+      const base = Math.max(targetPosRef.current, posRef.current);
+      targetPosRef.current = Math.min(END_FRAME, base + skipSpeed(posRef.current) * PLAY_PACE * pdt);
+    } else {
+      playTickRef.current = 0;
+    }
+
     const target = targetPosRef.current;
     const current = posRef.current;
     const diff = target - current;
@@ -723,6 +748,8 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
           })), UI_FADE_MS + 150);
         }
         skippingRef.current = false;
+        playingRef.current = false;
+        setPlaying(false);
         onComplete?.();
         // preload all frames backward so reverse is smooth
         const cache = cacheRef.current;
@@ -788,6 +815,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
   useEffect(() => {
     const step = (dir, frames) => {
       if (!enteredRef.current || skippingRef.current) return;
+      if (playingRef.current) { playingRef.current = false; setPlaying(false); }   // the visitor takes over
       if (stoppedRef.current) {
         const frame = Math.round(targetPosRef.current);
         // only dismiss if scrolling out of the stop zone
@@ -888,7 +916,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
 
   // touch screens (iPad in landscape) get "swipe" instead of "scroll"
   const coarsePointer = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
-  const showScrollEntry = currentFrame < STOP_FRAME && !stopped && !isMobile && (loaderState === "gone" || loaderState === "leaving");
+  const showScrollEntry = currentFrame < STOP_FRAME && !stopped && !playing && !isMobile && (loaderState === "gone" || loaderState === "leaving");
 
   // loader: ready once every frame request has finished (or after 30 s)
   useEffect(() => {
@@ -960,48 +988,70 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
         `}</style>
       </Box>
 
-      {/* Scroll entry card — shown on frame 0 before scrolling */}
+      {/* Entry card — frame 0, before the flight. The card itself is the
+          main action: scroll (or ↓) to fly at your own pace, or click it to
+          play the flight. Skip sits quietly in the corner, so a visitor
+          who just clicked "Enter" doesn't land on it by habit. */}
       {showScrollEntry && (
         <Box sx={{
           position: "fixed", inset: 0, zIndex: 99997,
-          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "18px",
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
           pointerEvents: "none",
         }}>
-          <Box sx={{
-            display: "flex", alignItems: "center", gap: 2,
-            px: "40px", py: "22px",
-            borderRadius: "14px",
-            background: "rgba(40,50,45,0.55)",
-            backdropFilter: "blur(18px)",
-            WebkitBackdropFilter: "blur(18px)",
-            border: "1px solid rgba(255,255,255,0.1)",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-            minWidth: "280px",
-          }}>
-            {/* Mouse scroll icon */}
-            <Box
-              component="img"
-              src="/assets/gif/scroll.gif"
-              alt="scroll down"
-              sx={{ width: "20px" }}
-            />
-            {/* Text */}
-            <Box>
-              <Typography sx={{ color: "rgba(255,255,255,0.75)", fontSize: "15px", fontWeight: 400, lineHeight: 1.5 }}>
-                {coarsePointer ? "Swipe up to enter the" : "Scroll or press ↓ to enter the"}
-              </Typography>
-              <Typography sx={{ color: "#fff", fontSize: "14px", fontWeight: 700, lineHeight: 1.3 }}>
-                Design lab
-              </Typography>
+          <Box component="button" type="button" onClick={playCinematic}
+            aria-label="Enter the Design lab: scroll or press the down arrow to fly at your own pace, or press Enter to play the flight"
+            sx={{
+              pointerEvents: "auto", cursor: "pointer", fontFamily: "inherit", textAlign: "left",
+              display: "flex", flexDirection: "column", alignItems: "stretch", gap: "14px",
+              px: "36px", py: "22px",
+              borderRadius: "14px",
+              background: "rgba(40,50,45,0.55)",
+              backdropFilter: "blur(18px)",
+              WebkitBackdropFilter: "blur(18px)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+              minWidth: "300px",
+              color: "#fff",
+              transition: "border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease",
+              "&:hover": { borderColor: "rgba(0,205,31,0.55)", background: "rgba(40,50,45,0.68)",
+                boxShadow: "0 8px 32px rgba(0,0,0,0.4), 0 0 24px rgba(0,205,31,0.18)" },
+              "&:hover .play-hint": { color: "#fff" },
+              "&:hover .play-icon": { background: "#00CD1F", color: "#080808" },
+              "&:focus-visible": { outline: "2px solid #00CD1F", outlineOffset: "3px" },
+              animation: "fadeInUp 0.6s ease-out",
+            }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <Box component="img" src="/assets/gif/scroll.gif" alt="" sx={{ width: "20px" }} />
+              <Box>
+                <Typography sx={{ color: "rgba(255,255,255,0.75)", fontSize: "15px", fontWeight: 400, lineHeight: 1.5 }}>
+                  {coarsePointer ? "Swipe up to enter the" : "Scroll or press ↓ to enter the"}
+                </Typography>
+                <Typography sx={{ color: "#fff", fontSize: "14px", fontWeight: 700, lineHeight: 1.3 }}>
+                  Design lab
+                </Typography>
+              </Box>
+            </Box>
+            <Box aria-hidden sx={{ height: "1px", background: "rgba(255,255,255,0.1)" }} />
+            <Box className="play-hint" sx={{ display: "flex", alignItems: "center", gap: "10px",
+              fontSize: "13px", color: "rgba(255,255,255,0.7)", transition: "color 0.25s ease" }}>
+              <Box className="play-icon" aria-hidden sx={{
+                width: 24, height: 24, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+                border: "1px solid #00CD1F", color: "#00CD1F", transition: "background 0.25s ease, color 0.25s ease",
+              }}>
+                <svg width="8" height="10" viewBox="0 0 8 10"><path d="M1 1l6 4-6 4z" fill="currentColor" /></svg>
+              </Box>
+              {coarsePointer ? "or tap to play the flight" : "or click to play the flight"}
             </Box>
           </Box>
-          <SkipButton onClick={skipCinematic} />
         </Box>
       )}
 
-      {/* skip stays available (bottom right) for the rest of the flight */}
-      {!isMobile && !showScrollEntry && welcomeOpacity === 0 && loaderState === "gone" && (
-        <Box sx={{ position: "fixed", right: 28, bottom: 26, zIndex: 99998 }}>
+      {/* Skip: quietly bottom right from the start (fades in after a moment),
+          and for the rest of the flight */}
+      {!isMobile && welcomeOpacity === 0 && loaderState === "gone" && (
+        <Box sx={{ position: "fixed", right: 28, bottom: 26, zIndex: 99998,
+          animation: showScrollEntry ? "skipIn 0.6s ease-out 1.8s both" : "none",
+          "@keyframes skipIn": { from: { opacity: 0 }, to: { opacity: 1 } } }}>
           <SkipButton onClick={skipCinematic} />
         </Box>
       )}
