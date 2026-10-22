@@ -272,9 +272,23 @@ export default function InnerStage({
             <filter id="inner-tab-sh" x="-20%" y="-40%" width="140%" height="200%">
               <feDropShadow dx="4" dy="8" stdDeviation="8" floodColor="#000" floodOpacity="0.35" />
             </filter>
+            {/* Each tab is see-through glass, so cut it away wherever a tab
+                sits in front of it (the tabs painted after it, and the
+                selected tab in the panel): no edges show through the glass. */}
+            {order.map((i, k) => (
+              <mask key={i} id={`inner-tab-cut-${i}`} maskUnits="userSpaceOnUse"
+                x={-40} y={-40} width={STAGE_W + 80} height={MAIN.y + TAB.h + 80}>
+                <rect x={-40} y={-40} width={STAGE_W + 80} height={MAIN.y + TAB.h + 80} fill="#fff" />
+                {[...order.slice(k + 1), activeTab].map((j) => (
+                  <path key={j} d={tabShape} transform={`translate(${tabX(j)} ${MAIN.y})`}
+                    fill="#000" stroke="#000" strokeWidth="1.5" />
+                ))}
+              </mask>
+            ))}
           </defs>
           {order.map((i) => (
-            <g key={tabs[i]} className="tab" role="tab" aria-selected="false" tabIndex={0}
+            <g key={tabs[i]} mask={`url(#inner-tab-cut-${i})`}>
+            <g className="tab" role="tab" aria-selected="false" tabIndex={0}
               transform={`translate(${tabX(i)} ${MAIN.y})`}
               onClick={() => onSelectTab(i)}
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelectTab(i); } }}>
@@ -284,6 +298,7 @@ export default function InnerStage({
               <text x={TAB.w / 2} y={TAB.h / 2 + 1} textAnchor="middle" dominantBaseline="central"
                 fontFamily={FONT_STACK} fontSize="16" fontWeight="300" fill="#fff"
                 style={{ userSelect: "none" }}>{tabs[i]}</text>
+            </g>
             </g>
           ))}
         </Box>
