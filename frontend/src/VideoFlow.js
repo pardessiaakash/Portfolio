@@ -337,6 +337,19 @@ function WelcomeScreen({ opacity }) {
   // back from one: they settle into place as the eye pulls back
   const leaving = useLabLeaving();
   const arrived = useLabArrival("home");
+  // The HUDs are created when they appear (not kept hidden through the whole
+  // flight) and fade with animations, the same way they come back from a
+  // category page. Chrome can skip the glass blur for content that sat
+  // hidden since the first paint, so a HUD kept invisible during the intro
+  // came up opaque on the first visit.
+  const [shown, setShown] = useState(opacity > 0);
+  const [fadingOut, setFadingOut] = useState(false);
+  useEffect(() => {
+    if (opacity > 0) { setShown(true); setFadingOut(false); return undefined; }
+    setFadingOut(true);
+    const t = setTimeout(() => { setShown(false); setFadingOut(false); }, UI_FADE_MS);
+    return () => clearTimeout(t);
+  }, [opacity]);
   const { widthPercent, isDragging, handleMouseDown, containerRef } = useResizableChatbot(
     HUD.chatPercent, "home_chatbot_width_percentage_v3", HUD.chatPercent, 50, [HUD.chatPercent, 50]
   );
@@ -359,6 +372,7 @@ function WelcomeScreen({ opacity }) {
       <MobileWelcomeScreen opacity={opacity} socialIcons={socialIcons} />
     );
   }
+  if (!shown) return null;
 
   return (
     <Box sx={{
@@ -366,22 +380,25 @@ function WelcomeScreen({ opacity }) {
       // clip (not hidden): a clipped box can't be scrolled, so nothing can
       // shift the cover-scaled stage that overflows it on wide windows
       overflow: "clip",
-      opacity: leaving ? 0 : opacity, visibility: opacity > 0 ? "visible" : "hidden",
-      // fade in/out over the held HUD frame; hide only after fading out
-      transition: leaving
-        ? `opacity ${LEAVE_MS}ms ease-in, transform ${LEAVE_MS}ms cubic-bezier(0.55, 0, 0.8, 0.3)`
-        : `opacity ${UI_FADE_MS}ms ease-out, visibility 0s linear ${opacity > 0 ? 0 : UI_FADE_MS}ms`,
-      transform: leaving ? "scale(1.16)" : "none",
       transformOrigin: "50% 48%",
-      pointerEvents: opacity > 0.5 && !leaving ? "auto" : "none",
-      ...(arrived ? {
-        animation: "labHudBack 1.1s cubic-bezier(0.2, 0.7, 0.2, 1) both",
-        "@keyframes labHudBack": {
-          from: { opacity: 0, transform: "scale(1.14)" },
-          "35%": { opacity: 1 },
-          to: { opacity: 1, transform: "scale(1)" },
-        },
-      } : {}),
+      pointerEvents: leaving || fadingOut ? "none" : "auto",
+      // fade in/out over the held HUD frame; fly past on the way to a
+      // category; settle into place coming back from one
+      animation: leaving
+        ? `welcomeFlyOut ${LEAVE_MS}ms cubic-bezier(0.55, 0, 0.8, 0.3) forwards`
+        : fadingOut
+          ? `welcomeOut ${UI_FADE_MS}ms ease-in forwards`
+          : arrived
+            ? "labHudBack 1.1s cubic-bezier(0.2, 0.7, 0.2, 1) both"
+            : `welcomeIn ${UI_FADE_MS}ms ease-out both`,
+      "@keyframes welcomeIn": { from: { opacity: 0, transform: "scale(1)" }, to: { opacity: 1, transform: "scale(1)" } },
+      "@keyframes welcomeOut": { from: { opacity: 1, transform: "scale(1)" }, to: { opacity: 0, transform: "scale(1)" } },
+      "@keyframes welcomeFlyOut": { from: { opacity: 1, transform: "scale(1)" }, to: { opacity: 0, transform: "scale(1.16)" } },
+      "@keyframes labHudBack": {
+        from: { opacity: 0, transform: "scale(1.14)" },
+        "35%": { opacity: 1 },
+        to: { opacity: 1, transform: "scale(1)" },
+      },
     }}>
       {/* Stage: 1920x1080 design space, cover-scaled like the canvas frames */}
       <Box sx={{
