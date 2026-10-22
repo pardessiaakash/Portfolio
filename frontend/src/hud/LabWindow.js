@@ -136,6 +136,9 @@ function createRoom() {
   // the view only moves when the mouse does (and not while travelling)
   window.addEventListener("pointermove", (e) => {
     if (!r.active || tween) return;
+    // over a HUD the room holds still, so reading and clicking aren't
+    // disturbed; it follows the cursor again once it leaves the HUDs
+    if (e.target?.closest?.("[data-lab-hud]")) return;
     // nearer the glass the same eye shift looks stronger, so it shrinks
     const s = Math.min(1, eye.z / E);
     target.x = (e.clientX / window.innerWidth - 0.5) * 2 * SW * RANGE.x * s;

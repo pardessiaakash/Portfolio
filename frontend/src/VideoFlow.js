@@ -411,6 +411,7 @@ function WelcomeScreen({ opacity }) {
       {/* Root row: [social pill] [left panel col-9] [right panel col-3] */}
       <Box
         ref={containerRef}
+        data-lab-hud
         sx={{
           display: "flex",
           alignItems: "stretch",

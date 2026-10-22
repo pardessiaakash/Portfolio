@@ -259,7 +259,7 @@ export default function InnerStage({
         } : {}),
       }}>
         {/* inactive category tabs, behind the panel */}
-        <Box component="svg" role="tablist" aria-label="Categories" aria-owns="inner-tab-active"
+        <Box component="svg" role="tablist" aria-label="Categories" aria-owns="inner-tab-active" data-lab-hud
           width={STAGE_W} height={MAIN.y + TAB.h + 2}
           sx={{
             position: "absolute", left: 0, top: 0, overflow: "visible",
@@ -304,7 +304,7 @@ export default function InnerStage({
         </Box>
 
         {/* main HUD: glass panel whose outline includes the selected tab */}
-        <Box sx={{
+        <Box data-lab-hud sx={{
           position: "absolute",
           left: MAIN.x, top: MAIN.y, width: W, height: MAIN_H,
           ...glassPanelSx,
@@ -441,7 +441,7 @@ export default function InnerStage({
 
         {/* drag handle, centred in the lower channel */}
         <Box
-          role="separator" data-cursor="resize" aria-orientation="vertical"
+          role="separator" data-cursor="resize" data-lab-hud aria-orientation="vertical"
           aria-valuemin={0} aria-valuemax={100}
           aria-valuenow={Math.round(((SPLIT.normal - split) / (SPLIT.normal - SPLIT.wide)) * 100)}
           aria-valuetext={split < (SPLIT.normal + SPLIT.wide) / 2 ? "Wide chat" : "Normal chat"}
@@ -470,7 +470,7 @@ export default function InnerStage({
         </Box>
 
         {/* chat HUD */}
-        <Box sx={{ position: "absolute", left: chatX, top: CHAT.y, width: CHAT.right - chatX, height: CHAT.h }}>
+        <Box data-lab-hud sx={{ position: "absolute", left: chatX, top: CHAT.y, width: CHAT.right - chatX, height: CHAT.h }}>
           <ChatbotPanel
             orb={orb}
             chips={["View Case Study", "About Akash", "How I Design", "Start Guided Tour"]}
