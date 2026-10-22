@@ -70,10 +70,11 @@ const roomDimLevel = (frame, uiShown) => {
 const STAGE_W = 1920;
 const STAGE_H = 1080;
 // HUD geometry measured from frame 162, in stage pixels. At the new last
-// frame (148) the baked HUD is the same HUD at 81% size, scaled about stage
-// point (960, 520); the stage applies that scale (HUD_SCALE) so the live UI
-// still lands exactly on it, further back in the room.
-const HUD_SCALE = { k: 0.81, cy: 520 };
+// frame (148) the baked HUD is the same HUD at ~82% size; the stage applies
+// that scale about stage point (cx, cy) (HUD_SCALE) so the live UI lands on
+// it, further back in the room. Fitted by registering the live HUD's edges
+// against frame 148 (1920×1080): best match at k 0.8205 about (971, 498).
+const HUD_SCALE = { k: 0.8205, cx: 971, cy: 498 };
 const HUD = {
   row: { left: 302, top: 247, width: 1324, height: 508 }, // main + gap + chat
   chatPercent: (371 / 1324) * 100,                          // chat panel 371px
@@ -336,7 +337,10 @@ function WelcomeScreen({ opacity }) {
   // through the room to a category page: the HUDs fly past the viewer;
   // back from one: they settle into place as the eye pulls back
   const leaving = useLabLeaving();
-  const arrived = useLabArrival("home");
+  // (only the first appearance after coming back; later fade-ins, e.g. after
+  // scrolling up into the flight and down again, use the plain fade)
+  const arrivedOnMount = useLabArrival("home");
+  const [arrived, setArrived] = useState(arrivedOnMount);
   // The HUDs are created when they appear (not kept hidden through the whole
   // flight) and fade with animations, the same way they come back from a
   // category page. Chrome can skip the glass blur for content that sat
@@ -346,6 +350,7 @@ function WelcomeScreen({ opacity }) {
   const [fadingOut, setFadingOut] = useState(false);
   useEffect(() => {
     if (opacity > 0) { setShown(true); setFadingOut(false); return undefined; }
+    setArrived(false);
     setFadingOut(true);
     const t = setTimeout(() => { setShown(false); setFadingOut(false); }, UI_FADE_MS);
     return () => clearTimeout(t);
@@ -405,7 +410,7 @@ function WelcomeScreen({ opacity }) {
         position: "absolute", left: "50%", top: "50%",
         width: STAGE_W, height: STAGE_H,
         // cover-scale, then the HUD's place in the room (see HUD_SCALE)
-        transform: `translate(-50%, -50%) scale(${scale}) translate(0px, ${HUD_SCALE.cy - STAGE_H / 2}px) scale(${HUD_SCALE.k}) translate(0px, ${STAGE_H / 2 - HUD_SCALE.cy}px)`,
+        transform: `translate(-50%, -50%) scale(${scale}) translate(${HUD_SCALE.cx - STAGE_W / 2}px, ${HUD_SCALE.cy - STAGE_H / 2}px) scale(${HUD_SCALE.k}) translate(${STAGE_W / 2 - HUD_SCALE.cx}px, ${STAGE_H / 2 - HUD_SCALE.cy}px)`,
         transformOrigin: "center",
       }}>
       {/* Root row: [social pill] [left panel col-9] [right panel col-3] */}
