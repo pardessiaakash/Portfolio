@@ -23,6 +23,7 @@ import { lab, setLabDepth, useLabLeaving, useLabArrival, LEAVE_MS } from "./hud/
 
 // the 3D "window" room behind the HUDs (three.js), loaded only once needed
 const LabWindow = lazy(() => import("./hud/LabWindow"));
+const LabFrontDust = lazy(() => import("./hud/LabWindow").then((m) => ({ default: m.LabFrontDust })));
 const prefersReducedMotion = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 // "Skip the cinematic" through the room: the room fades in from far behind
 // the glass and settles where the flight would have ended; the HUDs appear
@@ -1071,6 +1072,13 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
 
         {/* Welcome split screen — fades in with animation */}
         <WelcomeScreen opacity={welcomeOpacity} />
+        {/* a few specks of the room's dust in front of the HUDs, so they float
+            inside it (above the HUDs, below the sound toggle) */}
+        {labMounted && !isMobile && (
+          <Suspense fallback={null}>
+            <LabFrontDust active={welcomeOpacity >= 1} />
+          </Suspense>
+        )}
         {!isMobile && welcomeOpacity >= 1 && (
           <SoundToggle sx={{ position: "fixed", right: 20, bottom: 20, zIndex: 20,
             animation: "fadeInUp 0.6s ease-out" }} />

@@ -37,6 +37,18 @@ const DEPTH = { inner: 0.42 };         // inner: eye pushed in by 42% of the roo
 const FAR = 2.3;                       // skip: the eye starts this many plate-distances back
 const DUR = { dive: 1500, far: 1900 }; // ms
 
+// floating dust in the lamp light (as in the window experiment, ~35% fewer
+// specks): most hang in the room behind the HUDs, a few very small ones
+// drift in front of them on a layer above the HUDs (LabFrontDust), so the
+// HUDs float inside the dust. Both move with the same 3D view.
+const DUST = {
+  // (brighter than the experiment's: the room is dimmed behind the HUDs)
+  back: { n: 230, size: 0.016, opacity: 0.8 },
+  front: { n: 45, size: 0.009, opacity: 0.55 },
+  hudDepth: 0.35,       // the HUDs read about this far into the room (share of its depth)
+  rise: 0.012,          // world units per second
+};
+
 const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 const easeOut = (t) => 1 - Math.pow(1 - t, 3);
 
@@ -109,6 +121,46 @@ function createRoom() {
   box.position.set(0, (YT + YB) / 2, (FRONT - D) / 2);
   scene.add(box);
 
+  // dust: behind the HUDs in the room scene, in front of them in a second
+  // scene drawn on a transparent canvas above the HUDs
+  const hudZ = -D * DUST.hudDepth;
+  const makeDust = ({ n, size, opacity }, z0, z1, additive = true) => {
+    const pos = new Float32Array(n * 3), lo = new Float32Array(n), hi = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const z = z0 + Math.random() * (z1 - z0);
+      // the part of the room visible at this depth (it narrows toward the eye)
+      const k2 = Math.min(1, (E - z) / E);
+      const hx = z < 0 ? X : X * k2, top = z < 0 ? YT : PH / 2 * k2, bot = z < 0 ? YB : -PH / 2 * k2;
+      pos[i * 3] = (Math.random() - 0.5) * 2 * hx * 0.95;
+      pos[i * 3 + 1] = bot + Math.random() * (top - bot);
+      pos[i * 3 + 2] = z;
+      lo[i] = bot; hi[i] = top;
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    const pts = new THREE.Points(g, new THREE.PointsMaterial({
+      color: 0xcfe4e4, size, transparent: true, opacity, depthWrite: false,
+      blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
+    }));
+    pts.userData = { lo, hi };
+    return pts;
+  };
+  const dustBack = makeDust(DUST.back, -D * 0.97, hudZ);
+  scene.add(dustBack);
+  const frontScene = new THREE.Scene();
+  const dustFront = makeDust(DUST.front, hudZ + 0.05, E * 0.4, false);
+  frontScene.add(dustFront);
+  const riseDust = (pts, dt) => {
+    const a = pts.geometry.attributes.position, { lo, hi } = pts.userData;
+    for (let i = 0; i < a.count; i++) {
+      let y = a.getY(i) + dt * DUST.rise;
+      if (y > hi[i]) y = lo[i];
+      a.setY(i, y);
+    }
+    a.needsUpdate = true;
+  };
+  let front = null;   // { renderer, canvas } once a page shows the front layer
+
   // the viewer's eye and the glass (the part of the render the window shows)
   const cam = new THREE.PerspectiveCamera();
   let SW = PW, SH = PH;
@@ -117,6 +169,7 @@ function createRoom() {
   const fit = () => {
     const w = window.innerWidth, h = window.innerHeight;
     renderer.setSize(w, h, false);
+    if (front) front.renderer.setSize(w, h, false);
     // "cover", exactly like the frame canvas, so the two line up
     const a = w / h, pa = PW / PH;
     if (a > pa) { SW = PW; SH = PW / a; } else { SH = PH; SW = PH * a; }
@@ -172,12 +225,40 @@ function createRoom() {
     const f = Math.min(1, dt * FOLLOW);
     const dx = target.x - eye.x, dy = target.y - eye.y;
     if (Math.abs(dx) > 1e-5 || Math.abs(dy) > 1e-5) { eye.x += dx * f; eye.y += dy * f; r.dirty = true; }
-    if (!r.ready || !r.dirty || !r.attached || document.hidden) return;
+    if (!r.ready || !r.attached || document.hidden) return;
+    // the dust drifts while the room is shown, so it redraws every frame then
+    if (r.active) { riseDust(dustBack, dt); riseDust(dustFront, dt); r.dirty = true; }
+    if (!r.dirty) return;
     project();
     renderer.render(scene, cam);
+    if (front && front.attached) front.renderer.render(frontScene, cam);
     r.dirty = false;
   };
   requestAnimationFrame(tick);
+
+  // the front dust layer: its own transparent canvas, created on first use
+  r.attachFront = (el) => {
+    if (!front) {
+      const canvas2 = document.createElement("canvas");
+      Object.assign(canvas2.style, { position: "absolute", inset: "0", width: "100%", height: "100%", display: "block" });
+      let r2;
+      try {
+        r2 = new THREE.WebGLRenderer({ canvas: canvas2, antialias: true, alpha: true });
+      } catch (e) { return false; }
+      r2.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+      r2.setClearColor(0x000000, 0);
+      r2.setSize(window.innerWidth, window.innerHeight, false);
+      front = { renderer: r2, canvas: canvas2, attached: false };
+    }
+    el.appendChild(front.canvas);
+    front.attached = true; r.dirty = true;
+    return true;
+  };
+  r.detachFront = () => {
+    if (!front) return;
+    if (front.canvas.parentNode) front.canvas.parentNode.removeChild(front.canvas);
+    front.attached = false;
+  };
   return r;
 }
 
@@ -216,6 +297,27 @@ export default function LabWindow({ active, zIndex = 1, fadeMs = 350 }) {
       position: "absolute", inset: 0, zIndex, pointerEvents: "none", overflow: "hidden",
       // appears only once the UI is up; at rest it matches the frame beneath exactly
       opacity: active && ready ? 1 : 0, transition: `opacity ${fadeMs}ms ease`,
+    }} />
+  );
+}
+
+/** The dust in front of the HUDs: a transparent layer placed above them. */
+export function LabFrontDust({ active, zIndex = 6 }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    // the room is created by LabWindow; wait a frame or two if it isn't yet
+    let raf, attached = null, tries = 0;
+    const attach = () => {
+      if (room && ref.current) { if (room.attachFront(ref.current)) attached = room; return; }
+      if (++tries < 120) raf = requestAnimationFrame(attach);
+    };
+    attach();
+    return () => { cancelAnimationFrame(raf); attached?.detachFront(); };
+  }, []);
+  return (
+    <div ref={ref} aria-hidden="true" style={{
+      position: "absolute", inset: 0, zIndex, pointerEvents: "none", overflow: "hidden",
+      opacity: active ? 1 : 0, transition: "opacity 0.6s ease",
     }} />
   );
 }
