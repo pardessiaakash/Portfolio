@@ -5,15 +5,13 @@
 import { useEffect, useRef } from "react";
 
 /* ── Figma stroke gradient (grey → green → grey along the diagonal) ─────── */
-// (greys lifted a little from Figma's #8F8F8F / #636363 so the edges still
-// read against the dimmed room at the HUDs' smaller size)
-
+// (exactly the Figma "HUD outline" stroke; brand green #00CD1F at the centre)
 export const STROKE_STOPS = [
-  [0, "#9A9A9A"],
-  [0.2655, "#767676"],
+  [0, "#8F8F8F"],
+  [0.2655, "#636363"],
   [0.4856, "#00CD1F"],
-  [0.7092, "#767676"],
-  [1, "#A3A3A3"],
+  [0.7092, "#636363"],
+  [1, "#8F8F8F"],
 ];
 // CSS direction of the Figma stroke gradient (top-left → bottom-right)
 export const STROKE_ANGLE = 144;

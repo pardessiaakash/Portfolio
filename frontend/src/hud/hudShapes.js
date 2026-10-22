@@ -214,13 +214,13 @@ export function HudOutline({ d, w, h, border = 0 }) {
           <stop offset="0.6" stopColor="#fff" stopOpacity="0" />
           <stop offset="1" stopColor="#fff" stopOpacity="0.22" />
         </linearGradient>
-        {/* rim light along the lower edges, so the bottom of the HUD stays
-            separate from the dark room behind it */}
+        {/* brand-green (#00CD1F) rim along the lower edges, so the bottom of
+            the HUD stays separate from the dark room behind it */}
         <linearGradient id={`${id}-under`} gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2={h}>
-          <stop offset="0" stopColor="#fff" stopOpacity="0" />
-          <stop offset="0.5" stopColor="#fff" stopOpacity="0" />
-          <stop offset="0.86" stopColor="#B4C7BB" stopOpacity="0.55" />
-          <stop offset="1" stopColor="#3BE05A" stopOpacity="0.9" />
+          <stop offset="0" stopColor="#00CD1F" stopOpacity="0" />
+          <stop offset="0.55" stopColor="#00CD1F" stopOpacity="0" />
+          <stop offset="0.85" stopColor="#00CD1F" stopOpacity="0.45" />
+          <stop offset="1" stopColor="#00CD1F" stopOpacity="0.85" />
         </linearGradient>
         <filter id={`${id}-glow`} x="-5%" y="-5%" width="110%" height="110%">
           <feGaussianBlur stdDeviation="7" />
