@@ -789,7 +789,7 @@ export default function ProjectDetailPage() {
             <ResizeHandle onMouseDown={handleMouseDown} isDragging={isDragging} />
             <ChatbotPanel
               orb={orb}
-              chips={["View Case Study", "About Akash"]}
+              chips={["Best Case Study", "About Akash"]}
               wrapperSx={{ width: `${widthPercent}%`, flexShrink: 0, minWidth: 0, height: "100%" }}
               requestedInput={requestedAIInput}
               hud
@@ -801,7 +801,7 @@ export default function ProjectDetailPage() {
         {/* MOBILE: green edge tab, short hint and full-screen chat drawer */}
         {isMobile && (
           <MobileChatDrawer
-            chips={["View Case Study", "About Akash"]}
+            chips={["Best Case Study", "About Akash"]}
             requestedInput={requestedAIInput}
             open={mobileChatOpen}
             onOpenChange={setMobileChatOpen}

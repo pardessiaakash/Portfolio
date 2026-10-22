@@ -483,7 +483,7 @@ function WelcomeScreen({ opacity }) {
           overflow: "visible",
         }}>
           <ChatbotPanel
-            chips={["View Case Study", "How I Design", "Start Chat"]}
+            chips={["Best Case Study", "Why Hire Akash", "His Design Process"]}
             wrapperSx={{ height: "100%" }}
             orbSize={HUD.orb.size}
             orbOffset={HUD.orb.offset}
@@ -499,7 +499,7 @@ function WelcomeScreen({ opacity }) {
               position once it's rendered (it visually floats above this panel). */}
           <Box sx={{ position: "absolute", top: "-28%", right: "65%", zIndex: 50 }}>
             <AnimatedTooltip
-              text={"Ask anything\nabout me\nclicking here"}
+              text={"Ask Nova\nanything about\nmy work"}
               curve="down-right"
               visible={showAvatarHint}
               onDismiss={() => setShowAvatarHint(false)}
@@ -511,7 +511,7 @@ function WelcomeScreen({ opacity }) {
             of the left panel like in the reference screenshot. */}
         <Box sx={{ position: "absolute", left: "2%", bottom: -138, zIndex: 50 }}>
           <AnimatedTooltip
-            text={"Ask anything\nabout me\nclicking here"}
+            text={"Ask Nova\nanything about\nmy work"}
             curve="up-right"
             visible={showInputHint}
             onDismiss={() => setShowInputHint(false)}

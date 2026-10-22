@@ -26,7 +26,7 @@ import { COMPACT_QUERY } from "./breakpoints";
  *   "down-right" | "down-left" | "up-right" | "up-left"
  */
 export default function AnimatedTooltip({
-  text = "Ask anything about me\nclicking here",
+  text = "Ask Nova anything\nabout my work",
   visible = true,
   duration = 10000,
   onDismiss,

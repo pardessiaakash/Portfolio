@@ -23,6 +23,15 @@ const caseStudies = () =>
   "• SwiftConnect: an AI-assisted support desk that removes handover delays for support agents.\n" +
   "• Chicora: a personalised, trustworthy fashion shopping app.\n\n" +
   "Open one, and use Ask AI on any slide to learn more about it.";
+// "Why Hire Akash": only what the site itself shows
+const whyHire = () => {
+  const yrs = new Date().getFullYear() - 2012;
+  return `${yrs} years in design, from senior designer to art director (now at ${experiences[0].company}), so he owns both the UX and the visual craft.\n\n` +
+    "• UX method you can check: the SwiftConnect and Chicora case studies walk through research, synthesis, IA & flows, hi-fi UI and usability testing, and say honestly what's validated and what isn't.\n" +
+    "• Designing with AI: certified in UI/UX Design with Generative AI at IIIT Bangalore, and SwiftConnect is an AI-assisted product.\n" +
+    "• Art direction: years of leading visual quality and teams before moving into UX.\n\n" +
+    "Open Work → UI/UX for the case studies, or download his resume.";
+};
 const process = () =>
   "Both case studies follow the same path: understand the problem (brief, research, interviews), " +
   "synthesise it (affinity mapping, empathy maps, a clear problem statement), choose one primary solution " +
@@ -43,10 +52,11 @@ export function offlineAnswer(query) {
     const s = STUDIES.find((x) => x.re.test(o[1]));
     if (s) return `${s.text[0][0]}\n\n${s.text[0][1]}`;
   }
-  if (/^(view case stud(y|ies)|case stud(y|ies)|projects?|work)$/i.test(q)) return caseStudies();
+  if (/^((view|best) case stud(y|ies)|case stud(y|ies)|projects?|work)$/i.test(q)) return caseStudies();
+  if (/^why hire( akash)?\??$/i.test(q)) return whyHire();
   if (/^(about akash|who is akash\??|about)$/i.test(q)) return about();
   if (/^how i design$|design process/i.test(q)) return process();
-  if (/^(start chat|start guided tour|hi|hello|hey)$/i.test(q))
+  if (/^(start chat|(start )?guided tour|hi|hello|hey)$/i.test(q))
     return "Happy to help. Open Work → UI/UX for the SwiftConnect and Chicora case studies; on any slide, the Ask AI button tells you more about it. To talk to Akash directly, use the email or phone buttons.";
   return null;
 }

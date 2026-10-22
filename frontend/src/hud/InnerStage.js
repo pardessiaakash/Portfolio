@@ -473,7 +473,7 @@ export default function InnerStage({
         <Box data-lab-hud sx={{ position: "absolute", left: chatX, top: CHAT.y, width: CHAT.right - chatX, height: CHAT.h }}>
           <ChatbotPanel
             orb={orb}
-            chips={["View Case Study", "About Akash", "How I Design", "Start Guided Tour"]}
+            chips={["Best Case Study", "About Akash", "His Design Process", "Guided Tour"]}
             wrapperSx={{ height: "100%" }}
             orbSize={ORB}
             orbOffset={-ORB / 2}

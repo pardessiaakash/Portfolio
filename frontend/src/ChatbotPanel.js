@@ -104,7 +104,7 @@ const CHAT_TOP_FADE =
  */
 export default function ChatbotPanel({
   orb = "/assets/orb/Idle State.mp4",
-  chips = ["View Case Study", "How I Design", "Start Chat"],
+  chips = ["Best Case Study", "Why Hire Akash", "His Design Process"],
   wrapperSx = {},
   requestedInput = null,
   // Orb geometry (desktop). Defaults keep the original look on inner pages;
@@ -310,8 +310,8 @@ export default function ChatbotPanel({
             }}>
               <Typography sx={{ fontSize: "13px", lineHeight: hud ? 1.35 : 1.75, color: "rgba(255,255,255,0.85)" }}>
                 Hi, I'm <span style={{ color: '#fff', fontWeight: 700 }}>Nova</span>, Akash's AI assistant.<br />
-                Ask me about his projects, his design process, or the decisions behind them.<br />
-                Pick a topic below or type your question.
+                Ask how he works, why he made key design calls, or what he'd bring to your team.<br />
+                Pick a topic below.
               </Typography>
             </Box>
           ) : (
@@ -387,7 +387,7 @@ export default function ChatbotPanel({
               multiline
               maxRows={6}
               inputProps={{ "aria-label": "Ask Nova anything" }}
-              placeholder={isListening ? "Listening..." + (interimText ? ` ${interimText}` : "") : "Ask anything"}
+              placeholder={isListening ? "Listening..." + (interimText ? ` ${interimText}` : "") : "Ask Nova…"}
               fullWidth value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={(e) => {

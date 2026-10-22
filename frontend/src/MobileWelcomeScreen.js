@@ -10,7 +10,17 @@ import {
   experiences,
   toCategoryCard,
   DEFAULT_WORK_CATEGORIES,
+  ROLE_LINE,
+  WORK_COPY,
+  RESUME_LINE,
+  aboutBio,
+  snapshot,
+  SKILLS,
+  EARLIER,
+  SELECTED_WORK,
 } from "./AboutMe";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import { pressable } from "./a11y";
 import { fetchCategories } from "./api/chatApi";
 import DownloadResume from "./DownloadResume";
 import { externalLinkProps } from "./siteConfig";
@@ -18,8 +28,6 @@ import { srOnly } from "./a11y";
 import MobileChatDrawer from "./hud/MobileChatDrawer";
 
 /* ── Short copy + Download Resume, at the end of both tabs (as on desktop) ── */
-const WORK_COPY = "Pick a category to explore my projects, or download my resume for the full picture.";
-const ABOUT_COPY = "A UI/UX designer who turns complex problems into clear, human-centred experiences, now designing with generative AI.";
 
 function BioAndResume({ text }) {
   return (
@@ -82,45 +90,43 @@ function MobileWorkTab() {
 }
 
 /* ── About Me tab ── */
+const mLabel = { fontSize: "13px", letterSpacing: "1.2px", color: "#fff", mb: 1.5, textAlign: "left" };
+
 function MobileAboutTab() {
+  const navigate = useNavigate();
   return (
-    <Box>
-      <Typography
-        sx={{
-          fontSize: "13px",
-          letterSpacing: "1.2px",
-          color: "#fff",
-          mb: 3,
-          textAlign: "left",
-        }}
-      >
-        Experience
+    <Box sx={{ textAlign: "left" }}>
+      <Typography sx={{ fontSize: "14px", lineHeight: 1.75, color: "#fff", mb: 2.5 }}>
+        {aboutBio()}
       </Typography>
 
-      {/* 2-col grid of ExpCards */}
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: { xs: "1fr 1fr", sm: "repeat(3, 1fr)" },
-          gap: "10px",
-          mb: 2.5,
-        }}
-      >
-        {experiences.map((exp) => (
-          <ExpCard key={exp.company} sx={{ textAlign: "left" }}>
-            <Typography
-              sx={{ fontSize: "12px", fontWeight: 700, color: "#fff", lineHeight: 1.3 }}
-            >
-              {exp.company}
-            </Typography>
-            <Typography
-              sx={{ fontSize: "12px", fontWeight: 600, color: "#fff", mt: 0.2, lineHeight: 1.3 }}
-            >
-              {exp.role}
-            </Typography>
-            <Typography sx={{ fontSize: "12px", mt: 0.3, color: "rgba(255,255,255,0.6)" }}>
-              {exp.period}
-            </Typography>
+      {/* snapshot */}
+      <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", mb: 3 }}>
+        {snapshot().map((f) => (
+          <ExpCard key={f.label} sx={{ minWidth: 0, p: "12px" }}>
+            <Typography sx={{ fontSize: "13px", fontWeight: 700, color: "#fff", lineHeight: 1.3 }}>{f.value}</Typography>
+            <Typography sx={{ fontSize: "12px", mt: 0.3, color: "rgba(255,255,255,0.6)", lineHeight: 1.35 }}>{f.label}</Typography>
+          </ExpCard>
+        ))}
+      </Box>
+
+      <Typography sx={mLabel}>Skills</Typography>
+      <Box component="ul" sx={{ display: "flex", flexWrap: "wrap", gap: "8px", listStyle: "none", p: 0, m: 0, mb: 3 }}>
+        {SKILLS.map((k) => (
+          <Box component="li" key={k} sx={{
+            fontSize: "12px", color: "#fff", px: "12px", py: "6px", borderRadius: "8px",
+            background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)",
+          }}>{k}</Box>
+        ))}
+      </Box>
+
+      <Typography sx={mLabel}>Experience</Typography>
+      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", sm: "repeat(3, 1fr)" }, gap: "10px", mb: 2.5 }}>
+        {[...experiences.slice(0, 2), EARLIER].map((exp) => (
+          <ExpCard key={exp.company} sx={{ minWidth: 0 }}>
+            <Typography sx={{ fontSize: "12px", fontWeight: 700, color: "#fff", lineHeight: 1.3 }}>{exp.company}</Typography>
+            <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#fff", mt: 0.2, lineHeight: 1.3 }}>{exp.role}</Typography>
+            <Typography sx={{ fontSize: "12px", mt: 0.3, color: "rgba(255,255,255,0.6)" }}>{exp.period}</Typography>
           </ExpCard>
         ))}
       </Box>
@@ -128,7 +134,7 @@ function MobileAboutTab() {
       {/* Cert card — same gradient border as desktop */}
       <CertCard
         sx={{
-          mb: 2,
+          mb: 3,
           border: "0.5px solid transparent",
           background: `
             linear-gradient(50deg, #0A0A0A 0%, #1B1B1B 100%) padding-box,
@@ -136,12 +142,7 @@ function MobileAboutTab() {
           `,
         }}
       >
-        <Box
-          component="img"
-          src="/assets/icons/UX-Certification.svg"
-          alt=""
-          sx={{ width: 38, height: 38, flexShrink: 0 }}
-        />
+        <Box component="img" src="/assets/icons/UX-Certification.svg" alt="" sx={{ width: 38, height: 38, flexShrink: 0 }} />
         <Box sx={{ textAlign: "left" }}>
           <Typography sx={{ fontSize: "15px", fontWeight: "bold", color: "#fff", lineHeight: 1.3 }}>
             UI/UX Design with Generative AI
@@ -151,7 +152,21 @@ function MobileAboutTab() {
           </Typography>
         </Box>
       </CertCard>
-      <BioAndResume text={ABOUT_COPY} />
+
+      <Typography sx={mLabel}>Selected work</Typography>
+      <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
+        {SELECTED_WORK.map((w) => (
+          <ExpCard key={w.title} onClick={() => navigate(w.path)} {...pressable(() => navigate(w.path), `Open the ${w.title} case study`, "link")}
+            sx={{ minWidth: 0, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+            <Box>
+              <Typography sx={{ fontSize: "13px", fontWeight: 700, color: "#fff" }}>{w.title}</Typography>
+              <Typography sx={{ fontSize: "12px", mt: 0.3, color: "rgba(255,255,255,0.6)" }}>{w.text}</Typography>
+            </Box>
+            <ArrowForwardIcon sx={{ fontSize: 18, color: "rgba(255,255,255,0.7)" }} />
+          </ExpCard>
+        ))}
+      </Box>
+      <BioAndResume text={RESUME_LINE} />
     </Box>
   );
 }
@@ -204,14 +219,11 @@ export default function MobileWelcomeScreen({ opacity, socialIcons }) {
         {/* Header */}
         <Box sx={{ mb: 2, textAlign: "left" }}>
           <Typography sx={{ fontSize: { xs: "14px", sm: "16px" }, color: "#fff", mb: "2px" }}>
-            Welcome to the Portfolio!
+            {ROLE_LINE}
           </Typography>
           <Typography component="h1" sx={{ fontSize: { xs: "30px", sm: "38px" }, fontWeight: 800, color: PRIMARY, lineHeight: 1.1 }}>
             Akash P
             <Box component="span" sx={srOnly}>, UI/UX Designer and Art Director</Box>
-          </Typography>
-          <Typography aria-hidden sx={{ fontSize: { xs: "13px", sm: "15px" }, color: "rgba(255,255,255,0.7)", mt: "4px" }}>
-            UI/UX Designer &amp; Art Director
           </Typography>
         </Box>
 
@@ -278,7 +290,7 @@ export default function MobileWelcomeScreen({ opacity, socialIcons }) {
         ))}
       </Box>
       {/* chat: green edge tab, short hint and full-screen drawer */}
-      <MobileChatDrawer chips={["View Case Study", "How I Design", "Start Chat"]} />
+      <MobileChatDrawer chips={["Best Case Study", "Why Hire Akash", "His Design Process"]} />
     </Box>
   );
 }

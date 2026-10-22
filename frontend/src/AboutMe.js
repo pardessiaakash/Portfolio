@@ -181,6 +181,35 @@ export const experiences = [
   { company: "Affinity Express", role: "Sr. Designer", period: "2012 – 2015" },
 ];
 
+/* ── About Me content (what a UX hiring manager / HR scans for first) ──
+   Built only from facts already on the site: the roles above, the IIIT-B
+   certification, and the methods shown in the case studies. */
+export const CAREER_START = 2012;
+export const yearsInDesign = () => new Date().getFullYear() - CAREER_START;
+// role line under the header (replaces "Welcome to the Portfolio!")
+export const ROLE_LINE = "UI/UX Designer, Art Director";
+export const WORK_COPY = "Each case study shows the problem, my decisions and the outcome. Start with UI/UX work.";
+export const aboutBio = () =>
+  `${yearsInDesign()} years in design, from art direction to UX. I simplify complex products with generative AI.`;
+export const snapshot = () => [
+  { value: `${yearsInDesign()} years`, label: `In design, since ${CAREER_START}` },
+  { value: "UX + Visual", label: "Research to final pixel" },
+  { value: "Open to roles", label: "UX & Product Design" },
+];
+// the methods the case studies walk through, plus the craft from art direction
+export const SKILLS = ["Research", "Synthesis", "IA & flows", "Hi-fi UI", "Usability testing", "Art direction", "Design with GenAI"];
+// recent roles in full; the early years folded into one line
+export const EARLIER = {
+  company: "2012 – 2019",
+  role: "Sr. Designer → Project Manager",
+  period: "Affinity Express, SRV Media, Creative Studio",
+};
+export const SELECTED_WORK = [
+  { title: "SwiftConnect", text: "AI-assisted support desk", path: `/portfolio/${encodeURIComponent("UI/UX")}?project=swiftconnect` },
+  { title: "Chicora", text: "Fashion shopping app", path: `/portfolio/${encodeURIComponent("UI/UX")}?project=chicora` },
+];
+export const RESUME_LINE = "Every role and project, in detail. Download my resume.";
+
 
 export const ICON_MAP = {
   "UI/UX": "/assets/icons/UX.svg",
@@ -411,7 +440,7 @@ function WorkTab({ onClose, inline, compact, hud }) {
       {/* Bio + Download Resume */}
       <Box sx={{ display: "flex", justifyContent: "space-between", gap: 3, mt: compact ? "28px" : "48px", alignItems: "center" }}>
         <Typography sx={{ fontSize: "13px", lineHeight: 1.75, textAlign: "left", flex: 1, maxWidth: "450px" }}>
-          Pick a category to explore my projects, or download my resume for the full picture.
+          {WORK_COPY}
         </Typography>
         <DownloadResume glass={inline} />
       </Box>
@@ -419,44 +448,71 @@ function WorkTab({ onClose, inline, compact, hud }) {
   );
 }
 
-/* ── About Me tab content ── */
+/* ── About Me tab content ──
+   A scrolling body (same thin scrollbar as the rest of the site) with the
+   resume button pinned below it; every card reuses the existing card styles. */
+const sectionLabel = { fontSize: "12px", letterSpacing: "1.2px", mb: 1.2, textAlign: "left", color: "rgba(255,255,255,0.7)" };
+
 function AboutMeTab({ mobile, inline }) {
-  const pad = inline ? "20px 0px" : "40px 90px";
+  const pad = inline ? "0px" : "40px 90px";
+  const navigate = useNavigate();
+  const recent = experiences.slice(0, 2);
+  const openWork = (path) => travel(navigate, path, "inner");
 
   return (
-    <Box sx={{ padding: pad }}>
-      {/* Experience label */}
-      <Typography sx={{ fontSize: "12px", letterSpacing: "1.2px", mb: 1.5, textAlign: 'left' }}>
-        Experience
-      </Typography>
-
-      {/* Experience cards – horizontal scroll */}
+    <Box sx={{ padding: pad, display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       <Box sx={{
-        display: "flex", gap: 1.5, overflowX: "auto", pb: 1, mb: 2.5,
-        "&::-webkit-scrollbar": { height: "3px" },
+        flex: 1, minHeight: 0, overflowY: "auto", pr: "10px", mr: "-10px", pb: "14px",
         textAlign: "left",
+        "&::-webkit-scrollbar": { width: "3px" },
         "&::-webkit-scrollbar-thumb": { background: primaryAlpha(0.25), borderRadius: "4px" },
+        scrollbarWidth: "thin", scrollbarColor: `${primaryAlpha(0.25)} transparent`,
+        // the last lines fade into the panel, a hint there's more below
+        maskImage: "linear-gradient(#000 calc(100% - 22px), transparent)",
+        WebkitMaskImage: "linear-gradient(#000 calc(100% - 22px), transparent)",
       }}>
-        {experiences.map((exp) => (
-          <ExpCard key={exp.company}>
-            <Typography sx={{ fontSize: "13px", fontWeight: 700, color: "#fff", whiteSpace: "nowrap" }}>
-              {exp.company}
-            </Typography>
-            <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#fff", mt: 0.2, whiteSpace: "nowrap" }}>
-              {exp.role}
-            </Typography>
-            <Typography sx={{ fontSize: "12px", mt: 0.3, whiteSpace: "nowrap" }}>
-              {exp.period}
-            </Typography>
-          </ExpCard>
-        ))}
-      </Box>
+        {/* who, in one line */}
+        <Typography sx={{ fontSize: "13px", lineHeight: 1.8, mb: 2 }}>
+          {aboutBio()}
+        </Typography>
 
-      {/* Cert card */}
-      <CertCard sx={{
-        mb: 2.5, border: "0.5px solid transparent",
+        {/* snapshot: the facts HR looks for first */}
+        <Box sx={{ display: "flex", gap: 1.5, mb: 2.5 }}>
+          {snapshot().map((f) => (
+            <ExpCard key={f.label} sx={{ flex: 1, minWidth: 0 }}>
+              <Typography sx={{ fontSize: "15px", fontWeight: 700, color: "#fff", whiteSpace: "nowrap" }}>{f.value}</Typography>
+              <Typography sx={{ fontSize: "12px", mt: 0.3 }}>{f.label}</Typography>
+            </ExpCard>
+          ))}
+        </Box>
 
-        background: `
+        {/* skills */}
+        <Typography sx={sectionLabel}>Skills</Typography>
+        <Box component="ul" sx={{ display: "flex", flexWrap: "wrap", gap: "8px", listStyle: "none", p: 0, m: 0, mb: 2.5 }}>
+          {SKILLS.map((k) => (
+            <Box component="li" key={k} sx={{
+              fontSize: "12px", color: "#fff", px: "12px", py: "6px", borderRadius: "8px",
+              background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)",
+            }}>{k}</Box>
+          ))}
+        </Box>
+
+        {/* experience: recent roles in full, the early years in one card */}
+        <Typography sx={sectionLabel}>Experience</Typography>
+        <Box sx={{ display: "flex", gap: 1.5, mb: 2.5 }}>
+          {[...recent, EARLIER].map((exp) => (
+            <ExpCard key={exp.company} sx={{ flex: 1, minWidth: 0 }}>
+              <Typography sx={{ fontSize: "13px", fontWeight: 700, color: "#fff", whiteSpace: "nowrap" }}>{exp.company}</Typography>
+              <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#fff", mt: 0.2 }}>{exp.role}</Typography>
+              <Typography sx={{ fontSize: "12px", mt: 0.3 }}>{exp.period}</Typography>
+            </ExpCard>
+          ))}
+        </Box>
+
+        {/* certification */}
+        <CertCard sx={{
+          mb: 2.5, border: "0.5px solid transparent",
+          background: `
       linear-gradient(50deg, #0A0A0A 0%, #1B1B1B 100%) padding-box,
       linear-gradient(
         11deg,
@@ -466,25 +522,40 @@ function AboutMeTab({ mobile, inline }) {
         #00CD1F 100%
       ) border-box
     `,
-      }}>
-        <Box component="img" src="/assets/icons/UX-Certification.svg" alt="" sx={{ width: 40, height: 40, flexShrink: 0 }} />
-        <Box sx={{ textAlign: "left" }}>
-          <Typography sx={{ fontSize: "14px", fontWeight: 600, color: "#fff" }}>
-            UI/UX Design with Generative AI
-          </Typography>
-          <Typography sx={{ fontSize: "12px", mt: 0.3 }}>
-            International Institute of Information Technology Bangalore (IIIT-B)
-          </Typography>
+        }}>
+          <Box component="img" src="/assets/icons/UX-Certification.svg" alt="" sx={{ width: 40, height: 40, flexShrink: 0 }} />
+          <Box sx={{ textAlign: "left" }}>
+            <Typography sx={{ fontSize: "14px", fontWeight: 600, color: "#fff" }}>
+              UI/UX Design with Generative AI
+            </Typography>
+            <Typography sx={{ fontSize: "12px", mt: 0.3 }}>
+              International Institute of Information Technology Bangalore (IIIT-B)
+            </Typography>
+          </Box>
+        </CertCard>
+
+        {/* selected work: straight to the strongest case studies */}
+        <Typography sx={sectionLabel}>Selected work</Typography>
+        <Box sx={{ display: "flex", gap: 1.5 }}>
+          {SELECTED_WORK.map((w) => (
+            <ExpCard key={w.title} onClick={() => openWork(w.path)} {...pressable(() => openWork(w.path), `Open the ${w.title} case study`, "link")}
+              sx={{ flex: 1, minWidth: 0, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1,
+                "&:hover .go, &:focus-visible .go": { color: PRIMARY, transform: "translateX(2px)" } }}>
+              <Box>
+                <Typography sx={{ fontSize: "13px", fontWeight: 700, color: "#fff" }}>{w.title}</Typography>
+                <Typography sx={{ fontSize: "12px", mt: 0.3 }}>{w.text}</Typography>
+              </Box>
+              <ArrowForwardIcon className="go" sx={{ fontSize: 18, color: "rgba(255,255,255,0.7)", transition: "color 0.2s, transform 0.2s" }} />
+            </ExpCard>
+          ))}
         </Box>
-      </CertCard>
+      </Box>
 
-      {/* Divider */}
-      <Box sx={{ borderTop: "1px solid rgba(255,255,255,0.07)", mb: 2 }} />
-
-      {/* Skills rows + Download Resume */}
-      <Box sx={{ display: "flex", justifyContent: "space-between", gap: 3 }}>
+      {/* pinned: resume */}
+      <Box sx={{ borderTop: "1px solid rgba(255,255,255,0.07)", pt: 2, mt: 0.5,
+        display: "flex", justifyContent: "space-between", alignItems: "center", gap: 3 }}>
         <Typography sx={{ fontSize: "13px", lineHeight: 1.8, flex: 1, textAlign: "left" }}>
-          A UI/UX designer who turns complex problems into clear, human-centred experiences, now designing with generative AI.
+          {RESUME_LINE}
         </Typography>
         <DownloadResume glass={inline} />
       </Box>
@@ -508,7 +579,7 @@ function AboutMeContent({ onClose, mobile, inline, compact = false, hud = false 
       }}>
         <Box sx={{ textAlign: "left" }}>
           <Typography sx={{ fontSize: hud ? "16px" : "14px", mb: "4px" }}>
-            Welcome to the Portfolio!
+            {ROLE_LINE}
           </Typography>
           <Typography sx={{ fontSize: mobile ? "22px" : hud ? "28px" : "26px", fontWeight: 700, lineHeight: 1.1, color: PRIMARY }}>
             Akash P
