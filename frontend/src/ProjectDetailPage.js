@@ -527,10 +527,10 @@ export default function ProjectDetailPage() {
             "&:hover": { borderColor: "rgba(255,255,255,0.85)", background: "rgba(30,34,32,0.7)" },
             flexShrink: 0,
           }}>
-            <svg width="16" height="13" viewBox="0 0 16 13" aria-hidden>
-              <path d="M15 6.5H1.5M6.5 1 1 6.5 6.5 12" fill="none" stroke="#fff" strokeWidth="1.4"
-                strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden>
+                  <path d="M2 8.2 9 2.5l7 5.7M3.8 6.9V15.5h3.7v-4.3h3v4.3h3.7V6.9" fill="none" stroke="#fff" strokeWidth="1.4"
+                    strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
           </Box>
         </CustomTooltip>
 
