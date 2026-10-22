@@ -22,6 +22,22 @@ function Unknown() {
 }
 
 function App() {
+  // Pinch-zoom (trackpad / touch): the glass HUDs' backdrop blur becomes a
+  // huge GPU surface and Chrome drops those panels entirely. While the page
+  // is zoomed in, the blur is switched off (App.css, html[data-zoomed]);
+  // the panels keep their tint and stay readable.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return undefined;
+    const root = document.documentElement;
+    const update = () => {
+      if (vv.scale > 1.02) root.setAttribute('data-zoomed', '');
+      else root.removeAttribute('data-zoomed');
+    };
+    update();
+    vv.addEventListener('resize', update);
+    return () => vv.removeEventListener('resize', update);
+  }, []);
   // fetch the project page code in the background once the browser is idle
   useEffect(() => {
     const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 4000));

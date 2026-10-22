@@ -51,3 +51,12 @@
 }
 svg g:focus-visible { outline: none; }
 svg g:focus-visible path { stroke: #00CD1F; stroke-width: 2; }
+
+/* Pinch-zoomed in (see App.js): no backdrop blur, so the glass HUDs keep
+   drawing instead of being dropped by the GPU at high zoom. */
+html[data-zoomed] *,
+html[data-zoomed] *::before,
+html[data-zoomed] *::after {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
