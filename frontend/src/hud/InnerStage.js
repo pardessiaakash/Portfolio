@@ -478,6 +478,7 @@ export default function InnerStage({
             orbSize={ORB}
             orbOffset={-ORB / 2}
             hud
+            readable
             hudShape
             hudChannelShape={CHAT_CHANNEL}
             tallInput

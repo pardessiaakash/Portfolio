@@ -208,7 +208,7 @@ export const SELECTED_WORK = [
   { title: "SwiftConnect", text: "AI-assisted support desk", path: `/portfolio/${encodeURIComponent("UI/UX")}?project=swiftconnect` },
   { title: "Chicora", text: "Fashion shopping app", path: `/portfolio/${encodeURIComponent("UI/UX")}?project=chicora` },
 ];
-export const RESUME_LINE = "Every role and project, in detail. Download my resume.";
+export const RESUME_LINE = "Every role and project, in detail.";
 
 
 export const ICON_MAP = {
@@ -243,7 +243,12 @@ export const DEFAULT_WORK_CATEGORIES = [
 const COMPACT_CARD = { height: 108, gridWidth: 100 };
 
 // Card sizes for the home-screen HUD, measured from the intro's last HUD frame.
-const HUD_CARD = { width: 188, height: 164, icon: 38, label: 16, idle: 0.72 };
+const HUD_CARD = { width: 188, height: 164, icon: 42, label: 19, idle: 0.72 };
+// Readable type for the desktop HUDs. The HUD stage renders at ~0.68x on a
+// 1440×900 laptop (cover scale × the HUD's place in the room), so these
+// stage sizes land at ~13px body / ~11.5px small text there, ~15.5 / 14px
+// at 1920×1080. (The mobile layout and the modal keep their own sizes.)
+export const HUD_TYPE = { role: 21, name: 36, tab: 16, body: 19, small: 17, label: 16, value: 21, title: 18.5, button: 16.5 };
 
 export function CategoryCard({ cat, onClick, compact, hud = false, glass = false }) {
   const [hovered, setHovered] = useState(false);
@@ -374,7 +379,7 @@ export function CategoryCard({ cat, onClick, compact, hud = false, glass = false
         />
         <Typography sx={{
           color: hovered ? "#fff" : `rgba(255,255,255,${hud ? HUD_CARD.idle : 0.5})`,
-          fontSize: hud ? `${HUD_CARD.label}px` : "14px", fontWeight: 500,
+          fontSize: hud ? `${HUD_CARD.label}px` : glass ? "17px" : "14px", fontWeight: 500,
           transition: "color 0.2s",
         }}>
           {cat.label}
@@ -426,7 +431,7 @@ function WorkTab({ onClose, inline, compact, hud }) {
         rowGap: compact ? "14px" : 0,
         flexWrap: { xs: "wrap", md: "nowrap" },
         gap: hud ? "5px" : "0px",
-        mt: "28px",
+        mt: inline ? "18px" : "28px",
         // the card SVG insets its shape ~13px, so pull the row left to line
         // the first card's visible edge up with the header text
         ml: hud ? "-13px" : 0,
@@ -438,8 +443,8 @@ function WorkTab({ onClose, inline, compact, hud }) {
       </Box>
 
       {/* Bio + Download Resume */}
-      <Box sx={{ display: "flex", justifyContent: "space-between", gap: 3, mt: compact ? "28px" : "48px", alignItems: "center" }}>
-        <Typography sx={{ fontSize: "13px", lineHeight: 1.75, textAlign: "left", flex: 1, maxWidth: "450px" }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", gap: 3, mt: compact ? "22px" : inline ? "30px" : "48px", alignItems: "center" }}>
+        <Typography sx={{ fontSize: inline ? `${HUD_TYPE.body}px` : "13px", lineHeight: inline ? 1.55 : 1.75, textAlign: "left", flex: 1, maxWidth: inline ? "560px" : "450px" }}>
           {WORK_COPY}
         </Typography>
         <DownloadResume glass={inline} />
@@ -451,7 +456,8 @@ function WorkTab({ onClose, inline, compact, hud }) {
 /* ── About Me tab content ──
    A scrolling body (same thin scrollbar as the rest of the site) with the
    resume button pinned below it; every card reuses the existing card styles. */
-const sectionLabel = { fontSize: "12px", letterSpacing: "1.2px", mb: 1.2, textAlign: "left", color: "rgba(255,255,255,0.7)" };
+const sectionLabel = { fontSize: `${HUD_TYPE.label}px`, letterSpacing: "1.2px", mb: 1.2, textAlign: "left", color: "rgba(255,255,255,0.75)" };
+const T = HUD_TYPE;
 
 function AboutMeTab({ mobile, inline }) {
   const pad = inline ? "0px" : "40px 90px";
@@ -472,7 +478,7 @@ function AboutMeTab({ mobile, inline }) {
         WebkitMaskImage: "linear-gradient(#000 calc(100% - 22px), transparent)",
       }}>
         {/* who, in one line */}
-        <Typography sx={{ fontSize: "13px", lineHeight: 1.8, mb: 2 }}>
+        <Typography sx={{ fontSize: `${T.body}px`, lineHeight: 1.55, mb: 2 }}>
           {aboutBio()}
         </Typography>
 
@@ -480,8 +486,8 @@ function AboutMeTab({ mobile, inline }) {
         <Box sx={{ display: "flex", gap: 1.5, mb: 2.5 }}>
           {snapshot().map((f) => (
             <ExpCard key={f.label} sx={{ flex: 1, minWidth: 0 }}>
-              <Typography sx={{ fontSize: "15px", fontWeight: 700, color: "#fff", whiteSpace: "nowrap" }}>{f.value}</Typography>
-              <Typography sx={{ fontSize: "12px", mt: 0.3 }}>{f.label}</Typography>
+              <Typography sx={{ fontSize: `${T.value}px`, fontWeight: 700, color: "#fff", whiteSpace: "nowrap", lineHeight: 1.25 }}>{f.value}</Typography>
+              <Typography sx={{ fontSize: `${T.small}px`, mt: 0.4, lineHeight: 1.35 }}>{f.label}</Typography>
             </ExpCard>
           ))}
         </Box>
@@ -491,7 +497,7 @@ function AboutMeTab({ mobile, inline }) {
         <Box component="ul" sx={{ display: "flex", flexWrap: "wrap", gap: "8px", listStyle: "none", p: 0, m: 0, mb: 2.5 }}>
           {SKILLS.map((k) => (
             <Box component="li" key={k} sx={{
-              fontSize: "12px", color: "#fff", px: "12px", py: "6px", borderRadius: "8px",
+              fontSize: `${T.small}px`, color: "#fff", px: "14px", py: "7px", borderRadius: "8px",
               background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)",
             }}>{k}</Box>
           ))}
@@ -502,9 +508,9 @@ function AboutMeTab({ mobile, inline }) {
         <Box sx={{ display: "flex", gap: 1.5, mb: 2.5 }}>
           {[...recent, EARLIER].map((exp) => (
             <ExpCard key={exp.company} sx={{ flex: 1, minWidth: 0 }}>
-              <Typography sx={{ fontSize: "13px", fontWeight: 700, color: "#fff", whiteSpace: "nowrap" }}>{exp.company}</Typography>
-              <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#fff", mt: 0.2 }}>{exp.role}</Typography>
-              <Typography sx={{ fontSize: "12px", mt: 0.3 }}>{exp.period}</Typography>
+              <Typography sx={{ fontSize: `${T.title}px`, fontWeight: 700, color: "#fff", whiteSpace: "nowrap", lineHeight: 1.3 }}>{exp.company}</Typography>
+              <Typography sx={{ fontSize: `${T.small}px`, fontWeight: 600, color: "#fff", mt: 0.3, lineHeight: 1.35 }}>{exp.role}</Typography>
+              <Typography sx={{ fontSize: `${T.small}px`, mt: 0.3, lineHeight: 1.35 }}>{exp.period}</Typography>
             </ExpCard>
           ))}
         </Box>
@@ -525,10 +531,10 @@ function AboutMeTab({ mobile, inline }) {
         }}>
           <Box component="img" src="/assets/icons/UX-Certification.svg" alt="" sx={{ width: 40, height: 40, flexShrink: 0 }} />
           <Box sx={{ textAlign: "left" }}>
-            <Typography sx={{ fontSize: "14px", fontWeight: 600, color: "#fff" }}>
+            <Typography sx={{ fontSize: `${T.title}px`, fontWeight: 600, color: "#fff" }}>
               UI/UX Design with Generative AI
             </Typography>
-            <Typography sx={{ fontSize: "12px", mt: 0.3 }}>
+            <Typography sx={{ fontSize: `${T.small}px`, mt: 0.3, lineHeight: 1.35 }}>
               International Institute of Information Technology Bangalore (IIIT-B)
             </Typography>
           </Box>
@@ -542,19 +548,19 @@ function AboutMeTab({ mobile, inline }) {
               sx={{ flex: 1, minWidth: 0, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1,
                 "&:hover .go, &:focus-visible .go": { color: PRIMARY, transform: "translateX(2px)" } }}>
               <Box>
-                <Typography sx={{ fontSize: "13px", fontWeight: 700, color: "#fff" }}>{w.title}</Typography>
-                <Typography sx={{ fontSize: "12px", mt: 0.3 }}>{w.text}</Typography>
+                <Typography sx={{ fontSize: `${T.title}px`, fontWeight: 700, color: "#fff" }}>{w.title}</Typography>
+                <Typography sx={{ fontSize: `${T.small}px`, mt: 0.3 }}>{w.text}</Typography>
               </Box>
-              <ArrowForwardIcon className="go" sx={{ fontSize: 18, color: "rgba(255,255,255,0.7)", transition: "color 0.2s, transform 0.2s" }} />
+              <ArrowForwardIcon className="go" sx={{ fontSize: 22, color: "rgba(255,255,255,0.7)", transition: "color 0.2s, transform 0.2s" }} />
             </ExpCard>
           ))}
         </Box>
       </Box>
 
       {/* pinned: resume */}
-      <Box sx={{ borderTop: "1px solid rgba(255,255,255,0.07)", pt: 2, mt: 0.5,
+      <Box sx={{ borderTop: "1px solid rgba(255,255,255,0.07)", pt: 1.5, mt: 0.5,
         display: "flex", justifyContent: "space-between", alignItems: "center", gap: 3 }}>
-        <Typography sx={{ fontSize: "13px", lineHeight: 1.8, flex: 1, textAlign: "left" }}>
+        <Typography sx={{ fontSize: `${T.body}px`, lineHeight: 1.5, flex: 1, textAlign: "left" }}>
           {RESUME_LINE}
         </Typography>
         <DownloadResume glass={inline} />
@@ -565,7 +571,7 @@ function AboutMeTab({ mobile, inline }) {
 
 /* ── Main modal content ── */
 function AboutMeContent({ onClose, mobile, inline, compact = false, hud = false }) {
-  const tabSize = hud ? { w: 136, h: 32, fontSize: 12.5 } : {};
+  const tabSize = inline ? { w: 168, h: 40, fontSize: HUD_TYPE.tab } : {};
   const [activeTab, setActiveTab] = useState("work");
 
   return (
@@ -574,14 +580,14 @@ function AboutMeContent({ onClose, mobile, inline, compact = false, hud = false 
       <Box sx={{
         display: "flex", justifyContent: "space-between",
         alignItems: "flex-start",
-        mb: inline ? "24px" : "24px",
+        mb: inline ? "18px" : "24px",
         ...(inline ? {} : { margin: "0px 90px", mb: "4px" }),
       }}>
         <Box sx={{ textAlign: "left" }}>
-          <Typography sx={{ fontSize: hud ? "16px" : "14px", mb: "4px" }}>
+          <Typography sx={{ fontSize: inline ? `${HUD_TYPE.role}px` : "14px", mb: "4px" }}>
             {ROLE_LINE}
           </Typography>
-          <Typography sx={{ fontSize: mobile ? "22px" : hud ? "28px" : "26px", fontWeight: 700, lineHeight: 1.1, color: PRIMARY }}>
+          <Typography sx={{ fontSize: mobile ? "22px" : inline ? `${HUD_TYPE.name}px` : "26px", fontWeight: 700, lineHeight: 1.1, color: PRIMARY }}>
             Akash P
           </Typography>
         </Box>

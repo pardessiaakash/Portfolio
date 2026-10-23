@@ -110,7 +110,7 @@ export default function AnimatedTooltip({
             borderRadius: "50%",
             cursor: "pointer",
             color: "rgba(255,255,255,0.45)",
-            fontSize: 14,
+            fontSize: 17,
             lineHeight: 1,
             "&:hover": { color: "#fff" },
           }}
@@ -136,7 +136,7 @@ export default function AnimatedTooltip({
               },
 
               "& svg": {
-                fontSize: 14,
+                fontSize: 17,
               },
             }}
           >
@@ -146,7 +146,7 @@ export default function AnimatedTooltip({
         <Typography
           sx={{
             color: "rgba(255,255,255,0.9)",
-            fontSize: "14px",
+            fontSize: "17px",
             fontWeight: 500,
             lineHeight: 1.5,
             whiteSpace: "pre-line",

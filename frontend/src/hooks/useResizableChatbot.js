@@ -73,6 +73,12 @@ export function useResizableChatbot(
 
     const finishDrag = () => {
       setIsDragging(false);
+      // the release can land on something else (a category card) once the
+      // panel has reached its limit and the cursor ran ahead of the handle:
+      // swallow the click that follows the drag
+      const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
+      window.addEventListener("click", swallow, { capture: true, once: true });
+      setTimeout(() => window.removeEventListener("click", swallow, { capture: true }), 0);
       const finalWidth = Array.isArray(snapPercentage)
         ? snapPercentage[(snapPercentage.indexOf(dragStartWidthRef.current) + 1) % snapPercentage.length]
         : snapPercentage === null ? widthPercentRef.current : snapPercentage;

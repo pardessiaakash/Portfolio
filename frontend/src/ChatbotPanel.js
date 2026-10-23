@@ -47,7 +47,7 @@ const CHAT_BORDER = "rgba(255,255,255,0.22)";
 const CHAT_BORDER_ACTIVE = "rgba(255,255,255,0.40)";
 
 /** Glass suggestion chip for the home-screen HUD: gray border, minimal hover. */
-function GlassChip({ label, onClick, large = false }) {
+function GlassChip({ label, onClick, large = false, readable = false }) {
   return (
     <Box
       component="button"
@@ -55,13 +55,13 @@ function GlassChip({ label, onClick, large = false }) {
       onClick={onClick}
       sx={{
         ...glassSx({ shadow: false }),
-        px: large ? "16px" : "21px", py: large ? "8px" : "6px",
+        px: large ? "16px" : readable ? "20px" : "21px", py: large ? "8px" : readable ? "8px" : "6px",
         whiteSpace: "nowrap", flexShrink: 0,
         borderRadius: "20px",
         border: `1px solid ${CHAT_BORDER}`,
         color: "rgba(255,255,255,0.86)",
         font: "inherit",
-        fontSize: large ? "13px" : "12px", fontWeight: 600,
+        fontSize: large ? "13px" : readable ? "15.5px" : "12px", fontWeight: 600,
         cursor: "pointer",
         transition: "color 0.25s ease, border-color 0.25s ease, background-color 0.25s ease",
         // minimal hover: border and text brighten a touch, faint fill
@@ -114,6 +114,8 @@ export default function ChatbotPanel({
   // Home-screen layout matched to the intro's last HUD frame: greeting sits
   // above the chips, chips stay on one row, tighter type.
   hud = false,
+  // desktop HUDs: larger type, so it stays readable at the HUD's scale
+  readable = false,
   // Experiment: cut the panel to the chat HUD shape from the Figma frame
   // "Main_Landing_Page_For Claude" (desktop only).
   hudShape = false,
@@ -308,7 +310,7 @@ export default function ChatbotPanel({
               p: hud ? "13px 22px" : "14px 16px",
               mb: hud ? 0 : 1.5,
             }}>
-              <Typography sx={{ fontSize: "13px", lineHeight: hud ? 1.35 : 1.75, color: "rgba(255,255,255,0.85)" }}>
+              <Typography sx={{ fontSize: readable ? "16.5px" : "13px", lineHeight: readable ? 1.45 : hud ? 1.35 : 1.75, color: "rgba(255,255,255,0.88)" }}>
                 Hi, I'm <span style={{ color: '#fff', fontWeight: 700 }}>Nova</span>, Akash's AI assistant.<br />
                 Ask how he works, why he made key design calls, or what he'd bring to your team.<br />
                 Pick a topic below.
@@ -322,7 +324,7 @@ export default function ChatbotPanel({
                   background: msg.role === "user" ? "rgba(0,255,150,0.08)" : "rgba(20,26,20,0.85)",
                   border: msg.role === "user" ? "1px solid rgba(0,255,150,0.2)" : "1px solid rgba(255,255,255,0.08)",
                   borderRadius: "10px", px: "14px", py: "10px",
-                  maxWidth: "88%", color: "#fff", fontSize: "13px", lineHeight: 1.6, whiteSpace: "pre-line",
+                  maxWidth: "88%", color: "#fff", fontSize: readable ? "16.5px" : "13px", lineHeight: readable ? 1.5 : 1.6, whiteSpace: "pre-line",
                 }}>
                   {msg.content}
                   {msg.role === "error" && <ContactLinks />}
@@ -342,7 +344,7 @@ export default function ChatbotPanel({
             ...(hud ? { overflowX: "auto", scrollbarWidth: "none", "&::-webkit-scrollbar": { display: "none" } } : {}),
           }}>
             {chips.map((s) => glassUi ? (
-              <GlassChip key={s} label={s} large={glassMobile} onClick={() => sendMessage(s)} />
+              <GlassChip key={s} label={s} large={glassMobile} readable={readable} onClick={() => sendMessage(s)} />
             ) : (
               <Box key={s} onClick={() => sendMessage(s)} sx={{
                 px: hud ? "21px" : "14px", py: hud ? "6px" : "7px",
@@ -398,7 +400,7 @@ export default function ChatbotPanel({
               }}
               disabled={isLoading || isProcessing}
               sx={{
-                color: "#f4f6f5", fontSize: hud ? "12px" : "14px",
+                color: "#f4f6f5", fontSize: readable ? "16px" : hud ? "12px" : "14px",
                 lineHeight: 1.5,
                 pt: "7px",
                 pb: "7px",

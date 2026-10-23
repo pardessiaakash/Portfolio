@@ -136,7 +136,7 @@ function MainHudPanel({ isHalfSplit }) {
           // of the lower edge of the HUD shape
           // (split view: same 48px margin on both sides, so the cards reach
           // across the panel instead of leaving a blank band on the right)
-          p: isHalfSplit ? `42px 48px 58px 48px` : `60px ${88 + extraRight}px 60px 88px`,
+          p: isHalfSplit ? `38px 44px 50px 44px` : `46px ${84 + extraRight}px 44px 84px`,
         }}
       >
         <AboutMeContent onClose={() => { }} mobile={false} inline={true} compact={isHalfSplit} hud={!isHalfSplit} />
@@ -488,6 +488,7 @@ function WelcomeScreen({ opacity }) {
             orbSize={HUD.orb.size}
             orbOffset={HUD.orb.offset}
             hud={!isHalfSplit}
+            readable
             hudShape
             hudChannelGap={HUD_SHAPE.channel}
             fadeTop

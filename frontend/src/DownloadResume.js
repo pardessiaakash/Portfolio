@@ -39,6 +39,8 @@ const glassButtonStyles = {
   ...spinBorderSx(1),
   // the 1px transparent border keeps the button the same size as before
   border: "1px solid transparent",
+  // desktop HUD: readable at the HUD's scale
+  fontSize: "16.5px", px: "22px", py: "13px",
   "&:hover": {
     ...glassSx(),
     backgroundColor: "rgba(255,255,255,0.06)",
