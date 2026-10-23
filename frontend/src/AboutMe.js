@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Box, Typography, Modal, useMediaQuery, useTheme} from "@mui/material";
 import { styled } from "@mui/material/styles";
 import { useNavigate } from "react-router-dom";
@@ -459,7 +459,74 @@ function WorkTab({ onClose, inline, compact, hud }) {
 const sectionLabel = { fontSize: `${HUD_TYPE.label}px`, letterSpacing: "1.2px", mb: 1.2, textAlign: "left", color: "rgba(255,255,255,0.75)" };
 const T = HUD_TYPE;
 
+/* Always-visible scrollbar for a scroll area inside the HUD. Native
+   scrollbars on macOS stay hidden until you scroll, so a new visitor
+   wouldn't know there's more; this one shows from the start (thin track,
+   brand-green thumb), only when there is something to scroll, and can be
+   dragged or clicked like a normal scrollbar. */
+function HudScrollbar({ target, offset = 0 }) {
+  const [m, setM] = useState({ show: false, top: 0, h: 0 });
+  const trackRef = useRef(null);
+  const update = useCallback(() => {
+    const el = target.current, tr = trackRef.current;
+    if (!el || !tr) return;
+    const { scrollHeight: sh, clientHeight: ch, scrollTop: st } = el;
+    const th = tr.clientHeight;
+    if (sh <= ch + 1 || !th) { setM((p) => (p.show ? { ...p, show: false } : p)); return; }
+    const h = Math.max(28, (ch / sh) * th);
+    setM({ show: true, h, top: (st / (sh - ch)) * (th - h) });
+  }, [target]);
+  useEffect(() => {
+    const el = target.current;
+    if (!el) return undefined;
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    [...el.children].forEach((c) => ro.observe(c));
+    return () => { el.removeEventListener("scroll", update); ro.disconnect(); };
+  }, [target, update]);
+
+  // drag the thumb, or click the track to jump there
+  const scrollToY = (clientY, grab) => {
+    const el = target.current, tr = trackRef.current;
+    if (!el || !tr) return;
+    const r = tr.getBoundingClientRect(), scale = r.height / tr.clientHeight || 1;
+    const y = (clientY - r.top) / scale - grab;
+    el.scrollTop = (y / (tr.clientHeight - m.h)) * (el.scrollHeight - el.clientHeight);
+  };
+  const onThumbDown = (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const tr = trackRef.current; const r = tr.getBoundingClientRect(), scale = r.height / tr.clientHeight || 1;
+    const grab = (e.clientY - r.top) / scale - m.top;
+    const move = (ev) => scrollToY(ev.clientY, grab);
+    const up = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+
+  return (
+    <Box ref={trackRef} aria-hidden onPointerDown={(e) => scrollToY(e.clientY, m.h / 2)} sx={{
+      position: "absolute", top: "4px", bottom: "18px", right: `${offset}px`, width: "14px",
+      cursor: "pointer", opacity: m.show ? 1 : 0, pointerEvents: m.show ? "auto" : "none",
+      transition: "opacity 0.3s ease",
+      // the track line
+      "&::before": { content: '""', position: "absolute", top: 0, bottom: 0, left: "50%", width: "3px",
+        transform: "translateX(-50%)", borderRadius: "3px", background: "rgba(255,255,255,0.12)" },
+      "&:hover .thumb, & .thumb:active": { width: "6px", background: PRIMARY },
+    }}>
+      <Box className="thumb" onPointerDown={onThumbDown} sx={{
+        position: "absolute", left: "50%", transform: "translateX(-50%)",
+        top: `${m.top}px`, height: `${m.h}px`, width: "4px", borderRadius: "4px",
+        background: primaryAlpha(0.8), boxShadow: `0 0 8px ${primaryAlpha(0.35)}`,
+        transition: "width 0.2s ease, background 0.2s ease",
+      }} />
+    </Box>
+  );
+}
+
 function AboutMeTab({ mobile, inline }) {
+  const scrollRef = useRef(null);
   const pad = inline ? "0px" : "40px 90px";
   const navigate = useNavigate();
   const recent = experiences.slice(0, 2);
@@ -467,12 +534,13 @@ function AboutMeTab({ mobile, inline }) {
 
   return (
     <Box sx={{ padding: pad, display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-      <Box sx={{
+      <Box sx={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+      <HudScrollbar target={scrollRef} offset={-58} />
+      <Box ref={scrollRef} sx={{
         flex: 1, minHeight: 0, overflowY: "auto", pr: "10px", mr: "-10px", pb: "14px",
         textAlign: "left",
-        "&::-webkit-scrollbar": { width: "3px" },
-        "&::-webkit-scrollbar-thumb": { background: primaryAlpha(0.25), borderRadius: "4px" },
-        scrollbarWidth: "thin", scrollbarColor: `${primaryAlpha(0.25)} transparent`,
+        // the native scrollbar is replaced by HudScrollbar (always visible)
+        scrollbarWidth: "none", "&::-webkit-scrollbar": { display: "none" },
         // the last lines fade into the panel, a hint there's more below
         maskImage: "linear-gradient(#000 calc(100% - 22px), transparent)",
         WebkitMaskImage: "linear-gradient(#000 calc(100% - 22px), transparent)",
@@ -555,6 +623,8 @@ function AboutMeTab({ mobile, inline }) {
             </ExpCard>
           ))}
         </Box>
+      </Box>
+
       </Box>
 
       {/* pinned: resume */}
