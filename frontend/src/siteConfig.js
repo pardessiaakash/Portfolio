@@ -12,8 +12,8 @@ export const SITE = {
   phone: "+919011566393",
   behance: "https://www.behance.net/pardessiaaec66",
   dribbble: "https://dribbble.com/pardessiaakash",
-  // Your LinkedIn profile, e.g. https://www.linkedin.com/in/your-name
-  linkedin: env("REACT_APP_LINKEDIN_URL"),
+  // LinkedIn profile (REACT_APP_LINKEDIN_URL on the host overrides it)
+  linkedin: env("REACT_APP_LINKEDIN_URL") || "https://www.linkedin.com/in/aakash-pardeshi-190222130/",
   // Put the PDF in frontend/public under this name, or point this at a
   // hosted copy (e.g. a Google Drive download link).
   resumeUrl: env("REACT_APP_RESUME_URL") || "/Akash-P-Resume.pdf",
