@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Box, Typography } from "@mui/material";
+import { Box, Typography, useMediaQuery } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { PRIMARY} from "./theme";
 import {
@@ -27,16 +27,28 @@ import { externalLinkProps } from "./siteConfig";
 import { srOnly } from "./a11y";
 import MobileChatDrawer from "./hud/MobileChatDrawer";
 
+/* ── Readable type for phones and tablets (tablets are read at arm's length,
+   so they step up a size). Nothing goes below 13px. ── */
+const MT = {
+  body: { xs: "15px", sm: "17px" },
+  small: { xs: "13.5px", sm: "15px" },
+  title: { xs: "14.5px", sm: "16.5px" },
+  label: { xs: "13px", sm: "15px" },
+};
+// the social bar overlaps the card's bottom edge by this much (see below), so
+// the scrolling content ends that far above it plus breathing room
+const BAR_OVERLAP = 35;
+
 /* ── Short copy + Download Resume, at the end of both tabs (as on desktop) ── */
 
 function BioAndResume({ text }) {
   return (
     <>
-      <Typography sx={{ fontSize: "14px", lineHeight: 1.75, color: "#fff", textAlign: "left", mt: "30px" }}>
+      <Typography sx={{ fontSize: MT.body, lineHeight: 1.6, color: "#fff", textAlign: "left", mt: "28px" }}>
         {text}
       </Typography>
-      <Box sx={{ mt: "30px" }}>
-        <DownloadResume />
+      <Box sx={{ mt: "20px" }}>
+        <DownloadResume sx={{ fontSize: { xs: "15px", sm: "16px" }, py: "13px", px: "20px", minHeight: 48 }} />
       </Box>
     </>
   );
@@ -77,6 +89,7 @@ function MobileWorkTab() {
             key={cat.label}
             cat={cat}
             compact={true}
+            touch
             onClick={() =>
               navigate(`/portfolio/${encodeURIComponent(cat.label)}`)
             }
@@ -90,13 +103,13 @@ function MobileWorkTab() {
 }
 
 /* ── About Me tab ── */
-const mLabel = { fontSize: "13px", letterSpacing: "1.2px", color: "#fff", mb: 1.5, textAlign: "left" };
+const mLabel = { fontSize: MT.label, letterSpacing: "1.2px", color: "rgba(255,255,255,0.8)", mb: 1.5, textAlign: "left" };
 
 function MobileAboutTab() {
   const navigate = useNavigate();
   return (
     <Box sx={{ textAlign: "left" }}>
-      <Typography sx={{ fontSize: "14px", lineHeight: 1.75, color: "#fff", mb: 2.5 }}>
+      <Typography sx={{ fontSize: MT.body, lineHeight: 1.6, color: "#fff", mb: 2.5 }}>
         {aboutBio()}
       </Typography>
 
@@ -104,8 +117,8 @@ function MobileAboutTab() {
       <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", mb: 3 }}>
         {snapshot().map((f) => (
           <ExpCard key={f.label} sx={{ minWidth: 0, p: "12px" }}>
-            <Typography sx={{ fontSize: "13px", fontWeight: 700, color: "#fff", lineHeight: 1.3 }}>{f.value}</Typography>
-            <Typography sx={{ fontSize: "12px", mt: 0.3, color: "rgba(255,255,255,0.6)", lineHeight: 1.35 }}>{f.label}</Typography>
+            <Typography sx={{ fontSize: MT.title, fontWeight: 700, color: "#fff", lineHeight: 1.3 }}>{f.value}</Typography>
+            <Typography sx={{ fontSize: MT.small, mt: 0.4, color: "rgba(255,255,255,0.72)", lineHeight: 1.35 }}>{f.label}</Typography>
           </ExpCard>
         ))}
       </Box>
@@ -114,7 +127,7 @@ function MobileAboutTab() {
       <Box component="ul" sx={{ display: "flex", flexWrap: "wrap", gap: "8px", listStyle: "none", p: 0, m: 0, mb: 3 }}>
         {SKILLS.map((k) => (
           <Box component="li" key={k} sx={{
-            fontSize: "12px", color: "#fff", px: "12px", py: "6px", borderRadius: "8px",
+            fontSize: MT.small, color: "#fff", px: "12px", py: "7px", borderRadius: "8px",
             background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)",
           }}>{k}</Box>
         ))}
@@ -124,9 +137,9 @@ function MobileAboutTab() {
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr 1fr", sm: "repeat(3, 1fr)" }, gap: "10px", mb: 2.5 }}>
         {[...experiences.slice(0, 2), EARLIER].map((exp) => (
           <ExpCard key={exp.company} sx={{ minWidth: 0 }}>
-            <Typography sx={{ fontSize: "12px", fontWeight: 700, color: "#fff", lineHeight: 1.3 }}>{exp.company}</Typography>
-            <Typography sx={{ fontSize: "12px", fontWeight: 600, color: "#fff", mt: 0.2, lineHeight: 1.3 }}>{exp.role}</Typography>
-            <Typography sx={{ fontSize: "12px", mt: 0.3, color: "rgba(255,255,255,0.6)" }}>{exp.period}</Typography>
+            <Typography sx={{ fontSize: MT.title, fontWeight: 700, color: "#fff", lineHeight: 1.3 }}>{exp.company}</Typography>
+            <Typography sx={{ fontSize: MT.small, fontWeight: 600, color: "#fff", mt: 0.3, lineHeight: 1.35 }}>{exp.role}</Typography>
+            <Typography sx={{ fontSize: MT.small, mt: 0.3, color: "rgba(255,255,255,0.72)", lineHeight: 1.35 }}>{exp.period}</Typography>
           </ExpCard>
         ))}
       </Box>
@@ -144,10 +157,10 @@ function MobileAboutTab() {
       >
         <Box component="img" src="/assets/icons/UX-Certification.svg" alt="" sx={{ width: 38, height: 38, flexShrink: 0 }} />
         <Box sx={{ textAlign: "left" }}>
-          <Typography sx={{ fontSize: "15px", fontWeight: "bold", color: "#fff", lineHeight: 1.3 }}>
+          <Typography sx={{ fontSize: { xs: "15px", sm: "17px" }, fontWeight: "bold", color: "#fff", lineHeight: 1.3 }}>
             UI/UX Design with Generative AI
           </Typography>
-          <Typography sx={{ fontSize: "13px", mt: 0.5, lineHeight: 1.4, color: "#fff" }}>
+          <Typography sx={{ fontSize: MT.small, mt: 0.5, lineHeight: 1.4, color: "rgba(255,255,255,0.85)" }}>
             International Institute of Information Technology Bangalore (IIIT-B)
           </Typography>
         </Box>
@@ -159,8 +172,8 @@ function MobileAboutTab() {
           <ExpCard key={w.title} onClick={() => navigate(w.path)} {...pressable(() => navigate(w.path), `Open the ${w.title} case study`, "link")}
             sx={{ minWidth: 0, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
             <Box>
-              <Typography sx={{ fontSize: "13px", fontWeight: 700, color: "#fff" }}>{w.title}</Typography>
-              <Typography sx={{ fontSize: "12px", mt: 0.3, color: "rgba(255,255,255,0.6)" }}>{w.text}</Typography>
+              <Typography sx={{ fontSize: MT.title, fontWeight: 700, color: "#fff" }}>{w.title}</Typography>
+              <Typography sx={{ fontSize: MT.small, mt: 0.3, color: "rgba(255,255,255,0.72)", lineHeight: 1.35 }}>{w.text}</Typography>
             </Box>
             <ArrowForwardIcon sx={{ fontSize: 18, color: "rgba(255,255,255,0.7)" }} />
           </ExpCard>
@@ -174,6 +187,11 @@ function MobileAboutTab() {
 /* ── Main Mobile Welcome Screen ── */
 export default function MobileWelcomeScreen({ opacity, socialIcons }) {
   const [activeTab, setActiveTab] = useState("work");
+  const tablet = useMediaQuery("(min-width:600px)");
+  const tabSize = tablet ? { w: 176, h: 44, fontSize: 16 } : { w: 150, h: 44, fontSize: 15 };
+  // switching tabs starts the new content at the top
+  const scrollRef = React.useRef(null);
+  useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = 0; }, [activeTab]);
 
   return (
     <Box
@@ -218,10 +236,10 @@ export default function MobileWelcomeScreen({ opacity, socialIcons }) {
       >
         {/* Header */}
         <Box sx={{ mb: 2, textAlign: "left" }}>
-          <Typography sx={{ fontSize: { xs: "14px", sm: "16px" }, color: "#fff", mb: "2px" }}>
+          <Typography sx={{ fontSize: { xs: "15px", sm: "18px" }, color: "#fff", mb: "2px" }}>
             {ROLE_LINE}
           </Typography>
-          <Typography component="h1" sx={{ fontSize: { xs: "30px", sm: "38px" }, fontWeight: 800, color: PRIMARY, lineHeight: 1.1 }}>
+          <Typography component="h1" sx={{ fontSize: { xs: "32px", sm: "42px" }, fontWeight: 800, color: PRIMARY, lineHeight: 1.1 }}>
             Akash P
             <Box component="span" sx={srOnly}>, UI/UX Designer and Art Director</Box>
           </Typography>
@@ -229,16 +247,25 @@ export default function MobileWelcomeScreen({ opacity, socialIcons }) {
 
         {/* Desktop-style SVG speech-bubble tabs */}
         <Box role="tablist" aria-label="Sections" sx={{ display: "flex", alignItems: "center", justifyContent: "center", mb: 1, gap: "4px" }}>
-          <Tab active={activeTab === "work" ? 1 : 0} onClick={() => setActiveTab("work")}>
+          <Tab active={activeTab === "work" ? 1 : 0} onClick={() => setActiveTab("work")} {...tabSize}>
             Work
           </Tab>
-          <Tab active={activeTab === "about" ? 1 : 0} onClick={() => setActiveTab("about")}>
+          <Tab active={activeTab === "about" ? 1 : 0} onClick={() => setActiveTab("about")} {...tabSize}>
             About Me
           </Tab>
         </Box>
 
         {/* Tab content */}
-        <Box sx={{ flex: 1, overflowY: "auto", overflowX: "hidden", "&::-webkit-scrollbar": { display: "none" } }}>
+        <Box ref={scrollRef} sx={{
+          flex: 1, overflowY: "auto", overflowX: "hidden", "&::-webkit-scrollbar": { display: "none" },
+          // the social bar overlaps the card's bottom edge: end the content
+          // above it so the last item (the resume button) is never covered
+          pb: `${BAR_OVERLAP + 12}px`,
+          pt: "6px",
+          // content slides under the tabs with a soft edge, not a hard cut
+          maskImage: "linear-gradient(transparent 0, #000 14px)",
+          WebkitMaskImage: "linear-gradient(transparent 0, #000 14px)",
+        }}>
           {activeTab === "work" ? <MobileWorkTab /> : <MobileAboutTab />}
         </Box>
       </Box>
@@ -254,7 +281,7 @@ export default function MobileWelcomeScreen({ opacity, socialIcons }) {
           border: "1px solid transparent",
           background:
             "linear-gradient(50deg, #0A0A0A 0%, #1B1B1B 100%) padding-box, linear-gradient(11deg, #00CD1F 0%, #8C8C8C 6%, #8C8C8C 95%, #00CD1F 100%) border-box",
-          padding: "10px 30px",
+          padding: { xs: "8px 18px", sm: "10px 30px" },
           mt: "-35px",       // pulls it up to overlap the card, same visual as before
           mx: "auto",        // centers it horizontally
           width: "fit-content",
@@ -290,7 +317,7 @@ export default function MobileWelcomeScreen({ opacity, socialIcons }) {
         ))}
       </Box>
       {/* chat: green edge tab, short hint and full-screen drawer */}
-      <MobileChatDrawer chips={["Best Case Study", "Why Hire Akash", "His Design Process"]} />
+      <MobileChatDrawer chips={["Best Case Study", "Why Hire Akash", "His Design Process"]} phoneTop="80px" />
     </Box>
   );
 }

@@ -115,12 +115,12 @@ export default function MobileIntro({ onDone }) {
       <Box component="button" onClick={finish} sx={{
         position: "absolute",
         top: "max(16px, env(safe-area-inset-top))", right: 16,
-        minWidth: 64, height: 36, px: "14px",
+        minWidth: 72, height: 44, px: "16px",
         borderRadius: "10px",
         border: "1px solid rgba(255,255,255,0.25)",
         background: "rgba(20,24,20,0.45)",
         backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)",
-        color: "rgba(255,255,255,0.85)", fontSize: "13px", letterSpacing: "0.5px",
+        color: "rgba(255,255,255,0.9)", fontSize: "15px", letterSpacing: "0.5px",
         cursor: "pointer",
       }}>
         Skip

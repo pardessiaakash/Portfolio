@@ -24,7 +24,10 @@ const hintSeen = () => {
   try { return sessionStorage.getItem(HINT_KEY) === "1"; } catch { return false; }
 };
 
-export default function MobileChatDrawer({ chips, requestedInput, open: openProp, onOpenChange }) {
+// phoneTop: where the edge tab sits on phones (the home screen puts it beside
+// the name, where it covers nothing); tablets keep it low at the screen edge,
+// beside the centred card.
+export default function MobileChatDrawer({ chips, requestedInput, open: openProp, onOpenChange, phoneTop = "78%" }) {
   const [openState, setOpenState] = useState(false);
   const open = openProp ?? openState;
   const setOpen = (v) => { onOpenChange ? onOpenChange(v) : setOpenState(v); };
@@ -120,9 +123,9 @@ export default function MobileChatDrawer({ chips, requestedInput, open: openProp
         {...pressable(() => setOpen(true), "Open chat with Nova")}
         aria-expanded={open}
         sx={{
-          position: "fixed", right: 0, top: "78%", transform: "translateY(-50%)",
+          position: "fixed", right: 0, top: { xs: phoneTop, sm: "78%" }, transform: "translateY(-50%)",
           height: hint ? 44 : 92,
-          width: hint ? 156 : 38,
+          width: hint ? 156 : 44,
           pl: hint ? "10px" : 0,
           boxSizing: "border-box",
           background: PRIMARY,

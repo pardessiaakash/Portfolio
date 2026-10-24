@@ -250,7 +250,9 @@ const HUD_CARD = { width: 188, height: 164, icon: 42, label: 19, idle: 0.72 };
 // at 1920×1080. (The mobile layout and the modal keep their own sizes.)
 export const HUD_TYPE = { role: 21, name: 36, tab: 16, body: 19, small: 17, label: 16, value: 21, title: 18.5, button: 16.5 };
 
-export function CategoryCard({ cat, onClick, compact, hud = false, glass = false }) {
+export function CategoryCard({ cat, onClick, compact, hud = false, glass = false, touch = false }) {
+  // touch (phones / tablets): no hover there, so the resting state is the bright one
+  const idle = hud ? HUD_CARD.idle : touch ? 0.9 : 0.5;
   const [hovered, setHovered] = useState(false);
   const safeId = cat.label.replace(/[^a-zA-Z0-9]/g, "-") + React.useId().replace(/[^a-zA-Z0-9]/g, "");
   // glass version: the hover border turns while hovered and stays put after
@@ -372,14 +374,14 @@ export function CategoryCard({ cat, onClick, compact, hud = false, glass = false
           alt=""
           sx={{
             width: hud ? HUD_CARD.icon : 40, height: hud ? HUD_CARD.icon : 40, objectFit: "contain",
-            filter: hovered ? "brightness(0) invert(1)" : `brightness(0) invert(${hud ? HUD_CARD.idle : 0.5})`,
+            filter: hovered ? "brightness(0) invert(1)" : `brightness(0) invert(${idle})`,
             transition: "filter 0.2s",
             mb: "4px",
           }}
         />
         <Typography sx={{
-          color: hovered ? "#fff" : `rgba(255,255,255,${hud ? HUD_CARD.idle : 0.5})`,
-          fontSize: hud ? `${HUD_CARD.label}px` : glass ? "17px" : "14px", fontWeight: 500,
+          color: hovered ? "#fff" : `rgba(255,255,255,${idle})`,
+          fontSize: hud ? `${HUD_CARD.label}px` : glass ? "17px" : touch ? { xs: "15px", sm: "17px" } : "14px", fontWeight: 500,
           transition: "color 0.2s",
         }}>
           {cat.label}
