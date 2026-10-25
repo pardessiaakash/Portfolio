@@ -4,7 +4,7 @@
 // so nothing here is invented. Returns null when there's no good answer.
 
 import { SC_TEXT, FA_TEXT, SC_TOPICS, FA_TOPICS } from "../caseStudyText";
-import { experiences } from "../AboutMe";
+import { experiences, yearsInDesign } from "../AboutMe";
 import { SITE } from "../siteConfig";
 
 const STUDIES = [
@@ -25,8 +25,8 @@ const caseStudies = () =>
   "Open one, and use Ask AI on any slide to learn more about it.";
 // "Why Hire Akash": only what the site itself shows
 const whyHire = () => {
-  const yrs = new Date().getFullYear() - 2012;
-  return `${yrs} years in design, from senior designer to art director (now at ${experiences[0].company}), so he owns both the UX and the visual craft.\n\n` +
+  const yrs = yearsInDesign();
+  return `${yrs} years in design, from junior graphic designer to art director (now at ${experiences[0].company}), so he owns both the UX and the visual craft.\n\n` +
     "• UX method you can check: the SwiftConnect and Chicora case studies walk through research, synthesis, IA & flows, hi-fi UI and usability testing, and say honestly what's validated and what isn't.\n" +
     "• Designing with AI: certified in UI/UX Design with Generative AI at IIIT Bangalore, and SwiftConnect is an AI-assisted product.\n" +
     "• Art direction: years of leading visual quality and teams before moving into UX.\n\n" +
