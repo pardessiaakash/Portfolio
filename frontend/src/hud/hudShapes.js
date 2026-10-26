@@ -231,10 +231,10 @@ export function HudOutline({ d, w, h, border = 0 }) {
       {/* thin inner bevel just inside the edge */}
       <path d={d} fill="none" stroke="#fff" strokeOpacity="0.06" strokeWidth="5" />
       {/* The panel's clip-path keeps only the inner half of each stroke, so
-          widths are doubled: ~2px of edge stays visible at the HUDs' size */}
-      <path d={d} fill="none" stroke={`url(#${id}-stroke)`} strokeWidth="4" />
-      <path d={d} fill="none" stroke={`url(#${id}-under)`} strokeWidth="4" />
-      <path d={d} fill="none" stroke={`url(#${id}-spec)`} strokeWidth="2.5"
+          a 2px stroke shows 1px: the same weight as the social bar's 1px ring */}
+      <path d={d} fill="none" stroke={`url(#${id}-stroke)`} strokeWidth="2" />
+      <path d={d} fill="none" stroke={`url(#${id}-under)`} strokeWidth="2" />
+      <path d={d} fill="none" stroke={`url(#${id}-spec)`} strokeWidth="2"
         transform={`translate(${0.6} ${0.8})`} />
     </svg>
   );
