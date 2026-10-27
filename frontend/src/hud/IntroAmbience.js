@@ -1,7 +1,8 @@
 // Life in the intro while the visitor isn't scrolling:
 // - the frame tilts and shifts with the cursor (a slight 3D "look around"),
 //   with a slow idle drift so it never feels frozen;
-// - wherever the visitor stops scrolling, the scene breathes (BREATH);
+// - wherever the visitor stops scrolling, the camera hovers and the lights
+//   glow and pulse (REST, HOVER, GLOW);
 // - rain keeps falling in the city part of the flight, in two depths that
 //   shift by different amounts with the cursor, which sells the depth.
 // Both ease out before the hand-off frame, so the live UI still lands
@@ -14,12 +15,17 @@ const PARALLAX_OFF = { at: 122, to: 146 };                  // ease to 0 here (b
 // the edges, and how quickly the scene follows the cursor (higher = snappier)
 const MOVE = { rotY: 1.6, rotX: 1.1, shiftX: 14, shiftY: 9, overscan: 0.06, follow: 3 };
 
-// Breathing while the visitor rests on a frame: the scene slowly swells in
-// (inhale) and settles back (exhale), with a faint rise, so a paused frame
-// feels alive. Starts after a short pause, eases in over a couple of seconds,
-// and lets go quickly once scrolling resumes. Fades out before the hand-off
-// so the live UI still lands exactly on the last frame.
-const BREATH = { period: 7000, scale: 0.016, rise: 3, restMs: 450, easeIn: 0.7, easeOut: 5, off: { at: 138, to: 147 } };
+// Life while the visitor rests on a frame (eases in after a short pause,
+// lets go quickly once scrolling resumes, fades out before the hand-off so
+// the live UI still lands exactly on the last frame):
+// - HOVER: the camera holds position like a drone in light wind: a slow,
+//   uneven drift with a hint of roll (layered sines, never repeating exactly);
+// - GLOW: the frame's own lights (neon, windows, ceiling strips) are lifted
+//   into a soft glow layer that slowly swells and settles, with the odd faint
+//   electrical flicker, so the lights feel powered.
+const REST = { ms: 450, easeIn: 0.8, easeOut: 6, off: { at: 138, to: 147 } };
+const HOVER = { x: 7, y: 5, roll: 0.22, overscan: 0.02 };       // px, px, deg, scale
+const GLOW = { w: 320, h: 180, threshold: 165, gain: 2.1, min: 0.18, max: 0.55, blur: 14 };
 
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 const rainLevel = (f) =>
@@ -27,10 +33,11 @@ const rainLevel = (f) =>
     : f < RAIN.full ? (f - RAIN.from) / (RAIN.full - RAIN.from)
       : f > RAIN.fadeAt ? 1 - (f - RAIN.fadeAt) / (RAIN.to - RAIN.fadeAt) : 1;
 const parallaxLevel = (f) => 1 - clamp01((f - PARALLAX_OFF.at) / (PARALLAX_OFF.to - PARALLAX_OFF.at));
-const breathLevel = (f) => 1 - clamp01((f - BREATH.off.at) / (BREATH.off.to - BREATH.off.at));
+const restLevel = (f) => 1 - clamp01((f - REST.off.at) / (REST.off.to - REST.off.at));
 
 export default function IntroAmbience({ canvasRef, frame, active }) {
   const rainRef = useRef(null);
+  const glowRef = useRef(null);
   const frameRef = useRef(frame);
   const activeRef = useRef(active);
   frameRef.current = frame;
@@ -40,7 +47,7 @@ export default function IntroAmbience({ canvasRef, frame, active }) {
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     const scene = canvasRef.current;
     const rain = rainRef.current;
-    if (!scene || !rain || reduce) return undefined;
+    if (!scene || !rain || !glowRef.current || reduce) return undefined;
     const ctx = rain.getContext("2d");
 
     let w = 0, h = 0;
@@ -85,8 +92,34 @@ export default function IntroAmbience({ canvasRef, frame, active }) {
     document.addEventListener("mouseleave", onLeave);
 
     let level = 0, rainA = 0, last = performance.now(), raf;
-    // breathing: how settled the visitor is (0 scrolling … 1 resting)
-    let rest = 0, lastFrame = frameRef.current, lastMove = last, phase = 0;
+    // how settled the visitor is (0 scrolling … 1 resting), and the clock
+    // that runs only while resting (so every rest starts from stillness)
+    let rest = 0, lastFrame = frameRef.current, lastMove = last, clock = 0;
+
+    // glow layer: the bright parts of the paused frame, small and blurred
+    const glow = glowRef.current;
+    const gctx = glow.getContext("2d", { willReadFrequently: true });
+    glow.width = GLOW.w; glow.height = GLOW.h;
+    let glowFrame = -1;
+    const buildGlow = () => {
+      gctx.clearRect(0, 0, GLOW.w, GLOW.h);
+      gctx.drawImage(scene, 0, 0, GLOW.w, GLOW.h);
+      let img;
+      try { img = gctx.getImageData(0, 0, GLOW.w, GLOW.h); } catch { gctx.clearRect(0, 0, GLOW.w, GLOW.h); return; }
+      const d = img.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const lum = 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+        // coloured light (neon, warm windows) glows fully; grey sky and
+        // clouds only a little
+        const mx = Math.max(d[i], d[i + 1], d[i + 2]), mn = Math.min(d[i], d[i + 1], d[i + 2]);
+        const sat = mx > 0 ? (mx - mn) / mx : 0;
+        const k = lum > GLOW.threshold
+          ? Math.min(1, ((lum - GLOW.threshold) / (255 - GLOW.threshold)) * GLOW.gain) * (0.35 + 0.65 * Math.min(1, sat * 2.5))
+          : 0;
+        d[i] *= k; d[i + 1] *= k; d[i + 2] *= k; d[i + 3] = 255;
+      }
+      gctx.putImageData(img, 0, 0);
+    };
     const tick = (t) => {
       raf = requestAnimationFrame(tick);
       const dt = Math.min(0.05, (t - last) / 1000); last = t;
@@ -103,20 +136,38 @@ export default function IntroAmbience({ canvasRef, frame, active }) {
       const ix = Math.sin(t / 3200) * 0.18, iy = Math.cos(t / 4100) * 0.12;
       const px = (cur.x + ix) * level, py = (cur.y + iy) * level;
 
-      // breath: only once the frame has stayed put for a moment
+      // rest: only once the frame has stayed put for a moment
       if (f !== lastFrame) { lastFrame = f; lastMove = t; }
-      const resting = on && t - lastMove > BREATH.restMs;
-      rest += ((resting ? 1 : 0) - rest) * Math.min(1, dt * (resting ? BREATH.easeIn : BREATH.easeOut));
-      const b = rest * (on ? breathLevel(f) : 0);
-      // the cycle only runs while resting, so every rest starts on an inhale
-      if (b > 0.001) phase += dt * 1000 / BREATH.period; else phase = 0;
-      const breath = b * (1 - Math.cos(phase * 2 * Math.PI)) / 2;   // 0 → 1 → 0, eased like a breath
+      const resting = on && t - lastMove > REST.ms;
+      rest += ((resting ? 1 : 0) - rest) * Math.min(1, dt * (resting ? REST.easeIn : REST.easeOut));
+      const r = rest * (on ? restLevel(f) : 0);
+      if (r > 0.001) clock += dt; else clock = 0;
 
-      if (level > 0.001 || breath > 0.0005) {
-        scene.style.transform =
-          `perspective(1400px) rotateY(${px * MOVE.rotY}deg) rotateX(${-py * MOVE.rotX}deg) ` +
-          `translate3d(${-px * MOVE.shiftX}px, ${-py * MOVE.shiftY - breath * BREATH.rise}px, 0) ` +
-          `scale(${1 + MOVE.overscan * level + BREATH.scale * breath})`;
+      // drone hover: layered slow sines, starting from zero at each rest
+      const c = clock;
+      const hx = (Math.sin(c / 2.9) * 0.6 + Math.sin(c / 1.7 + 1.3) * 0.25 + Math.sin(c / 5.3 + 0.4) * 0.15) * r;
+      const hy = (Math.sin(c / 3.7 + 0.8) * 0.6 + Math.sin(c / 2.1) * 0.3 + Math.sin(c / 6.1 + 2.1) * 0.1) * r;
+      const hr = (Math.sin(c / 4.3 + 0.5) * 0.7 + Math.sin(c / 2.6 + 1.9) * 0.3) * r;
+      const ramp = Math.min(1, c / 1.5);   // first moments: from still into drift
+
+      const moving = level > 0.001 || r > 0.001;
+      const transform = moving
+        ? `perspective(1400px) rotateY(${px * MOVE.rotY}deg) rotateX(${-py * MOVE.rotX}deg) ` +
+          `translate3d(${-px * MOVE.shiftX + hx * ramp * HOVER.x}px, ${-py * MOVE.shiftY + hy * ramp * HOVER.y}px, 0) ` +
+          `rotate(${hr * ramp * HOVER.roll}deg) scale(${1 + MOVE.overscan * level + HOVER.overscan * r})`
+        : "";
+
+      // living light: build the glow once per rest, then let it swell
+      if (resting && r > 0.02 && glowFrame !== f) { buildGlow(); glowFrame = f; }
+      if (!resting && r < 0.02) glowFrame = -1;
+      const swell = 0.5 - 0.5 * Math.cos(c * 2 * Math.PI / 5.5);                // slow rise and fall
+      const flick = Math.sin(c * 23) * Math.sin(c * 3.1) > 0.93 ? 0.12 : 0;    // rare faint flicker
+      const ga = glowFrame === f ? r * ramp * (GLOW.min + (GLOW.max - GLOW.min) * swell - flick) : 0;
+      glow.style.opacity = ga > 0.005 ? ga.toFixed(3) : "0";
+      glow.style.transform = transform;
+
+      if (moving) {
+        scene.style.transform = transform;
       } else if (scene.style.transform) {
         scene.style.transform = "";
       }
@@ -168,7 +219,13 @@ export default function IntroAmbience({ canvasRef, frame, active }) {
   }, [canvasRef]);
 
   return (
-    <canvas ref={rainRef} aria-hidden
-      style={{ position: "absolute", inset: 0, width: "100vw", height: "100vh", pointerEvents: "none", zIndex: 3 }} />
+    <>
+      {/* the paused frame's lights, blurred and screened over it (see GLOW) */}
+      <canvas ref={glowRef} aria-hidden
+        style={{ position: "absolute", inset: 0, width: "100vw", height: "100vh", pointerEvents: "none", zIndex: 2,
+          opacity: 0, mixBlendMode: "screen", filter: `blur(${GLOW.blur}px)`, transformOrigin: "50% 50%", willChange: "opacity, transform" }} />
+      <canvas ref={rainRef} aria-hidden
+        style={{ position: "absolute", inset: 0, width: "100vw", height: "100vh", pointerEvents: "none", zIndex: 3 }} />
+    </>
   );
 }
