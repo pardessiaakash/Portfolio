@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, lazy, Suspense } from "react";
+import React, { useEffect, useRef, useState, useCallback, lazy, Suspense } from "react";
 import { Box, Typography, useMediaQuery } from "@mui/material";
 import { AboutMeContent } from "./AboutMe";
 import ChatbotPanel from "./ChatbotPanel";
@@ -20,6 +20,7 @@ import SoundToggle from "./hud/SoundToggle";
 import { setPageMeta } from "./pageMeta";
 import { COMPACT_QUERY } from "./breakpoints";
 import { lab, setLabDepth, useLabLeaving, useLabArrival, LEAVE_MS } from "./hud/labRoom";
+import { INTRO_HUD, introPose } from "./hud/introHudTrack";
 
 // the 3D "window" room behind the HUDs (three.js), loaded only once needed
 const LabWindow = lazy(() => import("./hud/LabWindow"));
@@ -334,7 +335,13 @@ function SkipButton({ onClick }) {
 }
 
 /* ── Welcome split screen ── */
-function WelcomeScreen({ opacity }) {
+// The footage has no HUD: the live HUD arrives with the camera. From frame
+// INTRO_HUD.first it is shown in "intro" mode (not interactive), placed and
+// faded per drawn frame by VideoFlow (CSS variables + inline opacity, see
+// applyIntroPose), so it comes through the door small and grows toward the
+// viewer; at the last HUD frame it is exactly in its final place and simply
+// becomes the interactive HUD (no swap, no fade).
+const WelcomeScreen = React.memo(function WelcomeScreen({ opacity, intro = false, introRef }) {
   // through the room to a category page: the HUDs fly past the viewer;
   // back from one: they settle into place as the eye pulls back
   const leaving = useLabLeaving();
@@ -349,13 +356,22 @@ function WelcomeScreen({ opacity }) {
   // came up opaque on the first visit.
   const [shown, setShown] = useState(opacity > 0);
   const [fadingOut, setFadingOut] = useState(false);
+  // arriving from the intro: it's already on screen, so no fade-in
+  const introWasRef = useRef(intro);
+  const prevIntro = introWasRef.current;      // as of the previous render
+  const [skipIn, setSkipIn] = useState(false);
   useEffect(() => {
-    if (opacity > 0) { setShown(true); setFadingOut(false); return undefined; }
+    if (opacity > 0) { setSkipIn(prevIntro); setShown(true); setFadingOut(false); return undefined; }
     setArrived(false);
+    // scrolling back into the flight: the intro takes over straight away
+    if (intro) { setShown(false); setFadingOut(false); return undefined; }
     setFadingOut(true);
     const t = setTimeout(() => { setShown(false); setFadingOut(false); }, UI_FADE_MS);
     return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opacity]);
+  introWasRef.current = intro && opacity === 0;
+  const introMode = !shown && intro;
   const { widthPercent, isDragging, handleMouseDown, containerRef } = useResizableChatbot(
     HUD.chatPercent, "home_chatbot_width_percentage_v3", HUD.chatPercent, 50, [HUD.chatPercent, 50]
   );
@@ -378,19 +394,21 @@ function WelcomeScreen({ opacity }) {
       <MobileWelcomeScreen opacity={opacity} socialIcons={socialIcons} />
     );
   }
-  if (!shown) return null;
+  if (!shown && !introMode) return null;
 
   return (
-    <Box sx={{
+    <Box ref={introRef} sx={{
       position: "absolute", inset: 0, zIndex: 5,
       // clip (not hidden): a clipped box can't be scrolled, so nothing can
       // shift the cover-scaled stage that overflows it on wide windows
       overflow: "clip",
       transformOrigin: "50% 48%",
-      pointerEvents: leaving || fadingOut ? "none" : "auto",
+      pointerEvents: leaving || fadingOut || introMode ? "none" : "auto",
+      // intro: invisible until the first pose is applied (inline opacity wins)
+      ...(introMode ? { opacity: 0 } : {}),
       // fade in/out over the held HUD frame; fly past on the way to a
       // category; settle into place coming back from one
-      animation: leaving
+      animation: introMode || (skipIn && !leaving && !fadingOut) ? "none" : leaving
         ? `welcomeFlyOut ${LEAVE_MS}ms cubic-bezier(0.55, 0, 0.8, 0.3) forwards`
         : fadingOut
           ? `welcomeOut ${UI_FADE_MS}ms ease-in forwards`
@@ -411,7 +429,9 @@ function WelcomeScreen({ opacity }) {
         position: "absolute", left: "50%", top: "50%",
         width: STAGE_W, height: STAGE_H,
         // cover-scale, then the HUD's place in the room (see HUD_SCALE)
-        transform: `translate(-50%, -50%) scale(${scale}) translate(${HUD_SCALE.cx - STAGE_W / 2}px, ${HUD_SCALE.cy - STAGE_H / 2}px) scale(${HUD_SCALE.k}) translate(${STAGE_W / 2 - HUD_SCALE.cx}px, ${STAGE_H / 2 - HUD_SCALE.cy}px)`,
+        // cover-scale, then the intro pose (CSS variables, identity once settled),
+        // then the HUD's place in the room
+        transform: `translate(-50%, -50%) scale(${scale}) translate(var(--hud-tx, 0px), var(--hud-ty, 0px)) scale(var(--hud-s, 1)) translate(${HUD_SCALE.cx - STAGE_W / 2}px, ${HUD_SCALE.cy - STAGE_H / 2}px) scale(${HUD_SCALE.k}) translate(${STAGE_W / 2 - HUD_SCALE.cx}px, ${STAGE_H / 2 - HUD_SCALE.cy}px)`,
         transformOrigin: "center",
       }}>
       {/* Root row: [social pill] [left panel col-9] [right panel col-3] */}
@@ -502,7 +522,7 @@ function WelcomeScreen({ opacity }) {
             <AnimatedTooltip
               text={"Ask Nova\nanything about\nmy work"}
               curve="down-right"
-              visible={showAvatarHint}
+              visible={showAvatarHint && !introMode}
               onDismiss={() => setShowAvatarHint(false)}
             />
           </Box>
@@ -514,7 +534,7 @@ function WelcomeScreen({ opacity }) {
           <AnimatedTooltip
             text={"Ask Nova\nanything about\nmy work"}
             curve="up-right"
-            visible={showInputHint}
+            visible={showInputHint && !introMode}
             onDismiss={() => setShowInputHint(false)}
           />
         </Box>
@@ -523,7 +543,7 @@ function WelcomeScreen({ opacity }) {
       </Box>
     </Box>
   );
-}
+});
 
 export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpenChatbot, introComplete }) {
   useEffect(() => {
@@ -705,6 +725,29 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
   // direction ref: +1 forward, -1 backward
   const dirRef = useRef(1);
 
+  // ── The live HUD's pose during the intro ─────────────────────────────────
+  // Follows the frame that is actually on the canvas, plus the cursor
+  // parallax applied to the canvas, so HUD, footage and floor shadow (baked
+  // into the frames) move as one.
+  const introRef = useRef(null);
+  const shownFrameRef = useRef(-1);
+  const applyIntroPose = useCallback(() => {
+    const el = introRef.current;
+    if (!el) return;
+    const pose = uiShownRef.current ? null : introPose(shownFrameRef.current);
+    if (pose) {
+      el.style.setProperty("--hud-s", pose.s);
+      el.style.setProperty("--hud-tx", `${pose.tx}px`);
+      el.style.setProperty("--hud-ty", `${pose.ty}px`);
+      el.style.opacity = pose.a;
+      el.style.transformOrigin = "50% 50%";
+      el.style.transform = canvasRef.current?.style.transform || "";
+    } else if (el.style.getPropertyValue("--hud-s")) {
+      el.style.removeProperty("--hud-s"); el.style.removeProperty("--hud-tx"); el.style.removeProperty("--hud-ty");
+      el.style.opacity = ""; el.style.transform = ""; el.style.transformOrigin = "";
+    }
+  }, []);
+
   // ── Draw frame ───────────────────────────────────────────────────────────
   const drawFrame = useCallback((index) => {
     const canvas = canvasRef.current;
@@ -716,11 +759,12 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
 
     // if exact frame not ready, search in the direction we came FROM
     // (i.e. frames we already passed — guaranteed to be loaded)
+    let shown = index;
     if (!img || !img.complete || img.naturalWidth === 0) {
       const fallbackDir = -dirRef.current; // opposite of travel = already seen
       for (let d = 1; d <= 30; d++) {
         const f = cache[index + fallbackDir * d];
-        if (f && f.complete && f.naturalWidth > 0) { img = f; break; }
+        if (f && f.complete && f.naturalWidth > 0) { img = f; shown = index + fallbackDir * d; break; }
       }
     }
     if (!img || !img.complete || img.naturalWidth === 0) return;
@@ -732,6 +776,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     ctx.globalAlpha = 1;
     ctx.drawImage(img, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
     lastDrawnRef.current = index;
+    shownFrameRef.current = shown;
     // A stand-in frame was drawn; keep redrawing until the real one is in.
     // Without this the canvas could stay on an earlier frame (one that still
     // has the HUD baked in) underneath the live UI.
@@ -741,6 +786,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
   // ── RAF loop ──────────────────────────────────────────────────────────────
   const loop = useCallback(() => {
     animIdRef.current = requestAnimationFrame(loop);
+    applyIntroPose();
 
     // While the UI cross-fades, hold the canvas on the last HUD frame and
     // pause playback; scrolling resumes from there once the fade is done.
@@ -854,7 +900,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
         reversingRef.current = false;
       }
     }
-  }, [drawFrame, loadAround, preloadBackward, requestFrame, onComplete, onFrameChange]);
+  }, [drawFrame, loadAround, preloadBackward, requestFrame, onComplete, onFrameChange, applyIntroPose]);
 
   // ── Init ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -1072,7 +1118,8 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
         )}
 
         {/* Welcome split screen — fades in with animation */}
-        <WelcomeScreen opacity={welcomeOpacity} />
+        <WelcomeScreen opacity={welcomeOpacity} introRef={introRef}
+          intro={!isMobile && !skipDive && currentFrame >= INTRO_HUD.first && currentFrame <= LAST_HUD_FRAME && welcomeOpacity === 0} />
         {/* a few specks of the room's dust in front of the HUDs, so they float
             inside it (above the HUDs, below the sound toggle) */}
         {labMounted && !isMobile && (
