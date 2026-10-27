@@ -524,7 +524,7 @@ const WelcomeScreen = React.memo(function WelcomeScreen({ opacity, intro = false
               position once it's rendered (it visually floats above this panel). */}
           <Box sx={{ position: "absolute", top: "-28%", right: "65%", zIndex: 50 }}>
             <AnimatedTooltip
-              text={"Ask anything\nabout me\nclicking here"}
+              text={"Meet Nova,\nmy AI assistant"}
               curve="down-right"
               visible={showAvatarHint && !introMode}
               onDismiss={() => setShowAvatarHint(false)}
@@ -536,7 +536,7 @@ const WelcomeScreen = React.memo(function WelcomeScreen({ opacity, intro = false
             of the left panel like in the reference screenshot. */}
         <Box sx={{ position: "absolute", left: "2%", bottom: -138, zIndex: 50 }}>
           <AnimatedTooltip
-            text={"Ask anything\nabout me\nclicking here"}
+            text={"Type a question\nfor Nova in the\nchat box"}
             curve="up-right"
             visible={showInputHint && !introMode}
             onDismiss={() => setShowInputHint(false)}
