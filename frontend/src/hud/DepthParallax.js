@@ -3,12 +3,11 @@
 // depth with the cursor (clouds over the city, towers against the sky, ships
 // on their own axis, the pod against the street).
 //
-// Per frame, three small files made offline (see scratchpad depth/tools):
-//   m_XXX.webp  R = mid+near alpha, G = near alpha: each object plus a thin
-//               ring around it, edge-hugging (crisp or soft like the picture)
-//   z_XXX.webp  RGB = each layer's own smooth depth, extended past its edges
-//   p_XXX.webp  clean plates (top: without mid+near, bottom: without near),
-//               filled around each cut, for the strip a moving layer uncovers
+// Per frame, one atlas made offline (d_XXX.webp, 960x1890; see scratchpad depth/tools):
+//   alpha of mid+near and of near (each object plus a thin ring, crisp or soft
+//   like the picture's own edges), each layer's own smooth depth (extended past
+//   its edges), and two clean plates (frame without mid+near / without near,
+//   filled from the background only) for the strip a moving layer uncovers.
 // Each layer is warped by its own smooth depth (no stretching inside a layer;
 // small objects are rigid), then composited back to front. A front layer's
 // colour at a soft edge is un-mixed from what lies under it, so with no
@@ -29,20 +28,23 @@ const VS = `attribute vec2 p; varying vec2 v;
 void main(){ v = p * 0.5 + 0.5; v.y = 1.0 - v.y; gl_Position = vec4(p, 0.0, 1.0); }`;
 const FS = `precision highp float;
 varying vec2 v;
-uniform sampler2D uImg, uMask, uZ, uPlate;
+uniform sampler2D uImg, uAtlas;
 uniform vec2 uCover, uOff;
+// a tile of the 960x1890 atlas (clamped half a texel in, so tiles never bleed)
+vec4 tile(vec2 p, float x0, float y0, float w, float h) {
+  vec2 e = vec2(0.5 / w, 0.5 / h);
+  p = clamp(p, e, 1.0 - e);
+  return texture2D(uAtlas, vec2((x0 + p.x * w) / 960.0, (y0 + p.y * h) / 1890.0));
+}
+float depth(vec2 p, int k) {
+  if (k == 0) return tile(p, 0.0, 1080.0, 480.0, 270.0).r;
+  if (k == 1) return tile(p, 480.0, 1080.0, 480.0, 270.0).r;
+  return tile(p, 0.0, 1350.0, 480.0, 270.0).r;
+}
 vec2 warp(vec2 uv, int k) {
   vec2 p = uv;
-  for (int i = 0; i < 4; i++) {
-    vec3 z = texture2D(uZ, p).rgb;
-    float d = k == 0 ? z.r : (k == 1 ? z.g : z.b);
-    p = uv + uOff * (d - ${FOCUS.toFixed(3)});
-  }
+  for (int i = 0; i < 4; i++) p = uv + uOff * (depth(p, k) - ${FOCUS.toFixed(3)});
   return p;
-}
-vec3 plate(vec2 p, float half_) {
-  p = clamp(p, vec2(0.0, 0.002), vec2(1.0, 0.998));        // stay inside this half
-  return texture2D(uPlate, vec2(p.x, p.y * 0.5 + half_)).rgb;
 }
 vec3 unmix(vec3 img, vec3 under, float a) {
   return clamp((img - under * (1.0 - a)) / max(a, 0.02), 0.0, 1.0);
@@ -50,9 +52,10 @@ vec3 unmix(vec3 img, vec3 under, float a) {
 // the three layers' colours at a point (in that point's own frame coords)
 void layers(vec2 p, out vec3 L0, out vec3 L1, out vec3 L2, out vec2 a) {
   vec3 img = texture2D(uImg, p).rgb;
-  a = texture2D(uMask, p).rg;
-  L0 = mix(img, plate(p, 0.0), a.r);                       // far: clean wherever something is in front
-  L1 = mix(unmix(img, L0, a.r), plate(p, 0.5), a.g);       // mid: own colour, clean where near is in front
+  a = vec2(tile(p, 0.0, 0.0, 960.0, 540.0).r, tile(p, 0.0, 540.0, 960.0, 540.0).r);
+  vec3 plate0 = tile(p, 0.0, 1620.0, 480.0, 270.0).rgb, plate1 = tile(p, 480.0, 1620.0, 480.0, 270.0).rgb;
+  L0 = mix(img, plate0, a.r);                              // far: clean wherever something is in front
+  L1 = mix(unmix(img, L0, a.r), plate1, a.g);              // mid: own colour, clean where near is in front
   L2 = unmix(img, mix(L0, L1, a.r), a.g);                  // near: own colour
 }
 void main(){
@@ -97,13 +100,13 @@ const DepthParallax = forwardRef(function DepthParallax({ sourceRef }, ref) {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       gl.uniform1i(U(name), unit); return t;
     };
-    const T = [tex(0, "uImg"), tex(1, "uMask"), tex(2, "uZ"), tex(3, "uPlate")];
+    const T = [tex(0, "uImg"), tex(1, "uAtlas")];
     const upload = (unit, im) => { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, T[unit]); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, im); };
 
-    const cache = new Map();          // frame -> Promise<[mask, z, plate]>
+    const cache = new Map();          // frame -> Promise<atlas image>
     const layers = (i) => {
       if (!cache.has(i)) {
-        const p = Promise.all([loadImg(`${DIR}/m_${pad(i)}.webp`), loadImg(`${DIR}/z_${pad(i)}.webp`), loadImg(`${DIR}/p_${pad(i)}.webp`)]);
+        const p = loadImg(`${DIR}/d_${pad(i)}.webp`);
         p.catch(() => cache.delete(i));
         cache.set(i, p);
         if (cache.size > 24) cache.delete(cache.keys().next().value);
@@ -137,9 +140,9 @@ const DepthParallax = forwardRef(function DepthParallax({ sourceRef }, ref) {
         want = i; img = image; show(false);
         if (i < 0 || i > LAST || !image) return;
         const target = i;
-        layers(i).then(([m, z, p]) => {
+        layers(i).then((atlas) => {
           if (!alive || want !== target) return;
-          upload(0, image); upload(1, m); upload(2, z); upload(3, p);
+          upload(0, image); upload(1, atlas);
           ready = target; dirty = true; draw(); show(true);
         }, () => {});
       },
