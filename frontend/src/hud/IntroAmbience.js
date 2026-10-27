@@ -2,7 +2,8 @@
 // - the frame tilts and shifts with the cursor (a slight 3D "look around"),
 //   with a slow idle drift so it never feels frozen;
 // - wherever the visitor stops scrolling, the camera hovers and the lights
-//   glow and pulse (REST, HOVER, GLOW);
+//   glow and pulse (REST, HOVER, GLOW), and the frame splits into depth
+//   layers that move apart with the cursor (DepthParallax);
 // - rain keeps falling in the city part of the flight, in two depths that
 //   shift by different amounts with the cursor, which sells the depth.
 // Both ease out before the hand-off frame, so the live UI still lands
@@ -35,7 +36,7 @@ const rainLevel = (f) =>
 const parallaxLevel = (f) => 1 - clamp01((f - PARALLAX_OFF.at) / (PARALLAX_OFF.to - PARALLAX_OFF.at));
 const restLevel = (f) => 1 - clamp01((f - REST.off.at) / (REST.off.to - REST.off.at));
 
-export default function IntroAmbience({ canvasRef, frame, active }) {
+export default function IntroAmbience({ canvasRef, depthRef, frame, active }) {
   const rainRef = useRef(null);
   const glowRef = useRef(null);
   const frameRef = useRef(frame);
@@ -166,6 +167,15 @@ export default function IntroAmbience({ canvasRef, frame, active }) {
       glow.style.opacity = ga > 0.005 ? ga.toFixed(3) : "0";
       glow.style.transform = transform;
 
+      // depth layers: same transform as the frame, plus the cursor (and the
+      // hover drift) moving near and far layers apart while the visitor rests
+      const depth = depthRef?.current;
+      if (depth) {
+        if (depth.canvas) depth.canvas.style.transform = transform;
+        if (resting && glowFrame !== f) depth.prefetch(f);
+        depth.setOffset(px + hx * ramp * 0.35, py + hy * ramp * 0.35, r);
+      }
+
       if (moving) {
         scene.style.transform = transform;
       } else if (scene.style.transform) {
@@ -216,7 +226,7 @@ export default function IntroAmbience({ canvasRef, frame, active }) {
       document.removeEventListener("mouseleave", onLeave);
       scene.style.transform = "";
     };
-  }, [canvasRef]);
+  }, [canvasRef, depthRef]);
 
   return (
     <>
