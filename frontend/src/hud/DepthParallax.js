@@ -21,8 +21,8 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 
 const DIR = "/assets/images/Sequence-v3/depth";
 const LAST = 118;              // depth exists up to here (inside the lab the HUD arrives; flat there)
-const AMP = 0.035;             // uv shift per unit depth at full cursor travel (clearly 3D, edges still clean)
-const FOCUS = 0.45;            // depth that stays put
+const AMP = 0.045;             // uv shift per unit depth at full cursor travel (clearly 3D, edges still clean)
+const FOCUS = 0.3;             // depth that stays put (the far city and sky barely move; near things move a lot)
 
 const VS = `attribute vec2 p; varying vec2 v;
 void main(){ v = p * 0.5 + 0.5; v.y = 1.0 - v.y; gl_Position = vec4(p, 0.0, 1.0); }`;
