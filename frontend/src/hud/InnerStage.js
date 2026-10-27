@@ -242,6 +242,8 @@ export default function InnerStage({
         transform: `translate(-50%, -50%) scale(${s})`,
         transformOrigin: "50% 50%",
         fontFamily: FONT_STACK,
+        // one screen pixel in stage units (crisp 1px HUD outlines at any size)
+        "--hud-px": 1 / s,
       }}>
       <Box sx={{
         position: "absolute", inset: 0,
@@ -293,8 +295,8 @@ export default function InnerStage({
               onClick={() => onSelectTab(i)}
               onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelectTab(i); } }}>
               <title>{tabs[i]}</title>
-              <path d={tabShape} fill="rgba(22,24,23,0.86)" stroke="#5E5E5E" strokeWidth="1"
-                filter="url(#inner-tab-sh)" />
+              <path d={tabShape} fill="rgba(22,24,23,0.86)" stroke="#5E5E5E"
+                style={{ strokeWidth: "calc(1px * var(--hud-px, 1))" }} filter="url(#inner-tab-sh)" />
               <text x={TAB.w / 2} y={TAB.h / 2 + 1} textAnchor="middle" dominantBaseline="central"
                 fontFamily={FONT_STACK} fontSize="16" fontWeight="300" fill="#fff"
                 style={{ userSelect: "none" }}>{tabs[i]}</text>
