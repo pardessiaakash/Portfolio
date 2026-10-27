@@ -8,7 +8,6 @@ import CustomTooltip from "./CustomTooltip";
 import MobileWelcomeScreen from "./MobileWelcomeScreen";
 import MobileIntro from "./hud/MobileIntro";
 import IntroAmbience from "./hud/IntroAmbience";
-import DepthParallax from "./hud/DepthParallax";
 import IntroLoader from "./hud/IntroLoader";
 import GlassButton from "./hud/GlassButton";
 import AnimatedTooltip from "./AnimatedTooltip";
@@ -738,7 +737,6 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
   // into the frames) move as one.
   const introRef = useRef(null);
   const shownFrameRef = useRef(-1);
-  const depthRef = useRef(null);   // layered depth parallax over the frame canvas
   const applyIntroPose = useCallback(() => {
     const el = introRef.current;
     if (!el) return;
@@ -785,8 +783,6 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     ctx.drawImage(img, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
     lastDrawnRef.current = index;
     shownFrameRef.current = shown;
-    // the depth layers follow whatever frame is actually on screen
-    depthRef.current?.setFrame(shown, img);
     // A stand-in frame was drawn; keep redrawing until the real one is in.
     // Without this the canvas could stay on an earlier frame (one that still
     // has the HUD baked in) underneath the live UI.
@@ -1097,9 +1093,6 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
             willChange: "transform", transformOrigin: "50% 50%" }}
         />
 
-        {/* resting on a frame: it splits into depth layers that move with the cursor */}
-        {!isMobile && <DepthParallax ref={depthRef} sourceRef={canvasRef} />}
-
         {/* end of the sequence: the room becomes 3D behind the still HUDs */}
         {labMounted && (
           <Suspense fallback={null}>
@@ -1110,7 +1103,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
 
         {/* cursor parallax + falling rain while the visitor pauses mid-flight */}
         {!isMobile && (
-          <IntroAmbience canvasRef={canvasRef} depthRef={depthRef} frame={currentFrame} active={welcomeOpacity === 0 && !skipDive} />
+          <IntroAmbience canvasRef={canvasRef} frame={currentFrame} active={welcomeOpacity === 0 && !skipDive} />
         )}
 
         {/* Room dimmer: once the main UI is up, darken the room (most at the
