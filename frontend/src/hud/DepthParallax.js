@@ -109,7 +109,7 @@ const DepthParallax = forwardRef(function DepthParallax({ sourceRef }, ref) {
         const p = loadImg(`${DIR}/d_${pad(i)}.webp`);
         p.catch(() => cache.delete(i));
         cache.set(i, p);
-        if (cache.size > 24) cache.delete(cache.keys().next().value);
+        if (cache.size > 140) cache.delete(cache.keys().next().value);
       }
       return cache.get(i);
     };
@@ -153,16 +153,25 @@ const DepthParallax = forwardRef(function DepthParallax({ sourceRef }, ref) {
         off = [nx, ny]; draw();
       },
       /** Warm the cache for frames around i (call when the visitor rests). */
+      /** Load every frame's layers in the background (two at a time). */
+      preloadAll() {
+        let next = 0;
+        const pump = () => { if (!alive || next > LAST) return; const i = next++; layers(i).then(pump, pump); };
+        pump(); pump();
+      },
       prefetch(i) { for (const j of [i, i - 1, i + 1, i - 2, i + 2]) if (j >= 0 && j <= LAST) layers(j); },
       get active() { return state.shown; },
     };
-    return () => { alive = false; api.current = null; };
+    // every frame's layers, in the background once the intro frames are under way
+    const pre = setTimeout(() => api.current?.preloadAll(), 2500);
+    return () => { alive = false; clearTimeout(pre); api.current = null; };
   }, [sourceRef]);
 
   useImperativeHandle(ref, () => ({
     setFrame: (...a) => api.current?.setFrame(...a),
     setOffset: (...a) => api.current?.setOffset(...a),
     prefetch: (...a) => api.current?.prefetch(...a),
+    preloadAll: () => api.current?.preloadAll(),
     get canvas() { return canvasRef.current; },
     get active() { return !!api.current?.active; },
   }), []);
