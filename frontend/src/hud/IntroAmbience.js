@@ -2,8 +2,7 @@
 // - the frame tilts and shifts with the cursor (a slight 3D "look around"),
 //   with a slow idle drift so it never feels frozen;
 // - wherever the visitor stops scrolling, the camera hovers and the lights
-//   glow and pulse (REST, HOVER, GLOW), and the frame splits into depth
-//   layers that move apart with the cursor (DepthParallax);
+//   glow and pulse (REST, HOVER, GLOW);
 // - rain keeps falling in the city part of the flight, in two depths that
 //   shift by different amounts with the cursor, which sells the depth.
 // Both ease out before the hand-off frame, so the live UI still lands
@@ -24,7 +23,7 @@ const MOVE = { rotY: 1.6, rotX: 1.1, shiftX: 14, shiftY: 9, overscan: 0.06, foll
 // - GLOW: the frame's own lights (neon, windows, ceiling strips) are lifted
 //   into a soft glow layer that slowly swells and settles, with the odd faint
 //   electrical flicker, so the lights feel powered.
-const REST = { ms: 220, easeIn: 3, easeOut: 6, off: { at: 138, to: 147 } };
+const REST = { ms: 450, easeIn: 0.8, easeOut: 6, off: { at: 138, to: 147 } };
 const HOVER = { x: 7, y: 5, roll: 0.22, overscan: 0.02 };       // px, px, deg, scale
 const GLOW = { w: 320, h: 180, threshold: 165, gain: 2.1, min: 0.18, max: 0.55, blur: 14 };
 
@@ -34,12 +33,9 @@ const rainLevel = (f) =>
     : f < RAIN.full ? (f - RAIN.from) / (RAIN.full - RAIN.from)
       : f > RAIN.fadeAt ? 1 - (f - RAIN.fadeAt) / (RAIN.to - RAIN.fadeAt) : 1;
 const parallaxLevel = (f) => 1 - clamp01((f - PARALLAX_OFF.at) / (PARALLAX_OFF.to - PARALLAX_OFF.at));
-// depth layers exist up to the pod (frame 118) and hand back to the tilt before
-const depthLevel = (f) => 1 - clamp01((f - 102) / 14);
-const DEPTH_OVERSCAN = 0.05;
 const restLevel = (f) => 1 - clamp01((f - REST.off.at) / (REST.off.to - REST.off.at));
 
-export default function IntroAmbience({ canvasRef, depthRef, frame, active }) {
+export default function IntroAmbience({ canvasRef, frame, active }) {
   const rainRef = useRef(null);
   const glowRef = useRef(null);
   const frameRef = useRef(frame);
@@ -87,20 +83,15 @@ export default function IntroAmbience({ canvasRef, depthRef, frame, active }) {
 
     // cursor, normalised to -1..1 from the centre, smoothed
     const target = { x: 0, y: 0 }, cur = { x: 0, y: 0 };
-    let lastPointer = -1e9;
     const onMove = (e) => {
       target.x = (e.clientX / window.innerWidth) * 2 - 1;
       target.y = (e.clientY / window.innerHeight) * 2 - 1;
-      lastPointer = performance.now();
     };
     const onLeave = () => { target.x = 0; target.y = 0; };
     window.addEventListener("mousemove", onMove);
     document.addEventListener("mouseleave", onLeave);
 
     let level = 0, rainA = 0, last = performance.now(), raf;
-    // depth layers: how much they carry the motion (0 = flat tilt, 1 = depth),
-    // and the cursor they follow (drifts on its own when the cursor is still)
-    let dOn = 0; const dc = { x: 0, y: 0 };
     // how settled the visitor is (0 scrolling … 1 resting), and the clock
     // that runs only while resting (so every rest starts from stillness)
     let rest = 0, lastFrame = frameRef.current, lastMove = last, clock = 0;
@@ -159,23 +150,11 @@ export default function IntroAmbience({ canvasRef, depthRef, frame, active }) {
       const hr = (Math.sin(c / 4.3 + 0.5) * 0.7 + Math.sin(c / 2.6 + 1.9) * 0.3) * r;
       const ramp = Math.min(1, c / 1.5);   // first moments: from still into drift
 
-      // depth: up to the pod the frame is split into depth layers that follow
-      // the cursor (and drift by themselves when it is still), and they carry
-      // ALL the cursor motion there; the flat whole-scene tilt only remains
-      // where there is no depth (inside the lab) or while it is loading
-      const depth = depthRef?.current;
-      const dl = on ? depthLevel(f) : 0;
-      dOn += ((depth && depth.active ? 1 : 0) * dl - dOn) * Math.min(1, dt * 4);
-      const idle = t - lastPointer > 2500;
-      const dtx = idle ? Math.sin(t / 2600) * 0.7 : target.x, dty = idle ? Math.cos(t / 3400) * 0.45 : target.y;
-      dc.x += (dtx - dc.x) * Math.min(1, dt * 3); dc.y += (dty - dc.y) * Math.min(1, dt * 3);
-      const g = 1 - dOn;
-
-      const moving = level > 0.001 || r > 0.001 || dOn > 0.001;
+      const moving = level > 0.001 || r > 0.001;
       const transform = moving
-        ? `perspective(1400px) rotateY(${px * g * MOVE.rotY}deg) rotateX(${-py * g * MOVE.rotX}deg) ` +
-          `translate3d(${-px * g * MOVE.shiftX + hx * ramp * HOVER.x}px, ${-py * g * MOVE.shiftY + hy * ramp * HOVER.y}px, 0) ` +
-          `rotate(${hr * ramp * HOVER.roll}deg) scale(${1 + Math.max(MOVE.overscan * level, DEPTH_OVERSCAN * dOn) + HOVER.overscan * r})`
+        ? `perspective(1400px) rotateY(${px * MOVE.rotY}deg) rotateX(${-py * MOVE.rotX}deg) ` +
+          `translate3d(${-px * MOVE.shiftX + hx * ramp * HOVER.x}px, ${-py * MOVE.shiftY + hy * ramp * HOVER.y}px, 0) ` +
+          `rotate(${hr * ramp * HOVER.roll}deg) scale(${1 + MOVE.overscan * level + HOVER.overscan * r})`
         : "";
 
       // living light: build the glow once per rest, then let it swell
@@ -186,11 +165,6 @@ export default function IntroAmbience({ canvasRef, depthRef, frame, active }) {
       const ga = glowFrame === f ? r * ramp * (GLOW.min + (GLOW.max - GLOW.min) * swell - flick) : 0;
       glow.style.opacity = ga > 0.005 ? ga.toFixed(3) : "0";
       glow.style.transform = transform;
-
-      if (depth) {
-        if (depth.canvas) depth.canvas.style.transform = transform;
-        depth.setOffset(dc.x + hx * ramp * 0.35, dc.y + hy * ramp * 0.35, dl * Math.max(dOn, depth.active ? 0.001 : 0));
-      }
 
       if (moving) {
         scene.style.transform = transform;
@@ -242,7 +216,7 @@ export default function IntroAmbience({ canvasRef, depthRef, frame, active }) {
       document.removeEventListener("mouseleave", onLeave);
       scene.style.transform = "";
     };
-  }, [canvasRef, depthRef]);
+  }, [canvasRef]);
 
   return (
     <>
