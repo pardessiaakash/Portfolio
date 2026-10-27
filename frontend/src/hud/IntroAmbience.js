@@ -1,6 +1,7 @@
 // Life in the intro while the visitor isn't scrolling:
 // - the frame tilts and shifts with the cursor (a slight 3D "look around"),
 //   with a slow idle drift so it never feels frozen;
+// - wherever the visitor stops scrolling, the scene breathes (BREATH);
 // - rain keeps falling in the city part of the flight, in two depths that
 //   shift by different amounts with the cursor, which sells the depth.
 // Both ease out before the hand-off frame, so the live UI still lands
@@ -13,12 +14,20 @@ const PARALLAX_OFF = { at: 122, to: 146 };                  // ease to 0 here (b
 // the edges, and how quickly the scene follows the cursor (higher = snappier)
 const MOVE = { rotY: 1.6, rotX: 1.1, shiftX: 14, shiftY: 9, overscan: 0.06, follow: 3 };
 
+// Breathing while the visitor rests on a frame: the scene slowly swells in
+// (inhale) and settles back (exhale), with a faint rise, so a paused frame
+// feels alive. Starts after a short pause, eases in over a couple of seconds,
+// and lets go quickly once scrolling resumes. Fades out before the hand-off
+// so the live UI still lands exactly on the last frame.
+const BREATH = { period: 7000, scale: 0.016, rise: 3, restMs: 450, easeIn: 0.7, easeOut: 5, off: { at: 138, to: 147 } };
+
 const clamp01 = (v) => Math.max(0, Math.min(1, v));
 const rainLevel = (f) =>
   f < RAIN.from || f > RAIN.to ? 0
     : f < RAIN.full ? (f - RAIN.from) / (RAIN.full - RAIN.from)
       : f > RAIN.fadeAt ? 1 - (f - RAIN.fadeAt) / (RAIN.to - RAIN.fadeAt) : 1;
 const parallaxLevel = (f) => 1 - clamp01((f - PARALLAX_OFF.at) / (PARALLAX_OFF.to - PARALLAX_OFF.at));
+const breathLevel = (f) => 1 - clamp01((f - BREATH.off.at) / (BREATH.off.to - BREATH.off.at));
 
 export default function IntroAmbience({ canvasRef, frame, active }) {
   const rainRef = useRef(null);
@@ -76,6 +85,8 @@ export default function IntroAmbience({ canvasRef, frame, active }) {
     document.addEventListener("mouseleave", onLeave);
 
     let level = 0, rainA = 0, last = performance.now(), raf;
+    // breathing: how settled the visitor is (0 scrolling … 1 resting)
+    let rest = 0, lastFrame = frameRef.current, lastMove = last, phase = 0;
     const tick = (t) => {
       raf = requestAnimationFrame(tick);
       const dt = Math.min(0.05, (t - last) / 1000); last = t;
@@ -92,10 +103,20 @@ export default function IntroAmbience({ canvasRef, frame, active }) {
       const ix = Math.sin(t / 3200) * 0.18, iy = Math.cos(t / 4100) * 0.12;
       const px = (cur.x + ix) * level, py = (cur.y + iy) * level;
 
-      if (level > 0.001) {
+      // breath: only once the frame has stayed put for a moment
+      if (f !== lastFrame) { lastFrame = f; lastMove = t; }
+      const resting = on && t - lastMove > BREATH.restMs;
+      rest += ((resting ? 1 : 0) - rest) * Math.min(1, dt * (resting ? BREATH.easeIn : BREATH.easeOut));
+      const b = rest * (on ? breathLevel(f) : 0);
+      // the cycle only runs while resting, so every rest starts on an inhale
+      if (b > 0.001) phase += dt * 1000 / BREATH.period; else phase = 0;
+      const breath = b * (1 - Math.cos(phase * 2 * Math.PI)) / 2;   // 0 → 1 → 0, eased like a breath
+
+      if (level > 0.001 || breath > 0.0005) {
         scene.style.transform =
           `perspective(1400px) rotateY(${px * MOVE.rotY}deg) rotateX(${-py * MOVE.rotX}deg) ` +
-          `translate3d(${-px * MOVE.shiftX}px, ${-py * MOVE.shiftY}px, 0) scale(${1 + MOVE.overscan * level})`;
+          `translate3d(${-px * MOVE.shiftX}px, ${-py * MOVE.shiftY - breath * BREATH.rise}px, 0) ` +
+          `scale(${1 + MOVE.overscan * level + BREATH.scale * breath})`;
       } else if (scene.style.transform) {
         scene.style.transform = "";
       }
