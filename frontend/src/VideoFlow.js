@@ -406,6 +406,11 @@ const WelcomeScreen = React.memo(function WelcomeScreen({ opacity, intro = false
       pointerEvents: leaving || fadingOut || introMode ? "none" : "auto",
       // intro: invisible until the first pose is applied (inline opacity wins)
       ...(introMode ? { opacity: 0 } : {}),
+      // While it flies in, the glass panels skip their backdrop blur: a blur
+      // recomputed every frame over moving footage on a scaling HUD makes the
+      // browser drop the panels for a frame here and there (flicker). The
+      // blur comes back the moment the HUD lands.
+      ...(introMode ? { "& *": { backdropFilter: "none !important", WebkitBackdropFilter: "none !important" } } : {}),
       // fade in/out over the held HUD frame; fly past on the way to a
       // category; settle into place coming back from one
       animation: introMode || (skipIn && !leaving && !fadingOut) ? "none" : leaving
