@@ -81,14 +81,32 @@ const DepthParallax = forwardRef(function DepthParallax({ sourceRef }, ref) {
   const api = useRef(null);
 
   useEffect(() => {
+    // status for diagnosis: open the page with #depth to see it on screen
+    const st = (window.__depth = { gl: "?", program: "?", loaded: 0, failed: 0, want: -1, ready: -1, shown: false, err: "" });
+    let panel = null, panelTimer = 0;
+    if (window.location.hash === "#depth") {
+      panel = document.createElement("pre");
+      Object.assign(panel.style, { position: "fixed", left: "8px", bottom: "8px", zIndex: 100000, margin: 0, padding: "8px 10px",
+        font: "11px/1.4 monospace", color: "#0f0", background: "rgba(0,0,0,0.8)", pointerEvents: "none", whiteSpace: "pre-wrap", maxWidth: "46vw" });
+      document.body.appendChild(panel);
+      panelTimer = setInterval(() => { panel.textContent = "depth " + JSON.stringify(window.__depth, null, 1); }, 400);
+    }
+    const stop = () => { clearInterval(panelTimer); panel?.remove(); };
     const canvas = canvasRef.current;
-    const gl = canvas && canvas.getContext("webgl", { antialias: false, alpha: false, preserveDrawingBuffer: false });
-    if (!gl) return undefined;
-    const sh = (t, s) => { const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o); return o; };
+    let gl = null;
+    try { gl = canvas && canvas.getContext("webgl", { antialias: false, alpha: false, preserveDrawingBuffer: false }); } catch (e) { st.err = String(e); }
+    st.gl = gl ? String(gl.getParameter(gl.VERSION)) : "none";
+    if (!gl) return stop;
+    const sh = (t, s) => {
+      const o = gl.createShader(t); gl.shaderSource(o, s); gl.compileShader(o);
+      if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) st.err += (t === gl.VERTEX_SHADER ? "VS: " : "FS: ") + gl.getShaderInfoLog(o);
+      return o;
+    };
     const prog = gl.createProgram();
     gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS));
     gl.linkProgram(prog);
-    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return undefined;
+    st.program = gl.getProgramParameter(prog, gl.LINK_STATUS) ? "ok" : "FAILED " + gl.getProgramInfoLog(prog);
+    if (st.program !== "ok") return stop;
     gl.useProgram(prog);
     const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
@@ -107,7 +125,7 @@ const DepthParallax = forwardRef(function DepthParallax({ sourceRef }, ref) {
     const layers = (i) => {
       if (!cache.has(i)) {
         const p = loadImg(`${DIR}/d_${pad(i)}.webp`);
-        p.catch(() => cache.delete(i));
+        p.then(() => { st.loaded++; }, () => { st.failed++; st.err = `load failed: ${DIR}/d_${pad(i)}.webp`; cache.delete(i); });
         cache.set(i, p);
         if (cache.size > 140) cache.delete(cache.keys().next().value);
       }
@@ -116,7 +134,7 @@ const DepthParallax = forwardRef(function DepthParallax({ sourceRef }, ref) {
 
     let want = -1, ready = -1, img = null, off = [0, 0], dirty = false, alive = true;
     const state = { shown: false };
-    const show = (on) => { if (state.shown !== on) { state.shown = on; canvas.style.opacity = on ? "1" : "0"; } };
+    const show = (on) => { st.shown = on; if (state.shown !== on) { state.shown = on; canvas.style.opacity = on ? "1" : "0"; } };
 
     const draw = () => {
       if (!alive || ready !== want || !img) return;
@@ -137,13 +155,16 @@ const DepthParallax = forwardRef(function DepthParallax({ sourceRef }, ref) {
       /** The frame now on the 2D canvas (and its decoded image). */
       setFrame(i, image) {
         if (i === want && image === img) return;
-        want = i; img = image; show(false);
+        want = i; img = image; show(false); st.want = i;
         if (i < 0 || i > LAST || !image) return;
         const target = i;
         layers(i).then((atlas) => {
           if (!alive || want !== target) return;
-          upload(0, image); upload(1, atlas);
-          ready = target; dirty = true; draw(); show(true);
+          try {
+            upload(0, image); upload(1, atlas);
+          } catch (e) { st.err = "upload: " + (e && e.message ? e.message : e); return; }
+          const e = gl.getError(); if (e) st.err = "gl error " + e;
+          ready = target; st.ready = target; dirty = true; draw(); show(true);
         }, () => {});
       },
       /** Cursor/hover offset (-1..1) times how much depth to show (0..1). */
@@ -164,7 +185,8 @@ const DepthParallax = forwardRef(function DepthParallax({ sourceRef }, ref) {
     };
     // every frame's layers, in the background once the intro frames are under way
     const pre = setTimeout(() => api.current?.preloadAll(), 2500);
-    return () => { alive = false; clearTimeout(pre); api.current = null; };
+    canvas.addEventListener("webglcontextlost", () => { st.err = "context lost"; show(false); });
+    return () => { alive = false; clearTimeout(pre); api.current = null; stop(); };
   }, [sourceRef]);
 
   useImperativeHandle(ref, () => ({
