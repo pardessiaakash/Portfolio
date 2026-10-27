@@ -152,9 +152,12 @@ export default function IntroAmbience({ canvasRef, depthRef, frame, active }) {
       const ramp = Math.min(1, c / 1.5);   // first moments: from still into drift
 
       const moving = level > 0.001 || r > 0.001;
+      // while resting the depth layers carry the cursor movement, so the
+      // whole-scene tilt calms down and near/far separation is what you see
+      const g = 1 - 0.7 * r;
       const transform = moving
-        ? `perspective(1400px) rotateY(${px * MOVE.rotY}deg) rotateX(${-py * MOVE.rotX}deg) ` +
-          `translate3d(${-px * MOVE.shiftX + hx * ramp * HOVER.x}px, ${-py * MOVE.shiftY + hy * ramp * HOVER.y}px, 0) ` +
+        ? `perspective(1400px) rotateY(${px * g * MOVE.rotY}deg) rotateX(${-py * g * MOVE.rotX}deg) ` +
+          `translate3d(${-px * g * MOVE.shiftX + hx * ramp * HOVER.x}px, ${-py * g * MOVE.shiftY + hy * ramp * HOVER.y}px, 0) ` +
           `rotate(${hr * ramp * HOVER.roll}deg) scale(${1 + MOVE.overscan * level + HOVER.overscan * r})`
         : "";
 
