@@ -174,6 +174,8 @@ export function useElementSize() {
 /* ── outline stroke ───────────────────────────────────────────────────── */
 
 let gradSeq = 0;
+// 2 screen px wide; the clip keeps the inner 1px
+const EDGE = { strokeWidth: "calc(2px * var(--hud-px, 1))" };
 
 /**
  * Draws the panel's glass edge along `d`: Figma's gradient border, a
@@ -230,12 +232,13 @@ export function HudOutline({ d, w, h, border = 0 }) {
       <path d={d} fill="none" stroke="#fff" strokeOpacity="0.05" strokeWidth="18" filter={`url(#${id}-glow)`} />
       {/* thin inner bevel just inside the edge */}
       <path d={d} fill="none" stroke="#fff" strokeOpacity="0.06" strokeWidth="5" />
-      {/* The panel's clip-path keeps only the inner half of each stroke, so
-          a 2px stroke shows 1px: the same weight as the social bar's 1px ring */}
-      <path d={d} fill="none" stroke={`url(#${id}-stroke)`} strokeWidth="2" />
-      <path d={d} fill="none" stroke={`url(#${id}-under)`} strokeWidth="2" />
-      <path d={d} fill="none" stroke={`url(#${id}-spec)`} strokeWidth="2"
-        transform={`translate(${0.6} ${0.8})`} />
+      {/* The panel's clip-path keeps only the inner half of each stroke. The
+          stage scales the HUD to the screen, so the width is set in SCREEN
+          pixels (--hud-px = 1 / stage scale): always one crisp 1px line,
+          whatever the window size. Border, green rim and light share it. */}
+      <path d={d} fill="none" stroke={`url(#${id}-stroke)`} style={EDGE} />
+      <path d={d} fill="none" stroke={`url(#${id}-under)`} style={EDGE} />
+      <path d={d} fill="none" stroke={`url(#${id}-spec)`} style={EDGE} />
     </svg>
   );
 }

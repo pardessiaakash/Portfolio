@@ -439,6 +439,8 @@ const WelcomeScreen = React.memo(function WelcomeScreen({ opacity, intro = false
         // then the HUD's place in the room
         transform: `translate(-50%, -50%) scale(${scale}) translate(var(--hud-tx, 0px), var(--hud-ty, 0px)) scale(var(--hud-s, 1)) translate(${HUD_SCALE.cx - STAGE_W / 2}px, ${HUD_SCALE.cy - STAGE_H / 2}px) scale(${HUD_SCALE.k}) translate(${STAGE_W / 2 - HUD_SCALE.cx}px, ${STAGE_H / 2 - HUD_SCALE.cy}px)`,
         transformOrigin: "center",
+        // one screen pixel in stage units (crisp 1px HUD outlines at any size)
+        "--hud-px": 1 / (scale * HUD_SCALE.k),
       }}>
       {/* Root row: [social pill] [left panel col-9] [right panel col-3] */}
       <Box

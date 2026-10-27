@@ -24,7 +24,7 @@ const MOVE = { rotY: 1.6, rotX: 1.1, shiftX: 14, shiftY: 9, overscan: 0.06, foll
 // - GLOW: the frame's own lights (neon, windows, ceiling strips) are lifted
 //   into a soft glow layer that slowly swells and settles, with the odd faint
 //   electrical flicker, so the lights feel powered.
-const REST = { ms: 450, easeIn: 0.8, easeOut: 6, off: { at: 138, to: 147 } };
+const REST = { ms: 220, easeIn: 3, easeOut: 6, off: { at: 138, to: 147 } };
 const HOVER = { x: 7, y: 5, roll: 0.22, overscan: 0.02 };       // px, px, deg, scale
 const GLOW = { w: 320, h: 180, threshold: 165, gain: 2.1, min: 0.18, max: 0.55, blur: 14 };
 
