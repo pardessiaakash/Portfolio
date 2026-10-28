@@ -16,7 +16,7 @@ import { glassHudRectSx, spinBorderSx } from "./hud/glass";
 import { pressable, srOnly } from "./a11y";
 import SlideFigure from "./hud/SlideFigure";
 import EmptyCategory from "./hud/EmptyCategory";
-import { SC_TEXT, FA_TEXT, SC_TOPICS, FA_TOPICS } from "./caseStudyText";
+import { SC_TEXT, FA_TEXT, PF_TEXT, SC_TOPICS, FA_TOPICS, PF_TOPICS } from "./caseStudyText";
 import { SITE } from "./siteConfig";
 import { setPageMeta } from "./pageMeta";
 import { COMPACT_QUERY } from "./breakpoints";
@@ -36,7 +36,7 @@ const PORTFOLIO_TABS = [
 ];
 
 // UI/UX case studies, exported from the Figma slide decks (1676 × 961).
-// They always fill the first two UI/UX project tabs; other categories use
+// They always fill the first three UI/UX project tabs; other categories use
 // the projects API, or placeholders while it is unavailable.
 const deck = (folder, n) => Array.from({ length: n }, (_, i) =>
   `/assets/images/projects/${folder}/${String(i + 1).padStart(2, "0")}.webp`);
@@ -45,8 +45,10 @@ const CASE_STUDIES = [
     topics: SC_TOPICS, text: SC_TEXT, summary: "AI-assisted support desk: case study" },
   { title: "Chicora", slug: "chicora", slides: deck("chicora", FA_TOPICS.length),
     topics: FA_TOPICS, text: FA_TEXT, summary: "Fashion shopping app: case study" },
+  { title: "Portfolio", slug: "portfolio", slides: deck("portfolio", PF_TOPICS.length),
+    topics: PF_TOPICS, text: PF_TEXT, summary: "Designing this immersive portfolio: case study" },
 ];
-const isCaseStudy = (p) => /swift|chicora|fashion/i.test(p?.title || "");
+const isCaseStudy = (p) => /swift|chicora|fashion|^portfolio$/i.test(p?.title || "");
 export const projectSlug = (p) => p?.slug || String(p?.title || "").toLowerCase()
   .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 // Only real projects are listed: no "Project -3" placeholders. Categories
