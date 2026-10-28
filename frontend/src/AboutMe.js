@@ -217,6 +217,7 @@ export const EARLIER = {
 export const SELECTED_WORK = [
   { title: "SwiftConnect", text: "AI-assisted support desk", path: `/portfolio/${encodeURIComponent("UI/UX")}?project=swiftconnect` },
   { title: "Chicora", text: "Fashion shopping app", path: `/portfolio/${encodeURIComponent("UI/UX")}?project=chicora` },
+  { title: "Portfolio", text: "This immersive site", path: `/portfolio/${encodeURIComponent("UI/UX")}?project=portfolio` },
 ];
 export const RESUME_LINE = "Every role and project, in detail.";
 
