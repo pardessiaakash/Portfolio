@@ -16,7 +16,7 @@ import { glassHudRectSx, spinBorderSx } from "./hud/glass";
 import { pressable, srOnly } from "./a11y";
 import SlideFigure from "./hud/SlideFigure";
 import EmptyCategory from "./hud/EmptyCategory";
-import { SC_TEXT, FA_TEXT, PF_TEXT, SC_TOPICS, FA_TOPICS, PF_TOPICS } from "./caseStudyText";
+import { SC_TEXT, FA_TEXT, PF_TEXT, MV_TEXT, SC_TOPICS, FA_TOPICS, PF_TOPICS, MV_TOPICS } from "./caseStudyText";
 import { SITE } from "./siteConfig";
 import { setPageMeta } from "./pageMeta";
 import { COMPACT_QUERY } from "./breakpoints";
@@ -48,14 +48,20 @@ const CASE_STUDIES = [
   { title: "Portfolio", slug: "portfolio", slides: deck("portfolio", PF_TOPICS.length),
     topics: PF_TOPICS, text: PF_TEXT, summary: "Designing this immersive portfolio: case study" },
 ];
-const isCaseStudy = (p) => /swift|chicora|fashion|^portfolio$/i.test(p?.title || "");
+// Immersive case studies (spatial computing)
+const IMMERSIVE_STUDIES = [
+  { title: "Mandala Vision Pro", slug: "mandala-vision-pro", slides: deck("mandala-vision-pro", MV_TOPICS.length),
+    topics: MV_TOPICS, text: MV_TEXT, summary: "Extending a design system to Apple Vision Pro: case study" },
+];
+const STUDIES_BY_CATEGORY = { "UI/UX": CASE_STUDIES, "Immersive": IMMERSIVE_STUDIES };
+const isCaseStudy = (p) => /swift|chicora|fashion|^portfolio$|mandala/i.test(p?.title || "");
 export const projectSlug = (p) => p?.slug || String(p?.title || "").toLowerCase()
   .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 // Only real projects are listed: no "Project -3" placeholders. Categories
 // without projects yet get an honest empty state instead (see EmptyCategory).
 const withCaseStudies = (label, list) => {
   const real = list.filter((p) => !isCaseStudy(p) && Array.isArray(p.slides) && p.slides.length > 0);
-  return label === "UI/UX" ? [...CASE_STUDIES, ...real] : real;
+  return [...(STUDIES_BY_CATEGORY[label] || []), ...real];
 };
 // last slide of a case study is the "Let's talk" call to action
 const isCtaSlide = (project, i) => !!project?.text && i === project.slides.length - 1;

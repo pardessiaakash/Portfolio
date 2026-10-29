@@ -3,13 +3,14 @@
 // only from what's already on the site (About Me, the case-study slides),
 // so nothing here is invented. Returns null when there's no good answer.
 
-import { SC_TEXT, FA_TEXT, PF_TEXT, SC_TOPICS, FA_TOPICS, PF_TOPICS } from "../caseStudyText";
+import { SC_TEXT, FA_TEXT, PF_TEXT, MV_TEXT, SC_TOPICS, FA_TOPICS, PF_TOPICS, MV_TOPICS } from "../caseStudyText";
 import { experiences } from "../AboutMe";
 import { SITE } from "../siteConfig";
 
 const STUDIES = [
   { name: "SwiftConnect", re: /swift/i, topics: SC_TOPICS, text: SC_TEXT },
   { name: "Chicora", re: /chicora|fashion/i, topics: FA_TOPICS, text: FA_TEXT },
+  { name: "Mandala Vision Pro", re: /mandala|vision ?pro/i, topics: MV_TOPICS, text: MV_TEXT },
   { name: "Portfolio", re: /portfolio|design lab/i, topics: PF_TOPICS, text: PF_TEXT },
 ];
 
@@ -24,6 +25,8 @@ const caseStudies = () =>
   "• SwiftConnect: an AI-assisted support desk that removes handover delays for support agents.\n" +
   "• Chicora: a personalised, trustworthy fashion shopping app.\n" +
   "• Portfolio: how this immersive site was designed, tested, audited and improved on the road to VR.\n\n" +
+  "And under Work → Immersive:\n\n" +
+  "• Mandala Vision Pro: extending a company design system to Apple Vision Pro, tested in a native visionOS prototype.\n\n" +
   "Open one, and use Ask AI on any slide to learn more about it.";
 const process = () =>
   "Both case studies follow the same path: understand the problem (brief, research, interviews), " +
