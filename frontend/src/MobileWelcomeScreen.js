@@ -263,8 +263,9 @@ export default function MobileWelcomeScreen({ opacity, socialIcons }) {
           pb: `${BAR_OVERLAP + 12}px`,
           pt: "6px",
           // content slides under the tabs with a soft edge, not a hard cut
-          maskImage: "linear-gradient(transparent 0, #000 14px)",
-          WebkitMaskImage: "linear-gradient(transparent 0, #000 14px)",
+          // and fades out above the social bar, so nothing shows through behind it
+          maskImage: "linear-gradient(transparent 0, #000 14px, #000 calc(100% - 28px), transparent 100%)",
+          WebkitMaskImage: "linear-gradient(transparent 0, #000 14px, #000 calc(100% - 28px), transparent 100%)",
         }}>
           {activeTab === "work" ? <MobileWorkTab /> : <MobileAboutTab />}
         </Box>

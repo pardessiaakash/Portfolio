@@ -63,6 +63,10 @@ const withCaseStudies = (label, list) => {
   const real = list.filter((p) => !isCaseStudy(p) && Array.isArray(p.slides) && p.slides.length > 0);
   return [...(STUDIES_BY_CATEGORY[label] || []), ...real];
 };
+// expanded slide on a phone held sideways (short, wide screen)
+const LB_LANDSCAPE = "@media (orientation: landscape) and (max-height: 560px)";
+// slide width that lets the whole slide, the top bar and one control row fit the height
+const LB_LANDSCAPE_W = "min(100%, 960px, calc((100dvh - 128px) * 1676 / 961))";
 // last slide of a case study is the "Let's talk" call to action
 const isCtaSlide = (project, i) => !!project?.text && i === project.slides.length - 1;
 
@@ -251,7 +255,9 @@ export default function ProjectDetailPage() {
       const row = r.current;
       const tab = row?.querySelector('[aria-selected="true"]');
       if (!row || !tab) return;
-      const left = tab.offsetLeft - (row.clientWidth - tab.offsetWidth) / 2;
+      // position inside the row (offsetLeft is relative to the page, not the row)
+      const left = row.scrollLeft + tab.getBoundingClientRect().left - row.getBoundingClientRect().left
+        - (row.clientWidth - tab.offsetWidth) / 2;
       row.scrollTo({ left: Math.max(0, left), behavior: "smooth" });
     });
   }, [mainTab, subTab, projects.length, isMobile]);
@@ -338,6 +344,12 @@ export default function ProjectDetailPage() {
           px: { xs: 2, md: 4 },
           pt: "max(16px, env(safe-area-inset-top))", pb: "max(16px, env(safe-area-inset-bottom))",
           boxSizing: "border-box",
+          // phone on its side: the whole slide must fit the short screen, so
+          // the slide is sized by height and the controls go into one slim row
+          [LB_LANDSCAPE]: {
+            pt: "max(8px, env(safe-area-inset-top))", pb: "max(8px, env(safe-area-inset-bottom))",
+            pl: "max(12px, env(safe-area-inset-left))", pr: "max(12px, env(safe-area-inset-right))",
+          },
           // dim and blur everything behind, so only the expanded slide is in focus
           background: "rgba(0,0,0,0.72)",
           backdropFilter: "blur(14px)",
@@ -346,7 +358,8 @@ export default function ProjectDetailPage() {
           "@keyframes lbIn": { from: { opacity: 0 }, to: { opacity: 1 } },
         }} onClick={(e) => { if (e.target === e.currentTarget) lbClose(); }}>
           {/* top bar: where you are + close */}
-          <Box sx={{ width: "100%", maxWidth: 960, display: "flex", alignItems: "center", gap: "12px", mb: "12px", flexShrink: 0 }}>
+          <Box sx={{ width: "100%", maxWidth: 960, display: "flex", alignItems: "center", gap: "12px", mb: "12px", flexShrink: 0,
+            [LB_LANDSCAPE]: { maxWidth: LB_LANDSCAPE_W, mb: "6px" } }}>
             <Box sx={{ flex: 1, minWidth: 0, fontSize: 14, color: "rgba(255,255,255,0.86)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               <Box component="span" sx={{ color: PRIMARY, fontWeight: 600 }}>{String(lightboxIndex + 1).padStart(2, "0")}</Box>
               <Box component="span" sx={{ opacity: 0.55 }}> / {String(slides.length).padStart(2, "0")}</Box>
@@ -367,10 +380,12 @@ export default function ProjectDetailPage() {
             `,
             boxShadow: "0 0 2px rgba(0,255,133,.25), inset 0 0 1px rgba(255,255,255,.05)",
             flexShrink: lbText ? 1 : 0, minHeight: 0,
+            [LB_LANDSCAPE]: { maxWidth: LB_LANDSCAPE_W },
           }}>
             {lbText ? (
               // the slide's words as plain, readable text
-              <Box tabIndex={0} aria-label="Slide text" sx={{ maxHeight: "60vh", overflowY: "auto", p: "18px 18px 22px", outline: "none" }}>
+              <Box tabIndex={0} aria-label="Slide text" sx={{ maxHeight: "60vh", overflowY: "auto", p: "18px 18px 22px", outline: "none", textAlign: "left",
+                [LB_LANDSCAPE]: { maxHeight: "calc(100dvh - 130px)" } }}>
                 <Box component="h2" sx={{ m: 0, mb: "10px", fontSize: 18, lineHeight: 1.3, color: "#fff", fontWeight: 600 }}>{lbSlideText?.[0]}</Box>
                 <Box component="p" sx={{ m: 0, fontSize: 15, lineHeight: 1.6, color: "rgba(255,255,255,0.82)" }}>{lbSlideText?.[1]}</Box>
               </Box>
@@ -388,6 +403,8 @@ export default function ProjectDetailPage() {
               </Box>
             )}
           </Box>
+          <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", flexShrink: 0,
+            [LB_LANDSCAPE]: { flexDirection: "row", gap: "16px", mt: "8px", "& > *": { mt: "0 !important" } } }}>
           {/* prev / dots / next */}
           <Box sx={{ display: "flex", alignItems: "center", gap: "10px", mt: "14px", flexShrink: 0 }}>
             <Box component="button" type="button" onClick={lbPrev} aria-label="Previous slide" sx={{ ...lbBtn(false), width: 44, px: 0, justifyContent: "center" }}>
@@ -413,6 +430,7 @@ export default function ProjectDetailPage() {
                 {lbText ? "Show slide" : "Read as text"}
               </Box>
             )}
+          </Box>
           </Box>
           {!lbText && !lbZoom && (
             <Box sx={{ mt: "10px", fontSize: 12, color: "rgba(255,255,255,0.55)", textAlign: "center",
@@ -746,6 +764,13 @@ export default function ProjectDetailPage() {
           <Box sx={{ position: "relative", flex: 1, display: "flex", alignItems: "center", px: 0.5, minHeight: 0 }}>
             {!loading && projects.length === 0 && (
               <EmptyCategory category={category} onSeeUiux={seeUiux} compact />
+            )}
+            {loading && !hasSlides && (
+              <Box role="status" sx={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", color: "rgba(255,255,255,0.7)", fontSize: 14 }}>
+                <Box aria-hidden sx={{ width: 28, height: 28, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.15)", borderTopColor: PRIMARY,
+                  animation: "pdSpin 0.9s linear infinite", "@keyframes pdSpin": { to: { transform: "rotate(360deg)" } } }} />
+                Loading case studies…
+              </Box>
             )}
 
             {/* all slides stacked; tap one to expand it */}
