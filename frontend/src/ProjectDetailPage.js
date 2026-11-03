@@ -502,6 +502,9 @@ export default function ProjectDetailPage() {
 
   return (
     <Box component="main" sx={{
+      // pinned to the screen, so a sideways swipe on the tab rows can't drag
+      // the whole page up and down
+      position: "fixed", inset: 0, overscrollBehavior: "none",
       width: "100vw", height: "100vh", overflow: "hidden",
       // phones: the visible height (browser toolbars excluded) where supported
       "@supports (height: 100dvh)": { height: "100dvh" },
@@ -517,7 +520,6 @@ export default function ProjectDetailPage() {
       pt: { xs: "max(32px, calc(env(safe-area-inset-top) + 16px))" },
       pb: { xs: "max(16px, env(safe-area-inset-bottom))" },
       color: "#fff",
-      position: "relative",
     }}>
       <Box component="h1" sx={srOnly}>{category} work by {SITE.name}, {SITE.role}</Box>
       {/* MAIN TABS */}
@@ -561,6 +563,7 @@ export default function ProjectDetailPage() {
         </CustomTooltip>
 
         {isMobile && <Box ref={mainTabsRef} role="tablist" aria-label="Categories" sx={{
+          touchAction: "pan-x", overscrollBehaviorX: "contain",
           display: "flex",
           gap: { xs: "10px", md: "0px" },
           overflowX: { xs: "auto", md: "visible" },
@@ -713,6 +716,7 @@ export default function ProjectDetailPage() {
           {/* SUB TABS */}
           {projects.length > 0 && (
           <Box ref={subTabsRef} role="tablist" aria-label="Projects" sx={{
+            touchAction: "pan-x", overscrollBehaviorX: "contain",
             display: "flex",
             alignItems: "center",
             gap: 1,
@@ -779,6 +783,7 @@ export default function ProjectDetailPage() {
                 width: "100%",
                 height: "100%",
                 overflowY: "auto",
+                overscrollBehavior: "contain",
                 display: "flex",
                 flexDirection: "column",
                 gap: 2,
