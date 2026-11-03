@@ -1,3 +1,9 @@
+/* the site is a fixed, full-screen scene: no rubber-band bounce of the
+   whole page on iOS when a swipe has a little vertical movement in it */
+html, body {
+  overscroll-behavior: none;
+}
+
 .App {
   text-align: center;
 }
