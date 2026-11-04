@@ -319,8 +319,26 @@ export default function ProjectDetailPage() {
   const [lbText, setLbText] = useState(false);
   useEffect(() => { setLbZoom(false); if (!lightboxOpen) setLbText(false); }, [lightboxIndex, lightboxOpen]);
   const lastTap = useRef(0);
+  // swipe left / right on the expanded slide to change slides (not while
+  // zoomed in, where a swipe pans the slide instead)
+  const swipe = useRef(null);
+  const onLbTouchStart = (e) => {
+    const t = e.touches?.[0];
+    swipe.current = e.touches?.length === 1 && t ? { x: t.clientX, y: t.clientY } : null;
+  };
+  const onLbSwipeEnd = (e) => {
+    const s0 = swipe.current; swipe.current = null;
+    const t = e.changedTouches?.[0];
+    if (!s0 || !t || lbZoom) return false;
+    const dx = t.clientX - s0.x, dy = t.clientY - s0.y;
+    if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy) * 1.3) return false;
+    if (dx < 0) lbNext(); else lbPrev();
+    lastTap.current = 0;
+    return true;
+  };
   const onLbTouchEnd = (e) => {
     if (e.touches?.length) return;
+    if (onLbSwipeEnd(e)) return;
     const t = Date.now();
     if (t - lastTap.current < 300) { setLbZoom((z) => !z); lastTap.current = 0; } else lastTap.current = t;
   };
@@ -384,13 +402,13 @@ export default function ProjectDetailPage() {
           }}>
             {lbText ? (
               // the slide's words as plain, readable text
-              <Box tabIndex={0} aria-label="Slide text" sx={{ maxHeight: "60vh", overflowY: "auto", p: "18px 18px 22px", outline: "none", textAlign: "left",
+              <Box tabIndex={0} aria-label="Slide text" onTouchStart={onLbTouchStart} onTouchEnd={onLbSwipeEnd} sx={{ maxHeight: "60vh", overflowY: "auto", p: "18px 18px 22px", outline: "none", textAlign: "left",
                 [LB_LANDSCAPE]: { maxHeight: "calc(100dvh - 130px)" } }}>
                 <Box component="h2" sx={{ m: 0, mb: "10px", fontSize: 18, lineHeight: 1.3, color: "#fff", fontWeight: 600 }}>{lbSlideText?.[0]}</Box>
                 <Box component="p" sx={{ m: 0, fontSize: 15, lineHeight: 1.6, color: "rgba(255,255,255,0.82)" }}>{lbSlideText?.[1]}</Box>
               </Box>
             ) : (
-              <Box onTouchEnd={onLbTouchEnd} onDoubleClick={() => setLbZoom((z) => !z)}
+              <Box onTouchStart={onLbTouchStart} onTouchEnd={onLbTouchEnd} onDoubleClick={() => setLbZoom((z) => !z)}
                 {...(lbZoom ? { tabIndex: 0, role: "region", "aria-label": "Zoomed slide, scroll to pan" } : {})} sx={{
                 borderRadius: "10px", overflow: lbZoom ? "auto" : "hidden",
                 aspectRatio: "1676 / 961", WebkitOverflowScrolling: "touch",
@@ -435,7 +453,7 @@ export default function ProjectDetailPage() {
           {!lbText && !lbZoom && (
             <Box sx={{ mt: "10px", fontSize: 12, color: "rgba(255,255,255,0.55)", textAlign: "center",
               "@media (orientation: landscape)": { display: "none" } }}>
-              Double-tap to zoom · rotate your phone for a bigger slide
+              Swipe to change slides · double-tap to zoom · rotate for a bigger slide
             </Box>
           )}
         </Box>
@@ -793,7 +811,11 @@ export default function ProjectDetailPage() {
               }}>
                 <Box component="h2" sx={srOnly}>{activeProject?.title} case study</Box>
                 {slides.map((slide, index) => (
-                  <Box key={slide} data-slide={index} sx={{ position: "relative", flexShrink: 0, width: "100%", aspectRatio: "1676 / 961" }}>
+                  <Box key={slide} data-slide={index}
+                    // tap anywhere on a slide to open it full screen (links and
+                    // buttons on the slide keep their own action)
+                    onClick={(e) => { if (e.target.closest("a, button")) return; setLightboxIndex(index); setLightboxOpen(true); }}
+                    sx={{ position: "relative", flexShrink: 0, width: "100%", aspectRatio: "1676 / 961", cursor: "zoom-in" }}>
                     <SlideFigure src={slide} index={index} count={slides.length} lazy={index > 1}
                       title={activeProject?.title} text={activeProject?.text?.[index]}
                       isCta={isCtaSlide(activeProject, index)} radius="12px" />
