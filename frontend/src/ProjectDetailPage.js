@@ -324,13 +324,20 @@ export default function ProjectDetailPage() {
   const swipe = useRef(null);
   const onLbTouchStart = (e) => {
     const t = e.touches?.[0];
-    swipe.current = e.touches?.length === 1 && t ? { x: t.clientX, y: t.clientY } : null;
+    swipe.current = e.touches?.length === 1 && t ? { x: t.clientX, y: t.clientY, lx: t.clientX, ly: t.clientY } : null;
+  };
+  // remember the last position: Android can end a swipe with touchcancel,
+  // which carries no usable position of its own
+  const onLbTouchMove = (e) => {
+    const t = e.touches?.[0];
+    if (swipe.current && t) { swipe.current.lx = t.clientX; swipe.current.ly = t.clientY; }
   };
   const onLbSwipeEnd = (e) => {
     const s0 = swipe.current; swipe.current = null;
-    const t = e.changedTouches?.[0];
-    if (!s0 || !t || lbZoom) return false;
-    const dx = t.clientX - s0.x, dy = t.clientY - s0.y;
+    if (!s0 || lbZoom) return false;
+    const t = e?.changedTouches?.[0];
+    const ex = t ? t.clientX : s0.lx, ey = t ? t.clientY : s0.ly;
+    const dx = ex - s0.x, dy = ey - s0.y;
     if (Math.abs(dx) < 45 || Math.abs(dx) < Math.abs(dy) * 1.3) return false;
     if (dx < 0) lbNext(); else lbPrev();
     lastTap.current = 0;
@@ -402,15 +409,20 @@ export default function ProjectDetailPage() {
           }}>
             {lbText ? (
               // the slide's words as plain, readable text
-              <Box tabIndex={0} aria-label="Slide text" onTouchStart={onLbTouchStart} onTouchEnd={onLbSwipeEnd} sx={{ maxHeight: "60vh", overflowY: "auto", p: "18px 18px 22px", outline: "none", textAlign: "left",
+              <Box tabIndex={0} aria-label="Slide text" onTouchStart={onLbTouchStart} onTouchMove={onLbTouchMove} onTouchEnd={onLbSwipeEnd} onTouchCancel={onLbSwipeEnd} sx={{
+                // vertical scrolling stays native; sideways swipes are ours
+                touchAction: "pan-y", maxHeight: "60vh", overflowY: "auto", p: "18px 18px 22px", outline: "none", textAlign: "left",
                 [LB_LANDSCAPE]: { maxHeight: "calc(100dvh - 130px)" } }}>
                 <Box component="h2" sx={{ m: 0, mb: "10px", fontSize: 18, lineHeight: 1.3, color: "#fff", fontWeight: 600 }}>{lbSlideText?.[0]}</Box>
                 <Box component="p" sx={{ m: 0, fontSize: 15, lineHeight: 1.6, color: "rgba(255,255,255,0.82)" }}>{lbSlideText?.[1]}</Box>
               </Box>
             ) : (
-              <Box onTouchStart={onLbTouchStart} onTouchEnd={onLbTouchEnd} onDoubleClick={() => setLbZoom((z) => !z)}
+              <Box onTouchStart={onLbTouchStart} onTouchMove={onLbTouchMove} onTouchEnd={onLbTouchEnd} onTouchCancel={onLbSwipeEnd} onDoubleClick={() => setLbZoom((z) => !z)}
                 {...(lbZoom ? { tabIndex: 0, role: "region", "aria-label": "Zoomed slide, scroll to pan" } : {})} sx={{
                 borderRadius: "10px", overflow: lbZoom ? "auto" : "hidden",
+                // not zoomed: the browser must not claim sideways swipes (Android
+                // otherwise cancels them); zoomed: native panning
+                touchAction: lbZoom ? "auto" : "pan-y pinch-zoom",
                 aspectRatio: "1676 / 961", WebkitOverflowScrolling: "touch",
               }}>
                 <Box sx={{ width: lbZoom ? "260%" : "100%", aspectRatio: "1676 / 961", transition: "width 0.2s ease" }}>
