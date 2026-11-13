@@ -236,8 +236,23 @@ const skipSpeed = (f) => {
   return mix(SKIP_SPEED.door, SKIP_SPEED.end, 1 - (1 - t) * (1 - t));   // ease-out
 };
 
-// Scroll distance (px) per intro frame; see onWheel.
+// Scroll distance (px) per intro frame, on average; see onWheel.
 const WHEEL_PX = 24;
+// How much the picture changes from each frame to the next (mean pixel
+// difference, measured from the frames). The flight through the city changes
+// 4-5x more per frame than the slow glide into the pod, so a steady scroll
+// raced through the city and then seemed to crawl in the pod. Scrolling is
+// weighted by this, so the same scroll gives about the same amount of motion
+// on screen everywhere (softened, so the pod doesn't fly by).
+const FRAME_MOTION = "11 11 11 12 13 14 14 14 15 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 14 15 15 15 15 15 15 16 17 15 15 16 17 15 15 16 17 18 19 18 17 17 16 16 15 14 15 14 13 15 12 11 11 10 10 10 10 11 11 10 10 9 8 8 7 7 7 6 6 6 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 5 4 4 4 4 4 3 3 3 3 3 3 3 3 3 3 3 3 3 3 2 2 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 2".split(" ").map(Number);
+const MOTION_MEAN = FRAME_MOTION.reduce((a, b) => a + b, 0) / FRAME_MOTION.length;
+const motionWeight = (f) => {
+  const m = FRAME_MOTION[Math.max(0, Math.min(FRAME_MOTION.length - 1, Math.floor(f)))];
+  return Math.max(0.45, Math.min(1.6, Math.pow(m / MOTION_MEAN, 0.6)));
+};
+// Scrolling forward and letting go this close to the lab carries on into it,
+// rather than leaving the visitor parked in the pod a few frames short.
+const AUTO_ENTER_FROM = 132;
 
 const socialIcons = [
   { label: "LinkedIn", icon: "/assets/icons/lindedin.svg",
@@ -588,6 +603,12 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
   const lastPosDrawnRef = useRef(-1); // fractional position last drawn
   const stateFrameRef = useRef(-1);  // frame last pushed to React state
   const stateTimeRef = useRef(0);
+  // Frames near the playhead, decoded ahead of time into GPU-ready bitmaps
+  // (keyed by file). Drawing a plain <img> made the browser decode the WebP
+  // again whenever its cache dropped it: 10-20 ms per frame, twice per frame
+  // with the blend, so the flight ran at ~20 fps. See keepBitmaps.
+  const bitmapsRef = useRef(new Map());
+  const bitmapPendingRef = useRef(new Set());
   const skippingRef = useRef(false);   // "Skip the cinematic" fast-forward
   const playTickRef = useRef(0);
   const holdUntilRef = useRef(0);    // canvas holds LAST_HUD_FRAME until then
@@ -802,14 +823,15 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
     const cw = canvas.width, ch = canvas.height;
-    const draw = (im, a) => {
+    const draw = (im, i, a) => {
+      const src = bitmapsRef.current.get(framePath(i)) || im;
       const scale = Math.max(cw / im.naturalWidth, ch / im.naturalHeight);
       const dw = im.naturalWidth * scale, dh = im.naturalHeight * scale;
       ctx.globalAlpha = a;
-      ctx.drawImage(im, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
+      ctx.drawImage(src, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
     };
-    draw(img, 1);
-    if (blend) draw(next, t);
+    draw(img, shown, 1);
+    if (blend) draw(next, index + 1, t);
     ctx.globalAlpha = 1;
     lastDrawnRef.current = Math.round(pos);
     lastPosDrawnRef.current = pos;
@@ -820,6 +842,35 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     // canvas could stay on an earlier frame (one that still has the HUD baked
     // in) underneath the live UI.
     exactDrawnRef.current = exact && (!needNext || blend) ? Math.round(pos) : -1;
+  }, []);
+
+  // Keep decoded bitmaps for a window of frames around the playhead, mostly
+  // ahead in the direction of travel; drop the rest to free memory. Bitmaps
+  // are made at the size they are drawn (never above the 1920×1080 source).
+  const keepBitmaps = useCallback((center, dir) => {
+    if (typeof createImageBitmap !== "function") return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const cache = cacheRef.current, maps = bitmapsRef.current, pending = bitmapPendingRef.current;
+    const ahead = 30, behind = 8;
+    const lo = Math.max(0, dir < 0 ? center - ahead : center - behind);
+    const hi = Math.min(END_FRAME, dir < 0 ? center + behind : center + ahead);
+    const want = new Set();
+    for (let i = lo; i <= hi; i++) want.add(framePath(i));
+    for (const [k, bm] of maps) if (!want.has(k)) { bm.close?.(); maps.delete(k); }
+    // nearest first, a few at a time (decoding runs off the main thread)
+    const order = [];
+    for (let d = 0; d <= ahead; d++) for (const i of [center + dir * d, center - dir * d]) if (i >= lo && i <= hi) order.push(i);
+    for (const i of order) {
+      if (pending.size >= 4) break;
+      const key = framePath(i), img = cache[i];
+      if (maps.has(key) || pending.has(key) || !(img && img.complete && img.naturalWidth > 0)) continue;
+      const scale = Math.min(1, Math.max(canvas.width / img.naturalWidth, canvas.height / img.naturalHeight));
+      pending.add(key);
+      createImageBitmap(img, { resizeWidth: Math.round(img.naturalWidth * scale), resizeHeight: Math.round(img.naturalHeight * scale), resizeQuality: "high" })
+        .then((bm) => { pending.delete(key); if (want.has(key) || Math.abs(i - Math.round(posRef.current)) <= ahead) maps.set(key, bm); else bm.close?.(); })
+        .catch(() => pending.delete(key));
+    }
   }, []);
 
   // ── RAF loop ──────────────────────────────────────────────────────────────
@@ -876,7 +927,8 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
       for (let k = 0; k < 2; k++) {
         const h = dt / 2;
         v += (SPRING * (target - p) - damp * v) * h;
-        v = Math.max(-MAX_FRAMES_PER_SEC, Math.min(MAX_FRAMES_PER_SEC, v));
+        const vmax = MAX_FRAMES_PER_SEC / motionWeight(p);   // same on-screen speed limit everywhere
+        v = Math.max(-vmax, Math.min(vmax, v));
         p += v * h;
       }
       // never pass the target (a reversal mid-glide could otherwise overshoot)
@@ -913,6 +965,8 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     if (!enteringUI && (Math.abs(next - lastPosDrawnRef.current) > 0.001 || exactDrawnRef.current !== Math.round(next))) {
       drawFrame(crossed ? LAST_HUD_FRAME : next);
     }
+
+    if (!uiShownRef.current || reversingRef.current) keepBitmaps(idx, dirRef.current);
 
     // The rest of the page (progress bar, hints, room dimmer) follows the
     // frame through React state; updating it on every frame re-rendered the
@@ -974,18 +1028,24 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
         reversingRef.current = false;
       }
     }
-  }, [drawFrame, loadAround, preloadBackward, requestFrame, onComplete, onFrameChange, applyIntroPose]);
+  }, [drawFrame, loadAround, preloadBackward, requestFrame, onComplete, onFrameChange, applyIntroPose, keepBitmaps]);
 
   // ── Init ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    // Backing store at the screen's pixel density (up to 2×), so the frames
-    // aren't drawn at half resolution and then stretched on Retina screens.
+    // Backing store at the frames' own resolution: on a Retina screen up to
+    // the 1920×1080 source pixels (sharper than the old 1× canvas), but never
+    // more, since extra canvas pixels add no detail and cost every frame.
     const resize = () => {
+      const w = window.innerWidth, h = window.innerHeight;
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.width = Math.round(window.innerWidth * dpr);
-      canvas.height = Math.round(window.innerHeight * dpr);
+      const cover = Math.max(w / 1920, h / 1080);          // CSS px per source px
+      const k = Math.max(1, Math.min(dpr, 1 / cover));
+      canvas.width = Math.round(w * k);
+      canvas.height = Math.round(h * k);
+      for (const bm of bitmapsRef.current.values()) bm.close?.();
+      bitmapsRef.current.clear();
       lastPosDrawnRef.current = -1;
       drawFrame(posRef.current);
     };
@@ -1061,6 +1121,9 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
         if (frame >= STOP_FRAME && frame <= STOP_FRAME_END && !uiShownRef.current) {
           setStoppedSync(true);
         }
+        if (dir > 0 && frame >= AUTO_ENTER_FROM && frame < UI_SHOW_FRAME && !uiShownRef.current && !skippingRef.current) {
+          targetPosRef.current = END_FRAME;
+        }
       }, 180);
     };
 
@@ -1073,7 +1136,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     const onWheel = (e) => {
       const px = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * window.innerHeight : e.deltaY;
       if (!px) return;
-      const frames = Math.min(Math.abs(px) / WHEEL_PX, 8);
+      const frames = Math.min(Math.abs(px) / WHEEL_PX, 8) / motionWeight(targetPosRef.current);
       step(px > 0 ? 1 : -1, frames);
     };
 
