@@ -215,11 +215,11 @@ const BG_CONCURRENCY = 8;
 // it eases in when scrolling starts and eases out when it stops, with no
 // overshoot. SPRING sets how tightly it follows (higher = snappier); the
 // scene settles about 1 s after the last scroll. Top speed in frames / s.
-const SPRING = 26;
-const MAX_FRAMES_PER_SEC = 60;
+const SPRING = 40;
+const MAX_FRAMES_PER_SEC = 90;
 // How far the scroll may run ahead of the picture (frames), so a hard flick
 // doesn't bank a long backlog that keeps playing after the hand stops.
-const MAX_LEAD = 14;
+const MAX_LEAD = 40;
 // "Skip the cinematic" speed (frames / s) along the flight: eases in, flies
 // through the city, then slows from the half-open pod door and eases out
 // into the lab, so the visitor still sees where they've arrived (~4 s).
@@ -237,7 +237,7 @@ const skipSpeed = (f) => {
 };
 
 // Scroll distance (px) per intro frame; see onWheel.
-const WHEEL_PX = 30;
+const WHEEL_PX = 24;
 
 const socialIcons = [
   { label: "LinkedIn", icon: "/assets/icons/lindedin.svg",
@@ -894,9 +894,18 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     const enteringUI = crossed && idx >= UI_SHOW_FRAME;
     if (crossed) {
       holdUntilRef.current = performance.now() + UI_FADE_MS;
-      // Park playback on the HUD frame; the next frame plays after the hold.
-      posRef.current = LAST_HUD_FRAME;
+      // The canvas holds the HUD frame during the fade (see the hold above).
+      // Playback then carries on from the far side of the hand-off, and the
+      // target is kept on that side too: with fractional positions a target
+      // just past the line made the picture cross back and forth for ever.
       velRef.current = 0;
+      if (enteringUI) {
+        posRef.current = UI_SHOW_FRAME;
+        targetPosRef.current = Math.max(targetPosRef.current, UI_SHOW_FRAME);
+      } else {
+        posRef.current = LAST_HUD_FRAME;
+        targetPosRef.current = Math.min(targetPosRef.current, LAST_HUD_FRAME);
+      }
     }
 
     // Redraw when the position moved, or only a stand-in was ready last time.
@@ -1064,7 +1073,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     const onWheel = (e) => {
       const px = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * window.innerHeight : e.deltaY;
       if (!px) return;
-      const frames = Math.min(Math.abs(px) / WHEEL_PX, 6);
+      const frames = Math.min(Math.abs(px) / WHEEL_PX, 8);
       step(px > 0 ? 1 : -1, frames);
     };
 
