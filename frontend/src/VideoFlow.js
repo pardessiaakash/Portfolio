@@ -211,10 +211,15 @@ function IntroLoadingBar({ frame, buffered, visible }) {
 // in the background, a few at a time, so scrolling never waits on the network.
 const BG_CONCURRENCY = 8;
 
-// Intro playback: how quickly the scene catches up with the scroll (higher =
-// snappier, lower = longer ease-out) and the top speed in frames per second.
-const GLIDE = 6;
-const MAX_FRAMES_PER_SEC = 75;
+// Intro playback follows the scroll through a critically damped spring:
+// it eases in when scrolling starts and eases out when it stops, with no
+// overshoot. SPRING sets how tightly it follows (higher = snappier); the
+// scene settles about 1 s after the last scroll. Top speed in frames / s.
+const SPRING = 26;
+const MAX_FRAMES_PER_SEC = 60;
+// How far the scroll may run ahead of the picture (frames), so a hard flick
+// doesn't bank a long backlog that keeps playing after the hand stops.
+const MAX_LEAD = 14;
 // "Skip the cinematic" speed (frames / s) along the flight: eases in, flies
 // through the city, then slows from the half-open pod door and eases out
 // into the lab, so the visitor still sees where they've arrived (~4 s).
@@ -232,7 +237,7 @@ const skipSpeed = (f) => {
 };
 
 // Scroll distance (px) per intro frame; see onWheel.
-const WHEEL_PX = 28;
+const WHEEL_PX = 30;
 
 const socialIcons = [
   { label: "LinkedIn", icon: "/assets/icons/lindedin.svg",
@@ -579,6 +584,10 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
   const exactDrawnRef = useRef(-1);
   const lastIdxRef = useRef(-1);     // playback position last handled
   const lastTickRef = useRef(0);
+  const velRef = useRef(0);          // playback speed (frames / s), see loop
+  const lastPosDrawnRef = useRef(-1); // fractional position last drawn
+  const stateFrameRef = useRef(-1);  // frame last pushed to React state
+  const stateTimeRef = useRef(0);
   const skippingRef = useRef(false);   // "Skip the cinematic" fast-forward
   const playTickRef = useRef(0);
   const holdUntilRef = useRef(0);    // canvas holds LAST_HUD_FRAME until then
@@ -668,6 +677,8 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     const img = new Image();
     img.decoding = "async";
     img.onload = () => {
+      // decode now, off the scroll, so drawing it later doesn't stall a frame
+      img.decode?.().catch(() => {});
       loadedRef.current.add(i);
       while (loadedRef.current.has(contigRef.current + 1)) contigRef.current++;
       settledRef.current.add(i);
@@ -756,38 +767,59 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
   }, []);
 
   // ── Draw frame ───────────────────────────────────────────────────────────
-  const drawFrame = useCallback((index) => {
+  // Takes a fractional position: the frame before it is drawn, and the next
+  // one is laid over it by the fraction, so the picture moves continuously
+  // between the frames instead of stepping from one to the next.
+  const drawFrame = useCallback((pos) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const cache = cacheRef.current;
+    const ok = (im) => !!(im && im.complete && im.naturalWidth > 0);
+    pos = Math.max(0, Math.min(END_FRAME, pos));
+    const index = Math.min(END_FRAME, Math.floor(pos + 1e-6));
+    const t = pos - index;
 
     let img = cache[index];
-    const exact = !!(img && img.complete && img.naturalWidth > 0);
+    const exact = ok(img);
 
     // if exact frame not ready, search in the direction we came FROM
     // (i.e. frames we already passed — guaranteed to be loaded)
     let shown = index;
-    if (!img || !img.complete || img.naturalWidth === 0) {
+    if (!exact) {
       const fallbackDir = -dirRef.current; // opposite of travel = already seen
       for (let d = 1; d <= 30; d++) {
         const f = cache[index + fallbackDir * d];
-        if (f && f.complete && f.naturalWidth > 0) { img = f; shown = index + fallbackDir * d; break; }
+        if (ok(f)) { img = f; shown = index + fallbackDir * d; break; }
       }
     }
-    if (!img || !img.complete || img.naturalWidth === 0) return;
+    if (!ok(img)) return;
+
+    const needNext = exact && t > 0.02 && index < END_FRAME && framePath(index) !== framePath(index + 1);
+    const next = needNext ? cache[index + 1] : null;
+    const blend = needNext && ok(next);
 
     const ctx = canvas.getContext("2d");
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
     const cw = canvas.width, ch = canvas.height;
-    const scale = Math.max(cw / img.naturalWidth, ch / img.naturalHeight);
-    const dw = img.naturalWidth * scale, dh = img.naturalHeight * scale;
+    const draw = (im, a) => {
+      const scale = Math.max(cw / im.naturalWidth, ch / im.naturalHeight);
+      const dw = im.naturalWidth * scale, dh = im.naturalHeight * scale;
+      ctx.globalAlpha = a;
+      ctx.drawImage(im, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
+    };
+    draw(img, 1);
+    if (blend) draw(next, t);
     ctx.globalAlpha = 1;
-    ctx.drawImage(img, (cw - dw) / 2, (ch - dh) / 2, dw, dh);
-    lastDrawnRef.current = index;
-    shownFrameRef.current = shown;
-    // A stand-in frame was drawn; keep redrawing until the real one is in.
-    // Without this the canvas could stay on an earlier frame (one that still
-    // has the HUD baked in) underneath the live UI.
-    exactDrawnRef.current = exact ? index : -1;
+    lastDrawnRef.current = Math.round(pos);
+    lastPosDrawnRef.current = pos;
+    // the live HUD follows the picture, blend included
+    shownFrameRef.current = blend ? pos : shown;
+    // A stand-in frame was drawn (or the next frame of the blend is still on
+    // its way); keep redrawing until the real picture is in. Without this the
+    // canvas could stay on an earlier frame (one that still has the HUD baked
+    // in) underneath the live UI.
+    exactDrawnRef.current = exact && (!needNext || blend) ? Math.round(pos) : -1;
   }, []);
 
   // ── RAF loop ──────────────────────────────────────────────────────────────
@@ -823,19 +855,34 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     if (diff > 0.1) dirRef.current = 1;
     else if (diff < -0.1) dirRef.current = -1;
 
-    // Glide toward the target and ease out when scrolling stops: speed is
-    // proportional to the remaining distance (smooth deceleration), capped
-    // so frames aren't skipped during fast scrolls.
+    // Follow the target through a critically damped spring: the picture
+    // speeds up gently when scrolling starts and eases out to a stop when it
+    // ends, without overshooting. "Skip" keeps its own speed profile.
     const now = performance.now();
     const dt = Math.min(0.05, (now - (lastTickRef.current || now)) / 1000) || 1 / 60;
     lastTickRef.current = now;
     let next;
-    if (Math.abs(diff) < 0.02) {
+    if (skippingRef.current) {
+      velRef.current = 0;
+      const cap = skipSpeed(current) * dt;
+      next = Math.abs(diff) < 0.02 ? target : current + Math.sign(diff) * Math.min(Math.abs(diff), cap);
+    } else if (Math.abs(diff) < 0.004 && Math.abs(velRef.current) < 0.06) {
       next = target;
+      velRef.current = 0;
     } else {
-      const glide = skippingRef.current ? diff : diff * (1 - Math.exp(-dt * GLIDE));
-      const cap = (skippingRef.current ? skipSpeed(current) : MAX_FRAMES_PER_SEC) * dt;
-      next = current + Math.sign(diff) * Math.max(Math.min(Math.abs(glide), cap), Math.min(Math.abs(diff), 0.02));
+      // two half steps keep the spring steady when a frame takes long
+      let p = current, v = velRef.current;
+      const damp = 2 * Math.sqrt(SPRING);
+      for (let k = 0; k < 2; k++) {
+        const h = dt / 2;
+        v += (SPRING * (target - p) - damp * v) * h;
+        v = Math.max(-MAX_FRAMES_PER_SEC, Math.min(MAX_FRAMES_PER_SEC, v));
+        p += v * h;
+      }
+      // never pass the target (a reversal mid-glide could otherwise overshoot)
+      if ((target - current) * (target - p) < 0) { p = target; v = 0; }
+      velRef.current = v;
+      next = p;
     }
     posRef.current = next;
 
@@ -849,12 +896,24 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
       holdUntilRef.current = performance.now() + UI_FADE_MS;
       // Park playback on the HUD frame; the next frame plays after the hold.
       posRef.current = LAST_HUD_FRAME;
+      velRef.current = 0;
     }
 
-    // Redraw if the frame changed, or only a stand-in was ready last time.
+    // Redraw when the position moved, or only a stand-in was ready last time.
     // On the way into the UI the canvas stays on the HUD frame (hold above).
-    if (!enteringUI && (idx !== lastDrawnRef.current || exactDrawnRef.current !== idx)) {
-      drawFrame(idx);
+    if (!enteringUI && (Math.abs(next - lastPosDrawnRef.current) > 0.001 || exactDrawnRef.current !== Math.round(next))) {
+      drawFrame(crossed ? LAST_HUD_FRAME : next);
+    }
+
+    // The rest of the page (progress bar, hints, room dimmer) follows the
+    // frame through React state; updating it on every frame re-rendered the
+    // whole intro 60 times a second and made the scroll stutter, so it is
+    // sent at most ~10 times a second, and always once the picture settles.
+    const settledNow = next === targetPosRef.current;
+    if (idx !== stateFrameRef.current && (settledNow || now - stateTimeRef.current > 100)) {
+      stateFrameRef.current = idx;
+      stateTimeRef.current = now;
+      setCurrentFrame(idx);
     }
 
     if (idx !== lastIdxRef.current) {
@@ -865,7 +924,6 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
       } else {
         loadAround(idx, 20);
       }
-      setCurrentFrame(idx);
       onFrameChange?.(idx);
 
       // welcome UI: shown from the first frame after the drawn-in HUD
@@ -913,10 +971,14 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    // Backing store at the screen's pixel density (up to 2×), so the frames
+    // aren't drawn at half resolution and then stretched on Retina screens.
     const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      drawFrame(Math.round(posRef.current));
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.round(window.innerWidth * dpr);
+      canvas.height = Math.round(window.innerHeight * dpr);
+      lastPosDrawnRef.current = -1;
+      drawFrame(posRef.current);
     };
     resize();
     window.addEventListener("resize", resize);
@@ -952,6 +1014,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
   // the wheel, for visitors without a trackpad or mouse wheel.
   useEffect(() => {
     const step = (dir, frames) => {
+      if (!(frames > 0)) return;
       if (!enteredRef.current || skippingRef.current) return;
       if (playingRef.current) { playingRef.current = false; setPlaying(false); }   // the visitor takes over
       if (stoppedRef.current) {
@@ -969,7 +1032,11 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
         preloadBackward(Math.round(targetPosRef.current), 40);
       }
 
-      const newTarget = Math.max(0, Math.min(END_FRAME, targetPosRef.current + dir * frames));
+      // the target can run at most MAX_LEAD frames ahead of the picture
+      let newTarget = targetPosRef.current + dir * frames;
+      newTarget = dir > 0 ? Math.min(newTarget, Math.max(targetPosRef.current, posRef.current + MAX_LEAD))
+                          : Math.max(newTarget, Math.min(targetPosRef.current, posRef.current - MAX_LEAD));
+      newTarget = Math.max(0, Math.min(END_FRAME, newTarget));
       targetPosRef.current = newTarget;
 
       const t = Math.round(newTarget);
@@ -989,20 +1056,16 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
     };
 
     // Trackpads (e.g. MacBook) send many small wheel events per swipe, plus
-    // momentum; a mouse wheel sends a few big ones. So frames follow the
-    // scrolled distance: one frame per WHEEL_PX, at most one per event.
-    // A mouse notch (~100px) still moves exactly one frame.
-    let acc = 0;
+    // momentum; a mouse wheel sends a few big ones. The target moves by the
+    // scrolled distance (one frame per WHEEL_PX, fractions included) and the
+    // spring in the loop turns it into smooth motion; a mouse notch (~100px)
+    // glides about three frames. Single events are capped so one big jump
+    // can't lurch the scene.
     const onWheel = (e) => {
       const px = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * window.innerHeight : e.deltaY;
       if (!px) return;
-      if (Math.sign(px) !== Math.sign(acc)) acc = 0;     // direction changed
-      acc += px;
-      if (Math.abs(acc) < WHEEL_PX) return;
-      const dir = acc > 0 ? 1 : -1;
-      acc -= dir * WHEEL_PX;
-      if (Math.abs(acc) > WHEEL_PX) acc = dir * WHEEL_PX;  // don't bank a backlog
-      step(dir, 1);
+      const frames = Math.min(Math.abs(px) / WHEEL_PX, 6);
+      step(px > 0 ? 1 : -1, frames);
     };
 
     // Touch screens wide enough for this layout (iPad in landscape): a swipe
