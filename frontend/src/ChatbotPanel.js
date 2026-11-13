@@ -6,6 +6,7 @@ import MicIcon from "@mui/icons-material/Mic";
 import { useChatContext } from "./ChatContext";
 import { useSpeech } from "./hooks/useSpeech";
 import { transcribeAudio } from "./api/chatApi";
+import NovaText from "./chat/NovaText";
 import { chatHudPath, hudChannel, hudScale, useElementSize, HudOutline } from "./hud/hudShapes";
 import { glassSx, glassPanelSx, glassHudRectSx, spinBorderSx, useSpinOnHover } from "./hud/glass";
 import CustomTooltip from "./CustomTooltip";
@@ -326,11 +327,12 @@ export default function ChatbotPanel({
                   borderRadius: "10px", px: "14px", py: "10px",
                   maxWidth: "88%", color: "#fff", fontSize: readable ? "16.5px" : "13px", lineHeight: readable ? 1.5 : 1.6, whiteSpace: "pre-line",
                 }}>
-                  {msg.content}
+                  {msg.role === "ai" ? <NovaText text={msg.content} /> : msg.content}
                   {msg.role === "error" && <ContactLinks />}
                 </Box>
               ))}
-              {isLoading && <CircularProgress size={16} sx={{ color: PRIMARY, alignSelf: "flex-start", mt: 0.5 }} />}
+              {/* thinking: until the first words of the reply arrive */}
+              {isLoading && !messages[messages.length - 1]?.streaming && <CircularProgress size={16} sx={{ color: PRIMARY, alignSelf: "flex-start", mt: 0.5 }} />}
               <div ref={messagesEndRef} />
             </Box>
           )}

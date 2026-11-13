@@ -264,7 +264,14 @@ export default function ProjectDetailPage() {
   const mainFade = useEdgeFade(mainTabsRef, [isMobile, mainTabs.length]);
   const subFade = useEdgeFade(subTabsRef, [isMobile, projects.length]);
 
-  const { setMode, setProjectId } = useChatContext();
+  const { setMode, setProjectId, setChatContext } = useChatContext();
+
+  // tell Nova which case study the visitor has open ("this project" etc.)
+  useEffect(() => {
+    const title = activeProject?.title || activeProject?.name;
+    setChatContext?.(title ? `viewing the ${title} case study (Work → ${mainTabs[mainTab]?.label || ""})` : "browsing Work");
+    return () => setChatContext?.("");
+  }, [activeProject, mainTab, mainTabs, setChatContext]);
 
   useEffect(() => {
     if (activeProject && activeProject.id) {

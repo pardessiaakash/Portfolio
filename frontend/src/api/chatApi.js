@@ -36,6 +36,55 @@ async function request(path, options = {}, timeoutMs = 20000) {
 }
 
 /**
+ * Nova (Claude): POST /api/nova on the site itself, streamed.
+ *
+ * The serverless function in /nova answers with plain text, sent word by
+ * word; onText gets the whole reply so far each time more arrives.
+ * Throws OfflineError when the function isn't there (local dev, hosted
+ * previews) or isn't set up, so the chat can fall back to the site's own
+ * answers.
+ *
+ * @param {Array<{role: 'user'|'assistant', content: string}>} messages
+ * @param {(text: string) => void} onText
+ * @param {{context?: string, signal?: AbortSignal}} [opts]
+ * @returns {Promise<string>} the full reply
+ */
+const NOVA_URL = (process.env.REACT_APP_NOVA_URL || '/api/nova').trim();
+
+export async function streamNova(messages, onText, { context, signal } = {}) {
+  let response;
+  try {
+    response = await fetch(NOVA_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages, context }),
+      signal,
+    });
+  } catch (e) {
+    throw new OfflineError();
+  }
+  const type = response.headers.get('content-type') || '';
+  if (!response.ok || !response.body || !/^text\/plain/.test(type)) {
+    // 404 / an HTML page: there is no Nova function here
+    if (response.status === 404 || response.status === 405 || response.status === 503 || /html/.test(type)) throw new OfflineError();
+    throw new Error(`Nova failed (${response.status})`);
+  }
+  const reader = response.body.getReader();
+  const dec = new TextDecoder();
+  let text = '';
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    text += dec.decode(value, { stream: true });
+    onText(text);
+  }
+  text += dec.decode();
+  if (!text.trim()) throw new Error('Nova sent an empty reply');
+  onText(text);
+  return text;
+}
+
+/**
  * POST /api/v1/chat/
  * 
  * @param {string} query - User's message

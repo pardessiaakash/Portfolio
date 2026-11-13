@@ -9,7 +9,7 @@
  */
 
 import { useState, useCallback, useRef } from 'react';
-import { sendChatMessage } from '../api/chatApi';
+import { streamNova } from '../api/chatApi';
 import { offlineAnswer } from '../chat/offlineAnswers';
 
 // Unique ID generator
@@ -28,6 +28,12 @@ export function useChat() {
     const [projectId, setProjectId] = useState('');
 
     const messagesEndRef = useRef(null);
+    // latest messages for building the history without re-creating sendMessage
+    const messagesRef = useRef(messages);
+    messagesRef.current = messages;
+    // what the visitor is looking at (e.g. a case study), sent with each question
+    const chatContextRef = useRef('');
+    const setChatContext = useCallback((c) => { chatContextRef.current = c || ''; }, []);
 
     // ------------------------------------------------------------------
     // Scroll to bottom
@@ -70,26 +76,30 @@ export function useChat() {
             scrollToBottom();
             setIsLoading(true);
 
+            // the conversation so far (Nova answers in context, like a chat
+            // assistant, not one question at a time)
+            const history = [...messagesRef.current, userMessage]
+                .filter((m) => (m.role === 'user' || m.role === 'ai') && m.content)
+                .map((m) => ({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content }));
+            const aiId = genId();
+            let started = false;
             try {
-                const data = await sendChatMessage(
-                    trimmed,
-                    mode,
-                    mode === 'web' ? projectId || null : null
-                );
-
-                // Add AI response
-                const aiMessage = {
-                    id: genId(),
-                    role: 'ai',
-                    content: data.answer,
-                    sources: data.sources || [],
-                    timestamp: formatTime(),
-                    mode: data.mode,
-                    project_id: data.project_id,
-                };
-                setMessages((prev) => [...prev, aiMessage]);
-                scrollToBottom();
+                await streamNova(history, (text) => {
+                    if (!started) {
+                        started = true;
+                        setMessages((prev) => [...prev, { id: aiId, role: 'ai', content: text, streaming: true, timestamp: formatTime() }]);
+                    } else {
+                        setMessages((prev) => prev.map((m) => (m.id === aiId ? { ...m, content: text } : m)));
+                    }
+                    scrollToBottom();
+                }, { context: chatContextRef.current });
+                setMessages((prev) => prev.map((m) => (m.id === aiId ? { ...m, streaming: false } : m)));
             } catch (err) {
+                if (started) {
+                    // cut off mid-reply: keep what arrived
+                    setMessages((prev) => prev.map((m) => (m.id === aiId ? { ...m, streaming: false, content: m.content + '\n\n_(The connection dropped. Ask again and I\'ll pick it up.)_' } : m)));
+                    return;
+                }
                 // the AI server can't be reached: answer from the site's own
                 // content when the question is one we know
                 const local = offlineAnswer(trimmed);
@@ -118,7 +128,7 @@ export function useChat() {
                 setIsLoading(false);
             }
         },
-        [isLoading, mode, projectId, scrollToBottom]
+        [isLoading, scrollToBottom]
     );
 
     // ------------------------------------------------------------------
@@ -140,5 +150,6 @@ export function useChat() {
         sendMessage,
         clearChat,
         messagesEndRef,
+        setChatContext,
     };
 }
