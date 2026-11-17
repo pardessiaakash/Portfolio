@@ -48,6 +48,13 @@ const END_FRAME = 154;
 // The live UI cross-fades over LAST_HUD_FRAME for this long; the canvas
 // holds on that frame meanwhile so the two HUDs dissolve into each other.
 const UI_FADE_MS = 350;
+// The lab's floating dust drifts in once the pod door is open far enough to
+// see into the room, and is fully there when the camera is inside.
+const INTRO_DUST = { from: 104, to: 134 };
+const introDustLevel = (frame) => {
+  const t = Math.max(0, Math.min(1, (frame - INTRO_DUST.from) / (INTRO_DUST.to - INTRO_DUST.from)));
+  return t * t * (3 - 2 * t);
+};
 // How dark the room gets behind the main UI (black overlay opacity), and
 // how long the dimming takes to settle.
 // The strength follows the story: light (20%) outside the pod, building up
@@ -391,7 +398,13 @@ const WelcomeScreen = React.memo(function WelcomeScreen({ opacity, intro = false
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opacity]);
   introWasRef.current = intro && opacity === 0;
-  const introMode = !shown && intro;
+  const introMode = !shown && intro && opacity === 0;
+  // Decided during this render, not one effect later: at the hand-off the
+  // flying-in HUD must turn into the live one in the same paint. Waiting for
+  // the effect unmounted the HUD for a frame and then rebuilt the whole tree
+  // (~100 ms with nothing on screen: the flick at the end of the scroll).
+  const visible = shown || introMode || opacity > 0;
+  const fromIntro = skipIn || (opacity > 0 && !shown && prevIntro);
   const { widthPercent, isDragging, handleMouseDown, containerRef } = useResizableChatbot(
     HUD.chatPercent, "home_chatbot_width_percentage_v3", HUD.chatPercent, 50, [HUD.chatPercent, 50]
   );
@@ -414,7 +427,7 @@ const WelcomeScreen = React.memo(function WelcomeScreen({ opacity, intro = false
       <MobileWelcomeScreen opacity={opacity} socialIcons={socialIcons} />
     );
   }
-  if (!shown && !introMode) return null;
+  if (!visible) return null;
 
   return (
     <Box ref={introRef} sx={{
@@ -433,7 +446,7 @@ const WelcomeScreen = React.memo(function WelcomeScreen({ opacity, intro = false
       ...(introMode ? { "& *": { backdropFilter: "none !important", WebkitBackdropFilter: "none !important" } } : {}),
       // fade in/out over the held HUD frame; fly past on the way to a
       // category; settle into place coming back from one
-      animation: introMode || (skipIn && !leaving && !fadingOut) ? "none" : leaving
+      animation: introMode || (fromIntro && !leaving && !fadingOut) ? "none" : leaving
         ? `welcomeFlyOut ${LEAVE_MS}ms cubic-bezier(0.55, 0, 0.8, 0.3) forwards`
         : fadingOut
           ? `welcomeOut ${UI_FADE_MS}ms ease-in forwards`
@@ -1266,7 +1279,8 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
             inside it (above the HUDs, below the sound toggle) */}
         {labMounted && !isMobile && (
           <Suspense fallback={null}>
-            <LabFrontDust active={welcomeOpacity >= 1} />
+            <LabFrontDust active={welcomeOpacity >= 1}
+              intro={!isMobile && !skipDive && welcomeOpacity === 0 ? introDustLevel(currentFrame) : 0} />
           </Suspense>
         )}
         {!isMobile && welcomeOpacity >= 1 && (
