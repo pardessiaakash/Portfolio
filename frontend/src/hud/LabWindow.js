@@ -43,8 +43,11 @@ const DUR = { dive: 1500, far: 1900 }; // ms
 // HUDs float inside the dust. Both move with the same 3D view.
 const DUST = {
   // (brighter than the experiment's: the room is dimmed behind the HUDs)
-  back: { n: 230, size: 0.016, opacity: 0.8 },
-  front: { n: 45, size: 0.009, opacity: 0.55 },
+  back: { n: 150, size: 0.016, opacity: 0.6 },
+  front: { n: 28, size: 0.009, opacity: 0.4 },
+  // lent to the flight through the pod door (see dustIntro): far fewer and
+  // fainter, since there it spreads over the whole screen
+  intro: { n: 60, size: 0.014, opacity: 0.35 },
   hudDepth: 0.35,       // the HUDs read about this far into the room (share of its depth)
   rise: 0.012,          // world units per second
 };
@@ -153,7 +156,7 @@ function createRoom() {
   // While the camera comes through the pod door the room itself isn't shown
   // yet, so the room's dust is lent to the front layer (over the footage),
   // and fades away again as the real room takes over.
-  const dustIntro = makeDust(DUST.back, -D * 0.97, hudZ);
+  const dustIntro = makeDust(DUST.intro, -D * 0.97, hudZ);
   dustIntro.material.opacity = 0;
   dustIntro.visible = false;
   frontScene.add(dustIntro);
@@ -235,7 +238,7 @@ function createRoom() {
     if (Math.abs(dx) > 1e-5 || Math.abs(dy) > 1e-5) { eye.x += dx * f; eye.y += dy * f; r.dirty = true; }
     if (!r.ready || !r.attached || document.hidden) return;
     // the intro's borrowed dust eases toward its level (and out under the room)
-    const introGoal = r.active ? 0 : r.introDust * DUST.back.opacity;
+    const introGoal = r.active ? 0 : r.introDust * DUST.intro.opacity;
     const io = dustIntro.material.opacity;
     if (Math.abs(introGoal - io) > 0.002) {
       dustIntro.material.opacity = io + (introGoal - io) * Math.min(1, dt * 4);
