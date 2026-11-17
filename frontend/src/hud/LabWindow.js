@@ -52,6 +52,9 @@ const DUST = {
   rise: 0.012,          // world units per second
 };
 
+// what counts as "over a HUD" for the room's pointer parallax
+const HUD_SELECTOR = "[data-lab-hud], .MuiPopover-root, .MuiModal-root, .MuiPopper-root, [role='menu'], [role='listbox']";
+
 const easeInOut = (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 const easeOut = (t) => 1 - Math.pow(1 - t, 3);
 
@@ -203,7 +206,10 @@ function createRoom() {
     // over a HUD the room glides back to its centred view and rests there,
     // so reading and clicking aren't disturbed; it follows the cursor again
     // once it leaves the HUDs
-    if (e.target?.closest?.("[data-lab-hud]")) { target.x = 0; target.y = 0; return; }
+    // Menus and dropdowns (the slide list, etc.) open in a layer outside the
+    // HUDs, so they count as HUD too; while one is open its invisible
+    // backdrop covers the page, so the room stays put until it closes.
+    if (e.target?.closest?.(HUD_SELECTOR)) { target.x = 0; target.y = 0; return; }
     // nearer the glass the same eye shift looks stronger, so it shrinks
     const s = Math.min(1, eye.z / E);
     target.x = (e.clientX / window.innerWidth - 0.5) * 2 * SW * RANGE.x * s;
