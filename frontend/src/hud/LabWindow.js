@@ -43,11 +43,11 @@ const DUR = { dive: 1500, far: 1900 }; // ms
 // HUDs float inside the dust. Both move with the same 3D view.
 const DUST = {
   // (brighter than the experiment's: the room is dimmed behind the HUDs)
-  back: { n: 150, size: 0.016, opacity: 0.6 },
-  front: { n: 28, size: 0.009, opacity: 0.4 },
+  back: { n: 190, size: 0.016, opacity: 0.72 },
+  front: { n: 36, size: 0.009, opacity: 0.48 },
   // lent to the flight through the pod door (see dustIntro): far fewer and
   // fainter, since there it spreads over the whole screen
-  intro: { n: 60, size: 0.014, opacity: 0.35 },
+  intro: { n: 100, size: 0.015, opacity: 0.5 },
   hudDepth: 0.35,       // the HUDs read about this far into the room (share of its depth)
   rise: 0.012,          // world units per second
 };
