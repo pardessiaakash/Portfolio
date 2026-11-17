@@ -48,13 +48,6 @@ const END_FRAME = 154;
 // The live UI cross-fades over LAST_HUD_FRAME for this long; the canvas
 // holds on that frame meanwhile so the two HUDs dissolve into each other.
 const UI_FADE_MS = 350;
-// The lab's floating dust drifts in once the pod door is open far enough to
-// see into the room, and is fully there when the camera is inside.
-const INTRO_DUST = { from: 104, to: 134 };
-const introDustLevel = (frame) => {
-  const t = Math.max(0, Math.min(1, (frame - INTRO_DUST.from) / (INTRO_DUST.to - INTRO_DUST.from)));
-  return t * t * (3 - 2 * t);
-};
 // How dark the room gets behind the main UI (black overlay opacity), and
 // how long the dimming takes to settle.
 // The strength follows the story: light (20%) outside the pod, building up
@@ -1279,8 +1272,7 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
             inside it (above the HUDs, below the sound toggle) */}
         {labMounted && !isMobile && (
           <Suspense fallback={null}>
-            <LabFrontDust active={welcomeOpacity >= 1}
-              intro={!isMobile && !skipDive && welcomeOpacity === 0 ? introDustLevel(currentFrame) : 0} />
+            <LabFrontDust active={welcomeOpacity >= 1} />
           </Suspense>
         )}
         {!isMobile && welcomeOpacity >= 1 && (

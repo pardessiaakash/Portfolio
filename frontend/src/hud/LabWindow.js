@@ -45,9 +45,6 @@ const DUST = {
   // (brighter than the experiment's: the room is dimmed behind the HUDs)
   back: { n: 190, size: 0.016, opacity: 0.72 },
   front: { n: 36, size: 0.009, opacity: 0.48 },
-  // lent to the flight through the pod door (see dustIntro): far fewer and
-  // fainter, since there it spreads over the whole screen
-  intro: { n: 100, size: 0.015, opacity: 0.5 },
   hudDepth: 0.35,       // the HUDs read about this far into the room (share of its depth)
   rise: 0.012,          // world units per second
 };
@@ -156,14 +153,6 @@ function createRoom() {
   const frontScene = new THREE.Scene();
   const dustFront = makeDust(DUST.front, hudZ + 0.05, E * 0.4, false);
   frontScene.add(dustFront);
-  // While the camera comes through the pod door the room itself isn't shown
-  // yet, so the room's dust is lent to the front layer (over the footage),
-  // and fades away again as the real room takes over.
-  const dustIntro = makeDust(DUST.intro, -D * 0.97, hudZ);
-  dustIntro.material.opacity = 0;
-  dustIntro.visible = false;
-  frontScene.add(dustIntro);
-  r.introDust = 0;
   const riseDust = (pts, dt) => {
     const a = pts.geometry.attributes.position, { lo, hi } = pts.userData;
     for (let i = 0; i < a.count; i++) {
@@ -243,21 +232,11 @@ function createRoom() {
     const dx = target.x - eye.x, dy = target.y - eye.y;
     if (Math.abs(dx) > 1e-5 || Math.abs(dy) > 1e-5) { eye.x += dx * f; eye.y += dy * f; r.dirty = true; }
     if (!r.ready || !r.attached || document.hidden) return;
-    // the intro's borrowed dust eases toward its level (and out under the room)
-    const introGoal = r.active ? 0 : r.introDust * DUST.intro.opacity;
-    const io = dustIntro.material.opacity;
-    if (Math.abs(introGoal - io) > 0.002) {
-      dustIntro.material.opacity = io + (introGoal - io) * Math.min(1, dt * 4);
-      r.dirty = true;
-    } else if (io !== introGoal) { dustIntro.material.opacity = introGoal; r.dirty = true; }
-    dustIntro.visible = dustIntro.material.opacity > 0.002;
-    // the dust drifts while it's shown, so it redraws every frame then
-    if (r.active || dustIntro.visible) { riseDust(dustBack, dt); riseDust(dustFront, dt); r.dirty = true; }
-    if (dustIntro.visible) riseDust(dustIntro, dt);
+    // the dust drifts while the room is shown, so it redraws every frame then
+    if (r.active) { riseDust(dustBack, dt); riseDust(dustFront, dt); r.dirty = true; }
     if (!r.dirty) return;
     project();
-    // the room itself only while it's on screen (or settling after)
-    if (r.active || !dustIntro.visible) renderer.render(scene, cam);
+    renderer.render(scene, cam);
     if (front && front.attached) front.renderer.render(frontScene, cam);
     r.dirty = false;
   };
@@ -328,10 +307,8 @@ export default function LabWindow({ active, zIndex = 1, fadeMs = 350 }) {
   );
 }
 
-/** The dust in front of the HUDs: a transparent layer placed above them.
- *  intro (0..1): during the flight, how far the pod door has opened; the
- *  dust drifts in over the footage with it. */
-export function LabFrontDust({ active, intro = 0, zIndex = 6 }) {
+/** The dust in front of the HUDs: a transparent layer placed above them. */
+export function LabFrontDust({ active, zIndex = 6 }) {
   const ref = useRef(null);
   useEffect(() => {
     // the room is created by LabWindow; wait a frame or two if it isn't yet
@@ -341,18 +318,12 @@ export function LabFrontDust({ active, intro = 0, zIndex = 6 }) {
       if (++tries < 120) raf = requestAnimationFrame(attach);
     };
     attach();
-    return () => { cancelAnimationFrame(raf); attached?.detachFront(); if (room) room.introDust = 0; };
+    return () => { cancelAnimationFrame(raf); attached?.detachFront(); };
   }, []);
-  const level = active ? 0 : Math.max(0, Math.min(1, intro));
-  useEffect(() => { if (room) { room.introDust = level; room.dirty = true; } }, [level]);
-  const shown = active || level > 0;
   return (
     <div ref={ref} aria-hidden="true" style={{
       position: "absolute", inset: 0, zIndex, pointerEvents: "none", overflow: "hidden",
-      opacity: active ? 1 : level, transition: active ? "opacity 0.6s ease" : "opacity 0.3s linear, transform 0.3s linear",
-      // coming through the door the dust drifts toward the eye a little,
-      // settling where the room's own dust is when the lab appears
-      transform: shown && !active ? `scale(${0.82 + 0.18 * level})` : "none",
+      opacity: active ? 1 : 0, transition: "opacity 0.6s ease",
     }} />
   );
 }
