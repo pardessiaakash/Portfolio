@@ -16,6 +16,7 @@ import { glassPanelSx, glassHudRectSx, spinBorderSx, useSpinOnHover } from "./hu
 import { SITE, externalLinkProps } from "./siteConfig";
 import { srOnly } from "./a11y";
 import SoundToggle from "./hud/SoundToggle";
+import VRButton from "./hud/VRButton";
 
 import { setPageMeta } from "./pageMeta";
 import { COMPACT_QUERY } from "./breakpoints";
@@ -1277,6 +1278,10 @@ export default function VideoFlow({ onComplete, onFrameChange, skipIntro, onOpen
         )}
         {!isMobile && welcomeOpacity >= 1 && (
           <SoundToggle sx={{ position: "fixed", right: 20, bottom: 20, zIndex: 20,
+            animation: "fadeInUp 0.6s ease-out" }} />
+        )}
+        {!isMobile && welcomeOpacity >= 1 && (
+          <VRButton sx={{ position: "fixed", right: 72, bottom: 20, zIndex: 20,
             animation: "fadeInUp 0.6s ease-out" }} />
         )}
 

@@ -9,6 +9,8 @@ import TechCursor from './TechCursor';
 const loadProjects = () => import('./ProjectDetailPage');
 const ProjectDetailPage = lazy(loadProjects);
 const NotFound = lazy(() => import('./NotFound'));
+// the Design Lab in VR (WebXR); its 3D code loads only on /vr
+const VRPage = lazy(() => import('./vr/VRPage'));
 
 // A hosted preview may serve the app from a path like /index.html; the
 // address it first opens with then counts as home, not as "page not found".
@@ -52,6 +54,7 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/portfolio" element={<Navigate to={`/portfolio/${encodeURIComponent("UI/UX")}`} replace />} />
           <Route path="/portfolio/:category" element={<ProjectDetailPage />} />
+          <Route path="/vr" element={<VRPage />} />
           <Route path="*" element={<Unknown />} />
         </Routes>
         </Suspense>
